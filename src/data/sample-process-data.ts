@@ -1,7 +1,7 @@
 
 import type { ProcessoData } from '@/types/process-flow';
 
-export const sampleProcessFlowData: ProcessoData = {
+const sampleProcessFlowDataJSONString = `{
   "Info": {
     "Pagina": 1,
     "TotalPaginas": 1,
@@ -137,7 +137,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "74718438",
       "Tarefa": "PROCESSO-REMETIDO-UNIDADE",
-      "Descricao": "Processo remetido pela unidade <a href=\"javascript:void(0);\" alt=\"Diretoria de Unidade de Gestão de Pessoas - SEAD-PI\" title=\"Diretoria de Unidade de Gestão de Pessoas - SEAD-PI\" class=\"ancoraSigla\">SEAD-PI/SGP/DUGP</a>",
+      "Descricao": "Processo remetido pela unidade <a href=\\"javascript:void(0);\\" alt=\\"Diretoria de Unidade de Gestão de Pessoas - SEAD-PI\\" title=\\"Diretoria de Unidade de Gestão de Pessoas - SEAD-PI\\" class=\\"ancoraSigla\\">SEAD-PI/SGP/DUGP</a>",
       "DataHora": "23/04/2024 19:03:08",
       "Unidade": {
         "IdUnidade": "110008884",
@@ -375,7 +375,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "56515163",
       "Tarefa": "PROCESSO-REMETIDO-UNIDADE",
-      "Descricao": "Processo remetido pela unidade <a href=\"javascript:void(0);\" alt=\"Superintendência de Gestão Administrativa e Controle dos Gastos - SEAD-PI\" title=\"Superintendência de Gestão Administrativa e Controle dos Gastos - SEAD-PI\" class=\"ancoraSigla\">SEAD-PI/GAB/SGACG</a>",
+      "Descricao": "Processo remetido pela unidade <a href=\\"javascript:void(0);\\" alt=\\"Superintendência de Gestão Administrativa e Controle dos Gastos - SEAD-PI\\" title=\\"Superintendência de Gestão Administrativa e Controle dos Gastos - SEAD-PI\\" class=\\"ancoraSigla\\">SEAD-PI/GAB/SGACG</a>",
       "DataHora": "14/09/2023 10:53:40",
       "Unidade": {
         "IdUnidade": "110006442",
@@ -398,7 +398,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "56509020",
       "Tarefa": "ASSINATURA-DOCUMENTO",
-      "Descricao": "Assinado Documento 9180488 (SEAD DESPACHO 2087) por <a href=\"javascript:void(0);\" alt=\"CAROLINE VIVEIROS MOURA DA CRUZ - Matr.0371165-0\" title=\"CAROLINE VIVEIROS MOURA DA CRUZ - Matr.0371165-0\" class=\"ancoraSigla\">caroline.viveiros@sead.pi.gov.br</a>",
+      "Descricao": "Assinado Documento 9180488 (SEAD DESPACHO 2087) por <a href=\\"javascript:void(0);\\" alt=\\"CAROLINE VIVEIROS MOURA DA CRUZ - Matr.0371165-0\\" title=\\"CAROLINE VIVEIROS MOURA DA CRUZ - Matr.0371165-0\\" class=\\"ancoraSigla\\">caroline.viveiros@sead.pi.gov.br</a>",
       "DataHora": "14/09/2023 10:30:03",
       "Unidade": {
         "IdUnidade": "110006157",
@@ -504,7 +504,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "56465256",
       "Tarefa": "EXCLUSAO-DOCUMENTO",
-      "Descricao": "Exclusão do documento <a href=\"javascript:void(0);\" onclick=\"alert('Este documento foi excluído.');\" class=\"ancoraHistoricoProcesso\">9180469</a>",
+      "Descricao": "Exclusão do documento <a href=\\"javascript:void(0);\\" onclick=\\"alert('Este documento foi excluído.');\\" class=\\"ancoraHistoricoProcesso\\">9180469</a>",
       "DataHora": "14/09/2023 08:20:46",
       "Unidade": {
         "IdUnidade": "110006157",
@@ -527,7 +527,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "56465246",
       "Tarefa": "GERACAO-DOCUMENTO",
-      "Descricao": "Gerado documento público <a href=\"javascript:void(0);\" onclick=\"alert('Este documento foi excluído.');\" class=\"ancoraHistoricoProcesso\">9180469</a>",
+      "Descricao": "Gerado documento público <a href=\\"javascript:void(0);\\" onclick=\\"alert('Este documento foi excluído.');\\" class=\\"ancoraHistoricoProcesso\\">9180469</a>",
       "DataHora": "14/09/2023 08:20:39",
       "Unidade": {
         "IdUnidade": "110006157",
@@ -554,7 +554,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "56462386",
       "Tarefa": "PROCESSO-ATRIBUIDO",
-      "Descricao": "Processo atribuído para <a href=\"javascript:void(0);\" alt=\"LEANDRA FERREIRA LUSTOSA MEDINA PRADO\" title=\"LEANDRA FERREIRA LUSTOSA MEDINA PRADO\" class=\"ancoraSigla\">leandra.lustosa@sead.pi.gov.br</a>",
+      "Descricao": "Processo atribuído para <a href=\\"javascript:void(0);\\" alt=\\"LEANDRA FERREIRA LUSTOSA MEDINA PRADO\\" title=\\"LEANDRA FERREIRA LUSTOSA MEDINA PRADO\\" class=\\"ancoraSigla\\">leandra.lustosa@sead.pi.gov.br</a>",
       "DataHora": "14/09/2023 08:09:22",
       "Unidade": {
         "IdUnidade": "110006157",
@@ -577,7 +577,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "55274999",
       "Tarefa": "PROCESSO-ATRIBUIDO",
-      "Descricao": "Processo atribuído para <a href=\"javascript:void(0);\" alt=\"EURIVAN CASTELO BRANCO COUTINHO - Matr.0371541-8\" title=\"EURIVAN CASTELO BRANCO COUTINHO - Matr.0371541-8\" class=\"ancoraSigla\">eurivan.castelo@sead.pi.gov.br</a>",
+      "Descricao": "Processo atribuído para <a href=\\"javascript:void(0);\\" alt=\\"EURIVAN CASTELO BRANCO COUTINHO - Matr.0371541-8\\" title=\\"EURIVAN CASTELO BRANCO COUTINHO - Matr.0371541-8\\" class=\\"ancoraSigla\\">eurivan.castelo@sead.pi.gov.br</a>",
       "DataHora": "30/08/2023 11:22:14",
       "Unidade": {
         "IdUnidade": "110006178",
@@ -634,7 +634,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54948313",
       "Tarefa": "PROCESSO-ATRIBUIDO",
-      "Descricao": "Processo atribuído para <a href=\"javascript:void(0);\" alt=\"GEISA CRONEMBERGER DO RÊGO FERREIRA - Matr.0157016-1\" title=\"GEISA CRONEMBERGER DO RÊGO FERREIRA - Matr.0157016-1\" class=\"ancoraSigla\">geisa@sead.pi.gov.br</a>",
+      "Descricao": "Processo atribuído para <a href=\\"javascript:void(0);\\" alt=\\"GEISA CRONEMBERGER DO RÊGO FERREIRA - Matr.0157016-1\\" title=\\"GEISA CRONEMBERGER DO RÊGO FERREIRA - Matr.0157016-1\\" class=\\"ancoraSigla\\">geisa@sead.pi.gov.br</a>",
       "DataHora": "28/08/2023 08:08:03",
       "Unidade": {
         "IdUnidade": "110006191",
@@ -674,7 +674,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54912840",
       "Tarefa": "PROCESSO-REMETIDO-UNIDADE",
-      "Descricao": "Processo remetido pela unidade <a href=\"javascript:void(0);\" alt=\"Superintendência de Gestão de Pessoas - SEAD-PI\" title=\"Superintendência de Gestão de Pessoas - SEAD-PI\" class=\"ancoraSigla\">SEAD-PI/GAB/SGP</a>",
+      "Descricao": "Processo remetido pela unidade <a href=\\"javascript:void(0);\\" alt=\\"Superintendência de Gestão de Pessoas - SEAD-PI\\" title=\\"Superintendência de Gestão de Pessoas - SEAD-PI\\" class=\\"ancoraSigla\\">SEAD-PI/GAB/SGP</a>",
       "DataHora": "25/08/2023 13:02:54",
       "Unidade": {
         "IdUnidade": "110006180",
@@ -697,7 +697,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54912839",
       "Tarefa": "PROCESSO-REMETIDO-UNIDADE",
-      "Descricao": "Processo remetido pela unidade <a href=\"javascript:void(0);\" alt=\"Superintendência de Gestão de Pessoas - SEAD-PI\" title=\"Superintendência de Gestão de Pessoas - SEAD-PI\" class=\"ancoraSigla\">SEAD-PI/GAB/SGP</a>",
+      "Descricao": "Processo remetido pela unidade <a href=\\"javascript:void(0);\\" alt=\\"Superintendência de Gestão de Pessoas - SEAD-PI\\" title=\\"Superintendência de Gestão de Pessoas - SEAD-PI\\" class=\\"ancoraSigla\\">SEAD-PI/GAB/SGP</a>",
       "DataHora": "25/08/2023 13:02:54",
       "Unidade": {
         "IdUnidade": "110006191",
@@ -720,7 +720,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54912838",
       "Tarefa": "PROCESSO-REMETIDO-UNIDADE",
-      "Descricao": "Processo remetido pela unidade <a href=\"javascript:void(0);\" alt=\"Superintendência de Gestão de Pessoas - SEAD-PI\" title=\"Superintendência de Gestão de Pessoas - SEAD-PI\" class=\"ancoraSigla\">SEAD-PI/GAB/SGP</a>",
+      "Descricao": "Processo remetido pela unidade <a href=\\"javascript:void(0);\\" alt=\\"Superintendência de Gestão de Pessoas - SEAD-PI\\" title=\\"Superintendência de Gestão de Pessoas - SEAD-PI\\" class=\\"ancoraSigla\\">SEAD-PI/GAB/SGP</a>",
       "DataHora": "25/08/2023 13:02:54",
       "Unidade": {
         "IdUnidade": "110006183",
@@ -743,7 +743,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54912707",
       "Tarefa": "ASSINATURA-DOCUMENTO",
-      "Descricao": "Assinado Documento 8942564 (Despacho 2882) por <a href=\"javascript:void(0);\" alt=\"GARCIAS GUEDES RODRIGUES JÚNIOR - Matr.0371160-9\" title=\"GARCIAS GUEDES RODRIGUES JÚNIOR - Matr.0371160-9\" class=\"ancoraSigla\">garcias.guedes@sead.pi.gov.br</a>",
+      "Descricao": "Assinado Documento 8942564 (Despacho 2882) por <a href=\\"javascript:void(0);\\" alt=\\"GARCIAS GUEDES RODRIGUES JÚNIOR - Matr.0371160-9\\" title=\\"GARCIAS GUEDES RODRIGUES JÚNIOR - Matr.0371160-9\\" class=\\"ancoraSigla\\">garcias.guedes@sead.pi.gov.br</a>",
       "DataHora": "25/08/2023 13:02:17",
       "Unidade": {
         "IdUnidade": "110006178",
@@ -798,7 +798,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54566498",
       "Tarefa": "PROCESSO-ATRIBUIDO",
-      "Descricao": "Processo atribuído para <a href=\"javascript:void(0);\" alt=\"THALLYA PEREIRA GOMES DA SILVA - Matr.E.03610730\" title=\"THALLYA PEREIRA GOMES DA SILVA - Matr.E.03610730\" class=\"ancoraSigla\">thallya.silva@sead.pi.gov.br</a>",
+      "Descricao": "Processo atribuído para <a href=\\"javascript:void(0);\\" alt=\\"THALLYA PEREIRA GOMES DA SILVA - Matr.E.03610730\\" title=\\"THALLYA PEREIRA GOMES DA SILVA - Matr.E.03610730\\" class=\\"ancoraSigla\\">thallya.silva@sead.pi.gov.br</a>",
       "DataHora": "23/08/2023 08:04:03",
       "Unidade": {
         "IdUnidade": "110006178",
@@ -855,7 +855,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54486614",
       "Tarefa": "PROCESSO-ATRIBUIDO",
-      "Descricao": "Processo atribuído para <a href=\"javascript:void(0);\" alt=\"LEANDRA FERREIRA LUSTOSA MEDINA PRADO\" title=\"LEANDRA FERREIRA LUSTOSA MEDINA PRADO\" class=\"ancoraSigla\">leandra.lustosa@sead.pi.gov.br</a>",
+      "Descricao": "Processo atribuído para <a href=\\"javascript:void(0);\\" alt=\\"LEANDRA FERREIRA LUSTOSA MEDINA PRADO\\" title=\\"LEANDRA FERREIRA LUSTOSA MEDINA PRADO\\" class=\\"ancoraSigla\\">leandra.lustosa@sead.pi.gov.br</a>",
       "DataHora": "22/08/2023 11:27:45",
       "Unidade": {
         "IdUnidade": "110006157",
@@ -912,7 +912,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54484603",
       "Tarefa": "PROCESSO-REMETIDO-UNIDADE",
-      "Descricao": "Processo remetido pela unidade <a href=\"javascript:void(0);\" alt=\"Núcleo Estratégico de Tecnologia e Governo Digital\" title=\"Núcleo Estratégico de Tecnologia e Governo Digital\" class=\"ancoraSigla\">SEAD-PI/GAB/NTGD</a>",
+      "Descricao": "Processo remetido pela unidade <a href=\\"javascript:void(0);\\" alt=\\"Núcleo Estratégico de Tecnologia e Governo Digital\\" title=\\"Núcleo Estratégico de Tecnologia e Governo Digital\\" class=\\"ancoraSigla\\">SEAD-PI/GAB/NTGD</a>",
       "DataHora": "22/08/2023 11:22:51",
       "Unidade": {
         "IdUnidade": "110006178",
@@ -952,7 +952,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54484601",
       "Tarefa": "PROCESSO-REMETIDO-UNIDADE",
-      "Descricao": "Processo remetido pela unidade <a href=\"javascript:void(0);\" alt=\"Núcleo Estratégico de Tecnologia e Governo Digital\" title=\"Núcleo Estratégico de Tecnologia e Governo Digital\" class=\"ancoraSigla\">SEAD-PI/GAB/NTGD</a>",
+      "Descricao": "Processo remetido pela unidade <a href=\\"javascript:void(0);\\" alt=\\"Núcleo Estratégico de Tecnologia e Governo Digital\\" title=\\"Núcleo Estratégico de Tecnologia e Governo Digital\\" class=\\"ancoraSigla\\">SEAD-PI/GAB/NTGD</a>",
       "DataHora": "22/08/2023 11:22:51",
       "Unidade": {
         "IdUnidade": "110006157",
@@ -992,7 +992,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54484599",
       "Tarefa": "PROCESSO-REMETIDO-UNIDADE",
-      "Descricao": "Processo remetido pela unidade <a href=\"javascript:void(0);\" alt=\"Núcleo Estratégico de Tecnologia e Governo Digital\" title=\"Núcleo Estratégico de Tecnologia e Governo Digital\" class=\"ancoraSigla\">SEAD-PI/GAB/NTGD</a>",
+      "Descricao": "Processo remetido pela unidade <a href=\\"javascript:void(0);\\" alt=\\"Núcleo Estratégico de Tecnologia e Governo Digital\\" title=\\"Núcleo Estratégico de Tecnologia e Governo Digital\\" class=\\"ancoraSigla\\">SEAD-PI/GAB/NTGD</a>",
       "DataHora": "22/08/2023 11:22:51",
       "Unidade": {
         "IdUnidade": "110006324",
@@ -1015,7 +1015,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54483422",
       "Tarefa": "ASSINATURA-DOCUMENTO",
-      "Descricao": "Assinado Documento 8877591 (SEAD_MEMORANDO 6) por <a href=\"javascript:void(0);\" alt=\"UBALDO DE SÁ NEVES JÚNIOR - Matr.372815-3\" title=\"UBALDO DE SÁ NEVES JÚNIOR - Matr.372815-3\" class=\"ancoraSigla\">ubaldojunior@sead.pi.gov.br</a>",
+      "Descricao": "Assinado Documento 8877591 (SEAD_MEMORANDO 6) por <a href=\\"javascript:void(0);\\" alt=\\"UBALDO DE SÁ NEVES JÚNIOR - Matr.372815-3\\" title=\\"UBALDO DE SÁ NEVES JÚNIOR - Matr.372815-3\\" class=\\"ancoraSigla\\">ubaldojunior@sead.pi.gov.br</a>",
       "DataHora": "22/08/2023 11:19:36",
       "Unidade": {
         "IdUnidade": "110006613",
@@ -1098,7 +1098,7 @@ export const sampleProcessFlowData: ProcessoData = {
     {
       "IdAndamento": "54475762",
       "Tarefa": "ACESSO-EXTERNO-SISTEMA",
-      "Descricao": "Disponibilizado acesso externo para <a href=\"javascript:void(0);\" alt=\"Sistema Eletrônico de Informações\" title=\"Sistema Eletrônico de Informações\" class=\"ancoraSigla\">SEI</a>",
+      "Descricao": "Disponibilizado acesso externo para <a href=\\"javascript:void(0);\\" alt=\\"Sistema Eletrônico de Informações\\" title=\\"Sistema Eletrônico de Informações\\" class=\\"ancoraSigla\\">SEI</a>",
       "DataHora": "22/08/2023 10:56:57",
       "Unidade": {
         "IdUnidade": "110006613",
@@ -1168,6 +1168,21 @@ export const sampleProcessFlowData: ProcessoData = {
       ]
     }
   ]
-};
+}`;
 
+// As aspas dentro das strings HTML (ex: nos atributos de <a>) precisam ser escapadas com \\"
+// quando a string JSON inteira é definida dentro de uma string JavaScript delimitada por crases.
+// No entanto, JSON.parse lida corretamente com aspas duplas não escapadas dentro de valores de string JSON,
+// desde que a string JSON em si seja válida.
+// Para evitar problemas com a interpretação da string JavaScript antes do JSON.parse,
+// vou escapar as aspas duplas dentro dos valores de Descricao.
+// Ex: "Conteúdo com \\"aspas\\" internas"
+
+// Após revisão, o uso de crases para a string JSON principal permite aspas duplas internas sem escape.
+// O problema de escape surge se a string JSON fosse construída com aspas simples ou duplas.
+// Sendo assim, a string acima deve funcionar.
+
+export const sampleProcessFlowData: ProcessoData = JSON.parse(sampleProcessFlowDataJSONString);
+    
+    
     
