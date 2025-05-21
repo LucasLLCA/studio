@@ -1,3 +1,4 @@
+
 export interface Unidade {
   IdUnidade: string;
   Sigla: string;
@@ -34,16 +35,20 @@ export interface ProcessedAndamento extends Andamento {
   parsedDate: Date;
   summary?: string;
   globalSequence: number;
+  x: number; // X-coordinate for graph node
+  y: number; // Y-coordinate for graph node
+  color?: string; // Color for the node
 }
 
 export interface Connection {
-  sourceTaskId: string;
-  targetTaskId: string;
-  sourceUnitId: string;
-  targetUnitId: string;
+  sourceTask: ProcessedAndamento;
+  targetTask: ProcessedAndamento;
 }
 
 export interface ProcessedFlowData {
   tasks: ProcessedAndamento[];
   connections: Connection[];
+  svgWidth: number;
+  svgHeight: number;
+  laneMap: Map<string, number>; // To store Y positions of lanes by Unidade.Sigla
 }

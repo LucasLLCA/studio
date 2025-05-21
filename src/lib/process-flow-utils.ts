@@ -1,24 +1,42 @@
+
 import { type Andamento, type ProcessedAndamento, type Connection, type ProcessedFlowData } from '@/types/process-flow';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+// SVG and layout constants - these could be moved to a config or the diagram component
+const NODE_RADIUS = 15;
+const HORIZONTAL_SPACING_BASE = 100; // Base horizontal distance between centers of sequential nodes
+const VERTICAL_LANE_SPACING = 80;  // Vertical distance between centers of lanes
+const INITIAL_X_OFFSET = 50;
+const INITIAL_Y_OFFSET = 50;
+
+const UNIT_COLORS = [
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+  'hsl(var(--primary))',
+  'hsl(var(--accent))',
+];
+
 
 export function parseCustomDateString(dateString: string): Date {
   const [datePart, timePart] = dateString.split(' ');
   if (!datePart || !timePart) {
     console.warn('Invalid date string format:', dateString);
-    return new Date(); // Return current date as fallback or handle error appropriately
+    return new Date();
   }
   const dateComponents = datePart.split('/').map(Number);
   const timeComponents = timePart.split(':').map(Number);
 
   if (dateComponents.length !== 3 || timeComponents.length !== 3) {
     console.warn('Invalid date or time components in:', dateString);
-    return new Date(); // Fallback
+    return new Date();
   }
   const [day, month, year] = dateComponents;
   const [hours, minutes, seconds] = timeComponents;
   
-  // Month is 0-indexed in JavaScript Date
   return new Date(year, month - 1, day, hours, minutes, seconds);
 }
 
@@ -27,45 +45,69 @@ export function formatDisplayDate(date: Date): string {
 }
 
 export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
-  const parsedAndamentos = andamentos
+  const globallySortedAndamentos = andamentos
     .map(andamento => ({
       ...andamento,
       parsedDate: parseCustomDateString(andamento.DataHora),
     }))
-    .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime()); // Sort chronologically (oldest first)
+    .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
-  const processedTasks: ProcessedAndamento[] = parsedAndamentos.map((andamento, index) => ({
+  const laneMap = new Map<string, number>(); // Unidade.Sigla -> laneY
+  const unitColorMap = new Map<string, string>();
+  let laneCount = 0;
+  let colorIndex = 0;
+
+  // Assign Y positions (lanes) to Unidades
+  globallySortedAndamentos.forEach(andamento => {
+    if (!laneMap.has(andamento.Unidade.Sigla)) {
+      laneMap.set(andamento.Unidade.Sigla, INITIAL_Y_OFFSET + laneCount * VERTICAL_LANE_SPACING);
+      laneCount++;
+    }
+    if (!unitColorMap.has(andamento.Unidade.Sigla)) {
+      unitColorMap.set(andamento.Unidade.Sigla, UNIT_COLORS[colorIndex % UNIT_COLORS.length]);
+      colorIndex++;
+    }
+  });
+  
+  const processedTasks: ProcessedAndamento[] = globallySortedAndamentos.map((andamento, index) => {
+    const yPos = laneMap.get(andamento.Unidade.Sigla) || INITIAL_Y_OFFSET;
+    // X position increases with global sequence.
+    const xPos = INITIAL_X_OFFSET + index * HORIZONTAL_SPACING_BASE + NODE_RADIUS;
+    
+    return {
       ...andamento,
       globalSequence: index + 1,
-    }));
+      x: xPos,
+      y: yPos,
+      color: unitColorMap.get(andamento.Unidade.Sigla) || 'hsl(var(--muted))',
+    };
+  });
 
   const connections: Connection[] = [];
-
-  for (let i = 0; i < processedTasks.length; i++) {
-    const currentTask = processedTasks[i];
-    // 'PROCESSO-REMETIDO-UNIDADE' indica uma transferência.
-    // A tarefa anterior (i-1) é a origem, a tarefa posterior (i+1) é o destino da seta.
-    // A própria tarefa 'PROCESSO-REMETIDO-UNIDADE' é o evento de remessa.
-    if (currentTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
-      if (i > 0 && i < processedTasks.length - 1) {
-        const potentialSourceTask = processedTasks[i - 1];
-        const potentialTargetTask = processedTasks[i + 1];
-
-        // Confirma que a origem está em uma unidade diferente da unidade de remessa (que é a unidade destino)
-        // e que o destino está na mesma unidade da remessa.
-        if (potentialSourceTask.Unidade.IdUnidade !== currentTask.Unidade.IdUnidade &&
-            potentialTargetTask.Unidade.IdUnidade === currentTask.Unidade.IdUnidade) {
-          
-          connections.push({
-            sourceTaskId: potentialSourceTask.IdAndamento,
-            targetTaskId: potentialTargetTask.IdAndamento,
-            sourceUnitId: potentialSourceTask.Unidade.IdUnidade,
-            targetUnitId: currentTask.Unidade.IdUnidade, // Unidade da tarefa REMETIDO é a unidade de destino
-          });
-        }
-      }
-    }
+  for (let i = 0; i < processedTasks.length - 1; i++) {
+    connections.push({
+      sourceTask: processedTasks[i],
+      targetTask: processedTasks[i + 1],
+    });
   }
 
-  return { tasks: processedTasks, connections };
+  let svgWidth = 0;
+  let svgHeight = 0;
+
+  if (processedTasks.length > 0) {
+    const maxX = Math.max(...processedTasks.map(t => t.x));
+    const maxY = Math.max(...processedTasks.map(t => t.y));
+    svgWidth = maxX + NODE_RADIUS + INITIAL_X_OFFSET; // Add padding
+    svgHeight = maxY + NODE_RADIUS + INITIAL_Y_OFFSET; // Add padding
+  } else {
+    svgWidth = 2 * INITIAL_X_OFFSET;
+    svgHeight = 2 * INITIAL_Y_OFFSET;
+  }
+  
+  // Ensure minimum height for all lanes to be visible even if last task is not in the lowest lane
+  const maxLaneY = Math.max(...Array.from(laneMap.values()));
+  svgHeight = Math.max(svgHeight, maxLaneY + NODE_RADIUS + INITIAL_Y_OFFSET);
+
+
+  return { tasks: processedTasks, connections, svgWidth, svgHeight, laneMap };
 }
