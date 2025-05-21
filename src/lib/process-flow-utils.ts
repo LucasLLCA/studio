@@ -1,11 +1,11 @@
 
-import { type Andamento, type ProcessedAndamento, type Connection, type ProcessedFlowData } from '@/types/process-flow';
+import { type Andamento, type ProcessedAndamento, type Connection, type ProcessedFlowData, type Atributo } from '@/types/process-flow';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 // SVG and layout constants
 const NODE_RADIUS = 18; 
-const HORIZONTAL_SPACING_BASE = 90; 
+const HORIZONTAL_SPACING_BASE = 70; // Reduzido para tornar mais compacto
 const VERTICAL_LANE_SPACING = 100;  
 const INITIAL_X_OFFSET = 200; 
 const INITIAL_Y_OFFSET = 60; 
@@ -19,8 +19,9 @@ const TASK_TYPE_COLORS = [
   'hsl(var(--chart-5))',   
   'hsl(var(--primary))', 
   'hsl(var(--accent))',
-  'hsl(240 5.9% 10%)', 
-  'hsl(0 0% 63%)',     
+  'hsl(240 5.9% 10%)', // Um cinza escuro, bom para contraste
+  'hsl(0 0% 63%)',     // Um cinza médio
+  // Adicione mais cores conforme necessário
 ];
 
 
@@ -61,15 +62,14 @@ export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
     .map((andamento, index) => ({
       ...andamento,
       parsedDate: parseCustomDateString(andamento.DataHora),
-      originalIndexInInput: index, // Preserve original index if needed later
+      originalIndexInInput: index,
     }))
     .sort((a, b) => {
       const timeDiff = a.parsedDate.getTime() - b.parsedDate.getTime();
       if (timeDiff !== 0) {
         return timeDiff;
       }
-      // Secondary sort by IdAndamento for stable ordering if timestamps are identical
-      return a.IdAndamento.localeCompare(b.IdAndamento);
+      return a.IdAndamento.localeCompare(b.IdAndamento); // Secondary sort by IdAndamento
     });
 
   const laneMap = new Map<string, number>(); 
@@ -88,35 +88,34 @@ export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
     }
   });
   
-  const processedTasks: ProcessedAndamento[] = globallySortedAndamentos.map((andamento, globalIndex) => {
+  const processedTasksWithChronologicalIndex: ProcessedAndamento[] = globallySortedAndamentos.map((andamento, globalIndex) => {
     const yPos = laneMap.get(andamento.Unidade.Sigla) || INITIAL_Y_OFFSET;
-    // Assign X position based on global chronological sequence
     const xPos = INITIAL_X_OFFSET + globalIndex * HORIZONTAL_SPACING_BASE + NODE_RADIUS;
     
     return {
       ...andamento,
-      globalSequence: globalIndex + 1, // Global sequence starts from 1
+      globalSequence: globalIndex + 1,
       x: xPos,
       y: yPos,
       color: taskTypeColorMap.get(andamento.Tarefa) || 'hsl(var(--muted))',
       nodeRadius: NODE_RADIUS,
+      chronologicalIndex: globalIndex, // Store the index after global sort
     };
   });
 
   const connections: Connection[] = [];
-  const processedTasksWithOriginalIndex = processedTasks.map((task, index) => ({ ...task, chronologicalIndex: index }));
 
-  for (let i = 0; i < processedTasksWithOriginalIndex.length; i++) {
-    const sourceTask = processedTasksWithOriginalIndex[i];
+  for (let i = 0; i < processedTasksWithChronologicalIndex.length; i++) {
+    const sourceTask = processedTasksWithChronologicalIndex[i];
 
-    if (sourceTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
-      const targetUnitAttr = sourceTask.Atributos?.find(attr => attr.Nome === 'UNIDADE');
+    if (sourceTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE' && sourceTask.Atributos) {
+      const targetUnitAttr = sourceTask.Atributos.find(attr => attr.Nome === 'UNIDADE');
       if (targetUnitAttr?.IdOrigem) {
         const targetUnitId = targetUnitAttr.IdOrigem;
-        // Find the first subsequent task in the target unit, using chronologicalIndex for searching forward
+        // Find the first subsequent task in the target unit
         let foundTarget = false;
-        for (let j = sourceTask.chronologicalIndex + 1; j < processedTasksWithOriginalIndex.length; j++) {
-          const potentialTarget = processedTasksWithOriginalIndex[j];
+        for (let j = sourceTask.chronologicalIndex + 1; j < processedTasksWithChronologicalIndex.length; j++) {
+          const potentialTarget = processedTasksWithChronologicalIndex[j];
           if (potentialTarget.Unidade.IdUnidade === targetUnitId) {
             connections.push({ sourceTask, targetTask: potentialTarget });
             foundTarget = true;
@@ -126,20 +125,20 @@ export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
         // if (!foundTarget) { console.warn(`No target found for remetido ${sourceTask.IdAndamento} to unit ${targetUnitId}`); }
       }
     } else {
-      // Not a "PROCESSO-REMETIDO-UNIDADE" task
-      // Connect to immediate chronological successor if it exists and is in the same unit
-      if (i + 1 < processedTasksWithOriginalIndex.length) {
-        const nextTask = processedTasksWithOriginalIndex[i+1];
+      // Not a "PROCESSO-REMETIDO-UNIDADE" task, or no Atributos
+      // Connect to immediate chronological successor if it exists AND is in the same unit
+      if (i + 1 < processedTasksWithChronologicalIndex.length) {
+        const nextTask = processedTasksWithChronologicalIndex[i+1];
         if (sourceTask.Unidade.IdUnidade === nextTask.Unidade.IdUnidade) {
-          connections.push({ sourceTask, targetTask: nextTask });
+           connections.push({ sourceTask, targetTask: nextTask });
         }
       }
     }
   }
-
+  
   let svgWidth = INITIAL_X_OFFSET; 
-  if (processedTasks.length > 0) {
-    const maxX = Math.max(...processedTasks.map(t => t.x));
+  if (processedTasksWithChronologicalIndex.length > 0) {
+    const maxX = Math.max(...processedTasksWithChronologicalIndex.map(t => t.x));
     svgWidth = maxX + NODE_RADIUS + HORIZONTAL_SPACING_BASE / 2; 
   } else {
     svgWidth = INITIAL_X_OFFSET * 2; 
@@ -148,5 +147,11 @@ export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
   const maxLaneY = laneMap.size > 0 ? Math.max(...Array.from(laneMap.values())) : INITIAL_Y_OFFSET;
   const svgHeight = maxLaneY + NODE_RADIUS + INITIAL_Y_OFFSET;
 
-  return { tasks: processedTasks, connections, svgWidth, svgHeight, laneMap };
+  return { 
+    tasks: processedTasksWithChronologicalIndex, 
+    connections, 
+    svgWidth, 
+    svgHeight, 
+    laneMap 
+  };
 }

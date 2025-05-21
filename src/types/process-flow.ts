@@ -11,6 +11,12 @@ export interface Usuario {
   Nome: string;
 }
 
+export interface Atributo {
+  Nome: string;
+  Valor: string;
+  IdOrigem?: string; // IdOrigem pode ser opcional dependendo do atributo
+}
+
 export interface Andamento {
   IdAndamento: string;
   Tarefa: string;
@@ -18,6 +24,7 @@ export interface Andamento {
   DataHora: string;
   Unidade: Unidade;
   Usuario: Usuario;
+  Atributos?: Atributo[]; // Atributos é um array opcional
 }
 
 export interface ProcessoData {
@@ -39,6 +46,7 @@ export interface ProcessedAndamento extends Andamento {
   y: number; // Y-coordinate for graph node
   color?: string; // Color for the node
   nodeRadius: number; // Raio do nó, para consistência
+  chronologicalIndex: number; // Índice após ordenação cronológica global
 }
 
 export interface Connection {
