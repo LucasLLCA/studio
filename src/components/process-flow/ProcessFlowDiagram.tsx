@@ -15,8 +15,6 @@ interface ProcessFlowDiagramProps {
   laneMap: Map<string, number>; 
 }
 
-const CURVE_CONTROL_OFFSET_X = 50; // Reduzido de 70 para 50
-
 export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, laneMap }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,8 +29,8 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
     setSelectedTask(null);
   };
 
-  if (tasks.length === 0 && connections.length === 0) { 
-    return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir nesta página.</p>;
+  if (tasks.length === 0) { 
+    return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir.</p>;
   }
 
   const getPathDefinition = (conn: Connection): string => {
@@ -40,18 +38,23 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
     const sRadius = s.nodeRadius || 18; 
     const tRadius = t.nodeRadius || 18;
 
-    if (s.y === t.y) { 
-      // Adjust to start/end from the edge of the circle for straight lines
+    // If units are different (inter-unit handoff), draw a straight diagonal line
+    if (s.Unidade.IdUnidade !== t.Unidade.IdUnidade) {
+      // Draw straight line from center to center
+      return `M ${s.x} ${s.y} L ${t.x} ${t.y}`;
+    } else { 
+      // If units are the same (intra-unit flow), draw a straight horizontal line between node edges
       const sourceX = s.x < t.x ? s.x + sRadius : s.x - sRadius;
       const targetX = s.x < t.x ? t.x - tRadius : t.x + tRadius;
-      return `M ${sourceX} ${s.y} L ${targetX} ${t.y}`;
-    } else { 
-      const controlX1 = s.x + CURVE_CONTROL_OFFSET_X;
-      const controlY1 = s.y;
-      const controlX2 = t.x - CURVE_CONTROL_OFFSET_X;
-      const controlY2 = t.y;
-      // Curves start/end at node centers, arrow tip will be at node center
-      return `M ${s.x} ${s.y} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${t.x} ${t.y}`;
+      // Ensure line is drawn only if target is to the right of source to avoid backward lines for simple sequence
+      if (s.x < t.x) {
+        return `M ${sourceX} ${s.y} L ${targetX} ${t.y}`;
+      } else { // If target is to the left (e.g. data error or complex non-chronological link not yet supported by this rule)
+        // For now, let's still draw it, but this might need more sophisticated handling for specific cases.
+        // Or, if we strictly enforce chronological X, this "else" might not be hit often for intra-unit.
+        // Let's draw from center to center for any non-standard horizontal to avoid visual bugs.
+         return `M ${s.x} ${s.y} L ${t.x} ${t.y}`;
+      }
     }
   };
   
@@ -97,7 +100,7 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
 
             {connections.map((conn) => (
               <path
-                key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}`}
+                key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}-${conn.sourceTask.globalSequence}-${conn.targetTask.globalSequence}`}
                 d={getPathDefinition(conn)}
                 stroke="hsl(var(--muted-foreground))"
                 strokeWidth="2" 

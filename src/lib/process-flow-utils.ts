@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale';
 
 // SVG and layout constants
 const NODE_RADIUS = 18; 
-const HORIZONTAL_SPACING_BASE = 110; // Reduzido de 130 para 110
+const HORIZONTAL_SPACING_BASE = 90; 
 const VERTICAL_LANE_SPACING = 100;  
 const INITIAL_X_OFFSET = 200; 
 const INITIAL_Y_OFFSET = 60; 
@@ -58,15 +58,17 @@ export function formatDisplayDate(date: Date): string {
 
 export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
   const globallySortedAndamentos = [...andamentos]
-    .map(andamento => ({
+    .map((andamento, index) => ({
       ...andamento,
       parsedDate: parseCustomDateString(andamento.DataHora),
+      originalIndexInInput: index, // Preserve original index if needed later
     }))
     .sort((a, b) => {
       const timeDiff = a.parsedDate.getTime() - b.parsedDate.getTime();
       if (timeDiff !== 0) {
         return timeDiff;
       }
+      // Secondary sort by IdAndamento for stable ordering if timestamps are identical
       return a.IdAndamento.localeCompare(b.IdAndamento);
     });
 
@@ -86,13 +88,14 @@ export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
     }
   });
   
-  const processedTasks: ProcessedAndamento[] = globallySortedAndamentos.map((andamento, index) => {
+  const processedTasks: ProcessedAndamento[] = globallySortedAndamentos.map((andamento, globalIndex) => {
     const yPos = laneMap.get(andamento.Unidade.Sigla) || INITIAL_Y_OFFSET;
-    const xPos = INITIAL_X_OFFSET + index * HORIZONTAL_SPACING_BASE + NODE_RADIUS;
+    // Assign X position based on global chronological sequence
+    const xPos = INITIAL_X_OFFSET + globalIndex * HORIZONTAL_SPACING_BASE + NODE_RADIUS;
     
     return {
       ...andamento,
-      globalSequence: index + 1,
+      globalSequence: globalIndex + 1, // Global sequence starts from 1
       x: xPos,
       y: yPos,
       color: taskTypeColorMap.get(andamento.Tarefa) || 'hsl(var(--muted))',
@@ -101,11 +104,37 @@ export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
   });
 
   const connections: Connection[] = [];
-  for (let i = 0; i < processedTasks.length - 1; i++) {
-    connections.push({
-      sourceTask: processedTasks[i],
-      targetTask: processedTasks[i + 1],
-    });
+  const processedTasksWithOriginalIndex = processedTasks.map((task, index) => ({ ...task, chronologicalIndex: index }));
+
+  for (let i = 0; i < processedTasksWithOriginalIndex.length; i++) {
+    const sourceTask = processedTasksWithOriginalIndex[i];
+
+    if (sourceTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
+      const targetUnitAttr = sourceTask.Atributos?.find(attr => attr.Nome === 'UNIDADE');
+      if (targetUnitAttr?.IdOrigem) {
+        const targetUnitId = targetUnitAttr.IdOrigem;
+        // Find the first subsequent task in the target unit, using chronologicalIndex for searching forward
+        let foundTarget = false;
+        for (let j = sourceTask.chronologicalIndex + 1; j < processedTasksWithOriginalIndex.length; j++) {
+          const potentialTarget = processedTasksWithOriginalIndex[j];
+          if (potentialTarget.Unidade.IdUnidade === targetUnitId) {
+            connections.push({ sourceTask, targetTask: potentialTarget });
+            foundTarget = true;
+            break; 
+          }
+        }
+        // if (!foundTarget) { console.warn(`No target found for remetido ${sourceTask.IdAndamento} to unit ${targetUnitId}`); }
+      }
+    } else {
+      // Not a "PROCESSO-REMETIDO-UNIDADE" task
+      // Connect to immediate chronological successor if it exists and is in the same unit
+      if (i + 1 < processedTasksWithOriginalIndex.length) {
+        const nextTask = processedTasksWithOriginalIndex[i+1];
+        if (sourceTask.Unidade.IdUnidade === nextTask.Unidade.IdUnidade) {
+          connections.push({ sourceTask, targetTask: nextTask });
+        }
+      }
+    }
   }
 
   let svgWidth = INITIAL_X_OFFSET; 
@@ -118,7 +147,6 @@ export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
   
   const maxLaneY = laneMap.size > 0 ? Math.max(...Array.from(laneMap.values())) : INITIAL_Y_OFFSET;
   const svgHeight = maxLaneY + NODE_RADIUS + INITIAL_Y_OFFSET;
-
 
   return { tasks: processedTasks, connections, svgWidth, svgHeight, laneMap };
 }
