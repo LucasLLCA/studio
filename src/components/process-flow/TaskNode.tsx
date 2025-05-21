@@ -1,11 +1,11 @@
 "use client";
 
 import type { ProcessedAndamento } from '@/types/process-flow';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatDisplayDate } from '@/lib/process-flow-utils';
 import {
-  CheckCircle2, Zap, Send, Eye, PlusSquare, Inbox, FileQuestion, AlertCircle, UserCircle, CalendarDays
+  CheckCircle2, Zap, Send, Eye, PlusSquare, Inbox, FileQuestion, UserCircle, CalendarDays
 } from 'lucide-react';
 import React from 'react';
 
@@ -28,14 +28,15 @@ const getTaskIconAndColor = (tarefa: string): { icon: React.ElementType, colorCl
       return { icon: Inbox, colorClass: 'text-orange-500' };
     case 'CONCLUSAO-AUTOMATICA-UNIDADE':
       return { icon: Zap, colorClass: 'text-yellow-600' };
-    case 'PROCESSO-REMETIDO-UNIDADE':
+    case 'PROCESSO-REMETIDO-UNIDADE': // This task type often acts as a bridge/log for transfers
       return { icon: Send, colorClass: 'text-sky-500' };
     default:
       return { icon: FileQuestion, colorClass: 'text-gray-500' };
   }
 };
 
-export function TaskNode({ task, onTaskClick, isFirstInLane, isLastInLane }: TaskNodeProps) {
+export const TaskNode = React.forwardRef<HTMLDivElement, TaskNodeProps>(
+  ({ task, onTaskClick, isFirstInLane, isLastInLane }, ref) => {
   const { icon: TaskIcon, colorClass } = getTaskIconAndColor(task.Tarefa);
 
   const cleanShortDescription = task.Descricao
@@ -45,7 +46,7 @@ export function TaskNode({ task, onTaskClick, isFirstInLane, isLastInLane }: Tas
 
 
   return (
-    <div className="relative w-full py-3">
+    <div className="relative w-full py-3" ref={ref} data-task-id={task.IdAndamento}>
       {/* Vertical connector line - upper part (not for the first item in lane) */}
       {!isFirstInLane && (
         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-1/2 bg-border z-0"></div>
@@ -85,4 +86,5 @@ export function TaskNode({ task, onTaskClick, isFirstInLane, isLastInLane }: Tas
       </Card>
     </div>
   );
-}
+});
+TaskNode.displayName = 'TaskNode';

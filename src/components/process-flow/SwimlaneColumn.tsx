@@ -3,15 +3,17 @@
 import type { ProcessedAndamento } from '@/types/process-flow';
 import { TaskNode } from './TaskNode';
 import { Briefcase } from 'lucide-react';
+import type React from 'react';
 
 interface SwimlaneColumnProps {
   unitSigla: string;
   unitDescricao: string;
   tasks: ProcessedAndamento[];
   onTaskClick: (task: ProcessedAndamento) => void;
+  taskNodeRefs: React.MutableRefObject<Map<string, HTMLDivElement | null>>;
 }
 
-export function SwimlaneColumn({ unitSigla, unitDescricao, tasks, onTaskClick }: SwimlaneColumnProps) {
+export function SwimlaneColumn({ unitSigla, unitDescricao, tasks, onTaskClick, taskNodeRefs }: SwimlaneColumnProps) {
   // Sort tasks within this swimlane by date for correct vertical line rendering
   const sortedTasks = [...tasks].sort((a,b) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
@@ -32,6 +34,7 @@ export function SwimlaneColumn({ unitSigla, unitDescricao, tasks, onTaskClick }:
             onTaskClick={onTaskClick}
             isFirstInLane={index === 0}
             isLastInLane={index === sortedTasks.length - 1}
+            ref={(el) => taskNodeRefs.current.set(task.IdAndamento, el)}
           />
         ))}
       </div>

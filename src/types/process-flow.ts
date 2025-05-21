@@ -35,3 +35,15 @@ export interface ProcessedAndamento extends Andamento {
   summary?: string;
   globalSequence: number;
 }
+
+export interface Connection {
+  sourceTaskId: string;
+  targetTaskId: string;
+  sourceUnitId: string;
+  targetUnitId: string;
+}
+
+export interface ProcessedFlowData {
+  tasks: ProcessedAndamento[];
+  connections: Connection[];
+}
