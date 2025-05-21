@@ -7,7 +7,6 @@ import React from 'react';
 interface TaskNodeProps {
   task: ProcessedAndamento;
   onTaskClick: (task: ProcessedAndamento) => void;
-  // radius prop é removida, pois task.nodeRadius será usado
 }
 
 export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick }) => {
@@ -15,7 +14,7 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick }) => {
     onTaskClick(task);
   };
 
-  const radius = task.nodeRadius || 18; // Usar o raio do objeto task, com fallback
+  const radius = task.nodeRadius || 18; 
 
   return (
     <g
@@ -27,21 +26,20 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick }) => {
       <circle
         r={radius}
         fill={task.color || "hsl(var(--primary))"}
-        stroke="hsl(var(--card-foreground))" // Contraste melhor com o nó
-        strokeWidth="2.5" // Borda mais espessa
-        className="transition-all duration-150 group-hover:stroke-hsl(var(--ring)) group-hover:stroke-2 group-active:scale-95"
+        stroke="hsl(var(--card-foreground))" 
+        strokeWidth="2" // Ajustado para 2
+        className="transition-all duration-150 group-hover:stroke-hsl(var(--ring)) group-hover:stroke-[2.5px] group-active:scale-95" // stroke-[2.5px] para hover
       />
       <text
-        y={radius * 0.25} // Ajustado para o novo raio (ex: 18 * 0.25 = 4.5)
+        y={radius * 0.25} 
         textAnchor="middle"
-        fontSize={radius * 0.6} // Tamanho da fonte proporcional ao raio (ex: 18 * 0.6 = ~11px)
-        fontWeight="bold" // Texto mais nítido
+        fontSize={radius * 0.6} 
+        fontWeight="bold" 
         fill="hsl(var(--primary-foreground))" 
         className="select-none"
       >
         {task.globalSequence}
       </text>
-      {/* Tooltip-like text on hover - SVG title é uma forma simples */}
       <title>{`Tarefa: ${task.Tarefa}\nUnidade: ${task.Unidade.Sigla}\nData: ${task.DataHora}`}</title>
     </g>
   );

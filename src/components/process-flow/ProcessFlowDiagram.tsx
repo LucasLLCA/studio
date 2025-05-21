@@ -8,14 +8,14 @@ import React, { useState } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface ProcessFlowDiagramProps {
-  tasks: ProcessedAndamento[]; // Now receives paginated tasks
-  connections: Connection[]; // Now receives filtered connections for the current page
-  svgWidth: number; // Global SVG width for the entire dataset
-  svgHeight: number; // Global SVG height
-  laneMap: Map<string, number>; // Global lane map
+  tasks: ProcessedAndamento[]; 
+  connections: Connection[]; 
+  svgWidth: number; 
+  svgHeight: number; 
+  laneMap: Map<string, number>; 
 }
 
-const CURVE_CONTROL_OFFSET_X = 70; 
+const CURVE_CONTROL_OFFSET_X = 50; // Reduzido de 70 para 50
 
 export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, laneMap }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
@@ -31,7 +31,7 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
     setSelectedTask(null);
   };
 
-  if (tasks.length === 0 && connections.length === 0) { // Check if there are any tasks on the current page
+  if (tasks.length === 0 && connections.length === 0) { 
     return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir nesta página.</p>;
   }
 
@@ -41,12 +41,16 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
     const tRadius = t.nodeRadius || 18;
 
     if (s.y === t.y) { 
-      return `M ${s.x + sRadius} ${s.y} L ${t.x - tRadius} ${t.y}`;
+      // Adjust to start/end from the edge of the circle for straight lines
+      const sourceX = s.x < t.x ? s.x + sRadius : s.x - sRadius;
+      const targetX = s.x < t.x ? t.x - tRadius : t.x + tRadius;
+      return `M ${sourceX} ${s.y} L ${targetX} ${t.y}`;
     } else { 
       const controlX1 = s.x + CURVE_CONTROL_OFFSET_X;
       const controlY1 = s.y;
       const controlX2 = t.x - CURVE_CONTROL_OFFSET_X;
       const controlY2 = t.y;
+      // Curves start/end at node centers, arrow tip will be at node center
       return `M ${s.x} ${s.y} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${t.x} ${t.y}`;
     }
   };
@@ -71,13 +75,12 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
                 refX="9.5" 
                 refY="3.5"
                 orient="auto"
-                markerUnits="strokeWidth"
+                markerUnits="strokeWidth" 
               >
                 <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--muted-foreground))" />
               </marker>
             </defs>
 
-            {/* Render Lane Labels using the global laneMap */}
             {laneEntries.map(([sigla, yPos]) => (
               <text
                 key={`lane-label-${sigla}`}
@@ -92,8 +95,7 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
               </text>
             ))}
 
-            {/* Render Connections for the current page */}
-            {connections.map((conn, index) => (
+            {connections.map((conn) => (
               <path
                 key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}`}
                 d={getPathDefinition(conn)}
@@ -104,7 +106,6 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
               />
             ))}
 
-            {/* Render Tasks (Nodes) for the current page */}
             {tasks.map((task) => (
               <TaskNode
                 key={task.IdAndamento}
