@@ -532,14 +532,12 @@ const andamentosArray = [
   }
 ];
 
-const ITEMS_PER_PAGE = 10; 
-
 const totalAndamentosCount = andamentosArray.length;
 
 const sampleProcessData: ProcessoData = {
     Info: {
       Pagina: 1, 
-      TotalPaginas: Math.ceil(totalAndamentosCount / ITEMS_PER_PAGE),
+      TotalPaginas: 1, // Since we are removing pagination, there's only 1 "page" of all items
       QuantidadeItens: totalAndamentosCount, 
       TotalItens: totalAndamentosCount
     },
@@ -571,7 +569,7 @@ export default function Home() {
         </div>
       </header>
       <div className="flex-grow container mx-auto max-w-full">
-        <ProcessFlowClient fullProcessData={sampleProcessData} itemsPerPage={ITEMS_PER_PAGE} />
+        <ProcessFlowClient fullProcessData={sampleProcessData} />
       </div>
       <footer className="p-4 border-t border-border text-center text-sm text-muted-foreground">
         © {currentYear !== null ? currentYear : new Date().getFullYear()} Process Flow Tracker. Todos os direitos reservados.
