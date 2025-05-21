@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatDisplayDate } from '@/lib/process-flow-utils';
 import {
-  CheckCircle2, Zap, Send, Eye, PlusSquare, Inbox, FileQuestion, UserCircle, CalendarDays
+  CheckCircle2, Zap, Send, Eye, PlusSquare, Inbox, FileQuestion, UserCircle, CalendarDays, Briefcase
 } from 'lucide-react';
 import React from 'react';
 
@@ -28,7 +28,7 @@ const getTaskIconAndColor = (tarefa: string): { icon: React.ElementType, colorCl
       return { icon: Inbox, colorClass: 'text-orange-500' };
     case 'CONCLUSAO-AUTOMATICA-UNIDADE':
       return { icon: Zap, colorClass: 'text-yellow-600' };
-    case 'PROCESSO-REMETIDO-UNIDADE': // This task type often acts as a bridge/log for transfers
+    case 'PROCESSO-REMETIDO-UNIDADE': 
       return { icon: Send, colorClass: 'text-sky-500' };
     default:
       return { icon: FileQuestion, colorClass: 'text-gray-500' };
@@ -40,20 +40,21 @@ export const TaskNode = React.forwardRef<HTMLDivElement, TaskNodeProps>(
   const { icon: TaskIcon, colorClass } = getTaskIconAndColor(task.Tarefa);
 
   const cleanShortDescription = task.Descricao
-    .replace(/<a [^>]*>([^<]+)<\/a>/gi, '$1') // Replace <a> tags with their content
-    .replace(/<[^>]*>?/gm, '') // Strip any remaining HTML tags
+    .replace(/<a [^>]*>([^<]+)<\/a>/gi, '$1') 
+    .replace(/<[^>]*>?/gm, '') 
     .substring(0, 70) + (task.Descricao.length > 70 ? '...' : '');
 
 
   return (
-    <div className="relative w-full py-3" ref={ref} data-task-id={task.IdAndamento}>
+    // w-full para ocupar a largura da coluna centralizada, py-3 para espaçamento vertical entre os cards
+    <div className="relative w-full max-w-md py-3" ref={ref} data-task-id={task.IdAndamento}>
       {/* Vertical connector line - upper part (not for the first item in lane) */}
       {!isFirstInLane && (
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-1/2 bg-border z-0"></div>
+        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-[26px] bg-border z-0"></div>
       )}
       {/* Vertical connector line - lower part (not for the last item in lane) */}
       {!isLastInLane && (
-         <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0.5 h-1/2 bg-border z-0"></div>
+         <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0.5 h-[26px] bg-border z-0"></div>
       )}
 
       <Card
@@ -80,6 +81,10 @@ export const TaskNode = React.forwardRef<HTMLDivElement, TaskNodeProps>(
             <div className="flex items-center text-xs text-muted-foreground">
               <UserCircle className="h-3.5 w-3.5 mr-1.5" />
               {task.Usuario.Nome.split(' ')[0]} {/* First name */}
+            </div>
+            <div className="flex items-center text-xs text-muted-foreground mt-1">
+              <Briefcase className="h-3.5 w-3.5 mr-1.5 text-primary" />
+              <span title={task.Unidade.Descricao}>{task.Unidade.Sigla}</span>
             </div>
           </div>
         </CardContent>

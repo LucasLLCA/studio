@@ -3,18 +3,19 @@
 import type { ProcessedAndamento } from '@/types/process-flow';
 import { TaskNode } from './TaskNode';
 import { Briefcase } from 'lucide-react';
-import type React from 'react';
+// Removido: import type React from 'react'; - taskNodeRefs não é mais necessário aqui
 
 interface SwimlaneColumnProps {
   unitSigla: string;
   unitDescricao: string;
   tasks: ProcessedAndamento[];
   onTaskClick: (task: ProcessedAndamento) => void;
-  taskNodeRefs: React.MutableRefObject<Map<string, HTMLDivElement | null>>;
+  // Removido: taskNodeRefs: React.MutableRefObject<Map<string, HTMLDivElement | null>>;
 }
 
-export function SwimlaneColumn({ unitSigla, unitDescricao, tasks, onTaskClick, taskNodeRefs }: SwimlaneColumnProps) {
-  // Sort tasks within this swimlane by date for correct vertical line rendering
+// Este componente não será mais utilizado no layout linear, mas o mantenho caso seja útil no futuro.
+// As props foram ajustadas para remover taskNodeRefs.
+export function SwimlaneColumn({ unitSigla, unitDescricao, tasks, onTaskClick }: SwimlaneColumnProps) {
   const sortedTasks = [...tasks].sort((a,b) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
   return (
@@ -26,7 +27,7 @@ export function SwimlaneColumn({ unitSigla, unitDescricao, tasks, onTaskClick, t
         </h2>
         <p className="text-xs text-muted-foreground truncate">{unitDescricao}</p>
       </div>
-      <div className="space-y-0 flex flex-col items-center relative"> {/* space-y-0 and relative for connectors */}
+      <div className="space-y-0 flex flex-col items-center relative">
         {sortedTasks.map((task, index) => (
           <TaskNode
             key={task.IdAndamento}
@@ -34,7 +35,7 @@ export function SwimlaneColumn({ unitSigla, unitDescricao, tasks, onTaskClick, t
             onTaskClick={onTaskClick}
             isFirstInLane={index === 0}
             isLastInLane={index === sortedTasks.length - 1}
-            ref={(el) => taskNodeRefs.current.set(task.IdAndamento, el)}
+            // ref não é mais necessário aqui para ser coletado pelo pai
           />
         ))}
       </div>
