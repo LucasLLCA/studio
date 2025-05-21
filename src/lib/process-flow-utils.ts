@@ -7,7 +7,7 @@ import { ptBR } from 'date-fns/locale';
 const NODE_RADIUS = 18; // Aumentado para melhor visibilidade
 const HORIZONTAL_SPACING_BASE = 130; // Aumentado para mais espaço horizontal
 const VERTICAL_LANE_SPACING = 100;  // Aumentado para mais espaço vertical entre raias
-const INITIAL_X_OFFSET = 80; // Ajustado para novo espaçamento e labels das raias
+const INITIAL_X_OFFSET = 300; // Ajustado para novo espaçamento e labels das raias
 const INITIAL_Y_OFFSET = 60; // Ajustado para novo espaçamento
 
 // Cores inspiradas na imagem de referência e no tema atual
