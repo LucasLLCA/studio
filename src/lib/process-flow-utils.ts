@@ -7,20 +7,19 @@ import { ptBR } from 'date-fns/locale';
 const NODE_RADIUS = 18; // Aumentado para melhor visibilidade
 const HORIZONTAL_SPACING_BASE = 130; // Aumentado para mais espaço horizontal
 const VERTICAL_LANE_SPACING = 100;  // Aumentado para mais espaço vertical entre raias
-const INITIAL_X_OFFSET = 60; // Ajustado para novo espaçamento
+const INITIAL_X_OFFSET = 80; // Ajustado para novo espaçamento e labels das raias
 const INITIAL_Y_OFFSET = 60; // Ajustado para novo espaçamento
 
-// Cores mais nítidas e distintas do tema
+// Cores inspiradas na imagem de referência e no tema atual
+// Prioriza o uso de variáveis de tema para consistência light/dark.
 const UNIT_COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-  'hsl(var(--primary))',
-  'hsl(var(--accent))',
-  'hsl(207 86% 50%)', // Um azul mais forte se necessário
-  'hsl(125 37% 50%)', // Um verde mais forte se necessário
+  'hsl(var(--primary))',   // Azul principal (semelhante ao "Master" da imagem)
+  'hsl(var(--chart-4))',   // Tema claro: Azulado / Tema escuro: Roxo (semelhante ao "Develop")
+  'hsl(var(--chart-2))',   // Tema claro: Verde-azulado / Tema escuro: Verde (semelhante ao "Feature")
+  'hsl(var(--accent))',    // Tema claro: Verde pálido / Tema escuro: Verde pálido (outra opção para "Feature")
+  'hsl(var(--chart-3))',   // Tema claro: Azul suave / Tema escuro: Laranja (para variedade)
+  'hsl(var(--chart-1))',   // Semelhante ao primário, outra opção de azul
+  'hsl(var(--chart-5))',   // Tema claro: Esverdeado / Tema escuro: Rosado (para variedade)
 ];
 
 
@@ -74,7 +73,7 @@ export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
   
   const processedTasks: ProcessedAndamento[] = globallySortedAndamentos.map((andamento, index) => {
     const yPos = laneMap.get(andamento.Unidade.Sigla) || INITIAL_Y_OFFSET;
-    // X position increases with global sequence.
+    // X position increases with global sequence. ConsiderINITIAL_X_OFFSET for lane labels.
     const xPos = INITIAL_X_OFFSET + index * HORIZONTAL_SPACING_BASE + NODE_RADIUS;
     
     return {
@@ -100,19 +99,16 @@ export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
 
   if (processedTasks.length > 0) {
     const maxX = Math.max(...processedTasks.map(t => t.x));
-    const maxY = Math.max(...processedTasks.map(t => t.y));
-    svgWidth = maxX + NODE_RADIUS + INITIAL_X_OFFSET; // Add padding
-    svgHeight = maxY + NODE_RADIUS + INITIAL_Y_OFFSET; // Add padding
+    // Consider the initial offset for lane labels when calculating width
+    svgWidth = maxX + NODE_RADIUS + INITIAL_X_OFFSET / 2; // Add some padding
   } else {
     svgWidth = 2 * INITIAL_X_OFFSET;
-    svgHeight = 2 * INITIAL_Y_OFFSET;
   }
   
-  // Ensure minimum height for all lanes to be visible even if last task is not in the lowest lane
+  // Ensure minimum height for all lanes to be visible
   const maxLaneY = Math.max(...Array.from(laneMap.values()), INITIAL_Y_OFFSET);
-  svgHeight = Math.max(svgHeight, maxLaneY + NODE_RADIUS + INITIAL_Y_OFFSET);
+  svgHeight = maxLaneY + NODE_RADIUS + INITIAL_Y_OFFSET; // Add padding
 
 
   return { tasks: processedTasks, connections, svgWidth, svgHeight, laneMap };
 }
-
