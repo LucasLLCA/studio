@@ -38,22 +38,41 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
     const sRadius = s.nodeRadius || 18; 
     const tRadius = t.nodeRadius || 18;
 
-    // If units are different (inter-unit handoff), draw a straight diagonal line
+    // If units are different (inter-unit handoff), draw a curved line
     if (s.Unidade.IdUnidade !== t.Unidade.IdUnidade) {
-      // Draw straight line from center to center
-      return `M ${s.x} ${s.y} L ${t.x} ${t.y}`;
+      const startX = s.x + (s.x < t.x ? sRadius : -sRadius); // Emerge from the side facing the target
+      const startY = s.y;
+      const endX = t.x - (s.x < t.x ? tRadius : -tRadius); // Arrive on the side facing the source
+      const endY = t.y;
+
+      // Control points for cubic Bezier curve to make an S-shape
+      // The horizontal offset for control points ensures the curve starts and ends horizontally.
+      // We use a fraction of the horizontal distance between the nodes for the control point offset.
+      const minControlOffset = 20; // Minimum horizontal reach of control points
+      const idealControlOffset = Math.abs(endX - startX) * 0.4;
+      const controlXOffset = Math.max(minControlOffset, idealControlOffset);
+      
+      const controlX1 = startX + (s.x < t.x ? controlXOffset : -controlXOffset);
+      const controlY1 = startY; // Control point 1 aligned with source Y
+      const controlX2 = endX - (s.x < t.x ? controlXOffset : -controlXOffset);
+      const controlY2 = endY;   // Control point 2 aligned with target Y
+      
+      return `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
+
     } else { 
       // If units are the same (intra-unit flow), draw a straight horizontal line between node edges
-      const sourceX = s.x < t.x ? s.x + sRadius : s.x - sRadius;
-      const targetX = s.x < t.x ? t.x - tRadius : t.x + tRadius;
-      // Ensure line is drawn only if target is to the right of source to avoid backward lines for simple sequence
-      if (s.x < t.x) {
-        return `M ${sourceX} ${s.y} L ${targetX} ${t.y}`;
-      } else { // If target is to the left (e.g. data error or complex non-chronological link not yet supported by this rule)
-        // For now, let's still draw it, but this might need more sophisticated handling for specific cases.
-        // Or, if we strictly enforce chronological X, this "else" might not be hit often for intra-unit.
-        // Let's draw from center to center for any non-standard horizontal to avoid visual bugs.
-         return `M ${s.x} ${s.y} L ${t.x} ${t.y}`;
+      // Ensure sourceX and targetX are correctly ordered for line direction
+      const sourceXEdge = s.x < t.x ? s.x + sRadius : s.x - sRadius;
+      const targetXEdge = s.x < t.x ? t.x - tRadius : t.x + tRadius;
+      
+      // Draw line only if target is to the right of source to avoid backward lines
+      // or if they are at the same x (should be rare with current layout)
+      if (s.x <= t.x) {
+        return `M ${sourceXEdge} ${s.y} L ${targetXEdge} ${t.y}`;
+      } else { 
+        // If target is to the left (e.g. loop or complex non-chronological link not common in this data)
+        // For now, draw from center to center for these less common cases to avoid visual bugs with edges.
+        return `M ${s.x} ${s.y} L ${t.x} ${t.y}`;
       }
     }
   };
@@ -68,28 +87,30 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
             width={svgWidth} 
             height={svgHeight} 
             xmlns="http://www.w3.org/2000/svg"
-            className="bg-background"
+            className="bg-background" // Use background for the SVG area itself
           >
             <defs>
               <marker
                 id="arrowhead"
-                markerWidth="10"
-                markerHeight="7"
-                refX="9.5" 
-                refY="3.5"
-                orient="auto"
-                markerUnits="strokeWidth" 
+                markerWidth="10" // Width of the viewport for the marker
+                markerHeight="7" // Height of the viewport for the marker
+                refX="8"         // Arrow tip x-coordinate in marker's viewport (relative to marker end)
+                                 // Adjusted to be slightly before the full markerWidth to better align with curved paths
+                refY="3.5"       // Arrow tip y-coordinate (center of markerHeight)
+                orient="auto"    // Automatically orient the marker along the path
+                markerUnits="strokeWidth" // Scale marker with stroke width (optional, can be userSpaceOnUse)
               >
                 <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--muted-foreground))" />
               </marker>
             </defs>
 
+            {/* Lane Labels */}
             {laneEntries.map(([sigla, yPos]) => (
               <text
                 key={`lane-label-${sigla}`}
-                x="15" 
+                x="15"  // Position from the left edge
                 y={yPos}
-                dy=".3em" 
+                dy=".3em" // Vertical alignment adjustment
                 fontSize="13px"
                 fill="hsl(var(--muted-foreground))"
                 className="font-semibold" 
@@ -98,20 +119,22 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
               </text>
             ))}
 
+            {/* Connections (Paths/Lines) */}
             {connections.map((conn) => (
               <path
                 key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}-${conn.sourceTask.globalSequence}-${conn.targetTask.globalSequence}`}
                 d={getPathDefinition(conn)}
-                stroke="hsl(var(--muted-foreground))"
+                stroke="hsl(var(--muted-foreground))" // Color for the lines
                 strokeWidth="2" 
                 fill="none"
                 markerEnd="url(#arrowhead)"
               />
             ))}
 
+            {/* Task Nodes */}
             {tasks.map((task) => (
               <TaskNode
-                key={task.IdAndamento}
+                key={`${task.IdAndamento}-${task.globalSequence}`} // Ensure unique key if IdAndamento could repeat
                 task={task}
                 onTaskClick={handleTaskClick}
               />
