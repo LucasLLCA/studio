@@ -38,6 +38,7 @@ export interface ProcessedAndamento extends Andamento {
   x: number; // X-coordinate for graph node
   y: number; // Y-coordinate for graph node
   color?: string; // Color for the node
+  nodeRadius: number; // Raio do nó, para consistência
 }
 
 export interface Connection {

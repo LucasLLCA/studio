@@ -3,13 +3,14 @@ import { type Andamento, type ProcessedAndamento, type Connection, type Processe
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// SVG and layout constants - these could be moved to a config or the diagram component
-const NODE_RADIUS = 15;
-const HORIZONTAL_SPACING_BASE = 100; // Base horizontal distance between centers of sequential nodes
-const VERTICAL_LANE_SPACING = 80;  // Vertical distance between centers of lanes
-const INITIAL_X_OFFSET = 50;
-const INITIAL_Y_OFFSET = 50;
+// SVG and layout constants
+const NODE_RADIUS = 18; // Aumentado para melhor visibilidade
+const HORIZONTAL_SPACING_BASE = 130; // Aumentado para mais espaço horizontal
+const VERTICAL_LANE_SPACING = 100;  // Aumentado para mais espaço vertical entre raias
+const INITIAL_X_OFFSET = 60; // Ajustado para novo espaçamento
+const INITIAL_Y_OFFSET = 60; // Ajustado para novo espaçamento
 
+// Cores mais nítidas e distintas do tema
 const UNIT_COLORS = [
   'hsl(var(--chart-1))',
   'hsl(var(--chart-2))',
@@ -18,6 +19,8 @@ const UNIT_COLORS = [
   'hsl(var(--chart-5))',
   'hsl(var(--primary))',
   'hsl(var(--accent))',
+  'hsl(207 86% 50%)', // Um azul mais forte se necessário
+  'hsl(125 37% 50%)', // Um verde mais forte se necessário
 ];
 
 
@@ -80,6 +83,7 @@ export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
       x: xPos,
       y: yPos,
       color: unitColorMap.get(andamento.Unidade.Sigla) || 'hsl(var(--muted))',
+      nodeRadius: NODE_RADIUS, // Passar o raio para o objeto da tarefa
     };
   });
 
@@ -105,9 +109,10 @@ export function processAndamentos(andamentos: Andamento[]): ProcessedFlowData {
   }
   
   // Ensure minimum height for all lanes to be visible even if last task is not in the lowest lane
-  const maxLaneY = Math.max(...Array.from(laneMap.values()));
+  const maxLaneY = Math.max(...Array.from(laneMap.values()), INITIAL_Y_OFFSET);
   svgHeight = Math.max(svgHeight, maxLaneY + NODE_RADIUS + INITIAL_Y_OFFSET);
 
 
   return { tasks: processedTasks, connections, svgWidth, svgHeight, laneMap };
 }
+

@@ -11,8 +11,8 @@ interface ProcessFlowDiagramProps {
   processedData: ProcessedFlowData;
 }
 
-const NODE_RADIUS = 15;
-const CURVE_CONTROL_OFFSET_X = 60; // Controls the "S" shape of curves
+// const NODE_RADIUS = 18; // Agora vem de ProcessedAndamento
+const CURVE_CONTROL_OFFSET_X = 70; // Controls the "S" shape of curves, ajustado para novo espaçamento
 
 export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
   const { tasks, connections, svgWidth, svgHeight, laneMap } = processedData;
@@ -35,16 +35,18 @@ export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
 
   const getPathDefinition = (conn: Connection): string => {
     const { sourceTask: s, targetTask: t } = conn;
+    const sRadius = s.nodeRadius || 18; // Usar o raio do nó de origem
+    const tRadius = t.nodeRadius || 18; // Usar o raio do nó de destino
 
-    // Path from right edge of source node to left edge of target node for horizontal
-    // For curves, connect centers and let nodes draw on top.
+
     if (s.y === t.y) { // Same lane, horizontal line
-      return `M ${s.x + NODE_RADIUS} ${s.y} L ${t.x - NODE_RADIUS} ${t.y}`;
+      return `M ${s.x + sRadius} ${s.y} L ${t.x - tRadius} ${t.y}`;
     } else { // Different lanes, curved line (cubic Bezier)
       const controlX1 = s.x + CURVE_CONTROL_OFFSET_X;
       const controlY1 = s.y;
       const controlX2 = t.x - CURVE_CONTROL_OFFSET_X;
       const controlY2 = t.y;
+      // Conectar centros para curvas, o nó será desenhado sobre a extremidade da linha
       return `M ${s.x} ${s.y} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${t.x} ${t.y}`;
     }
   };
@@ -53,22 +55,23 @@ export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 h-full flex flex-col">
-      <ScrollArea className="w-full rounded-md border flex-grow">
+      <ScrollArea className="w-full rounded-md border flex-grow bg-card shadow-inner">
         <div style={{ width: svgWidth, height: svgHeight, position: 'relative' }}>
           <svg 
             width={svgWidth} 
             height={svgHeight} 
             xmlns="http://www.w3.org/2000/svg"
-            className="bg-background"
+            className="bg-background" // Mantido para consistência, mas a ScrollArea tem bg-card
           >
             <defs>
               <marker
                 id="arrowhead"
                 markerWidth="10"
                 markerHeight="7"
-                refX="9" // Adjust to position arrowhead at the end of the line (considering stroke-width)
+                refX="9.5" // Ajustado para posicionar corretamente na ponta da linha
                 refY="3.5"
                 orient="auto"
+                markerUnits="strokeWidth"
               >
                 <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--foreground))" />
               </marker>
@@ -78,12 +81,12 @@ export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
             {laneEntries.map(([sigla, yPos]) => (
               <text
                 key={`lane-label-${sigla}`}
-                x="10" // Small padding from the left edge
+                x="15" // Pequeno padding da borda esquerda
                 y={yPos}
-                dy=".3em" // Vertical alignment adjustment
-                fontSize="12px"
+                dy=".3em" // Ajuste de alinhamento vertical
+                fontSize="13px" // Aumentado para melhor leitura
                 fill="hsl(var(--muted-foreground))"
-                className="font-medium"
+                className="font-semibold" // Mais destaque
               >
                 {sigla}
               </text>
@@ -96,7 +99,7 @@ export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
                 key={`conn-${index}`}
                 d={getPathDefinition(conn)}
                 stroke="hsl(var(--border))"
-                strokeWidth="1.5"
+                strokeWidth="2" // Linha um pouco mais grossa
                 fill="none"
                 markerEnd="url(#arrowhead)"
               />
@@ -108,7 +111,7 @@ export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
                 key={task.IdAndamento}
                 task={task}
                 onTaskClick={handleTaskClick}
-                radius={NODE_RADIUS}
+                // radius prop não é mais necessária aqui, já que vem de task.nodeRadius
               />
             ))}
           </svg>
@@ -125,3 +128,4 @@ export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
     </div>
   );
 }
+
