@@ -1,21 +1,23 @@
 
 "use client";
 
-import type { ProcessedAndamento, ProcessedFlowData, Connection } from '@/types/process-flow';
+import type { ProcessedAndamento, Connection } from '@/types/process-flow';
 import { TaskNode } from './TaskNode';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import React, { useState } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface ProcessFlowDiagramProps {
-  processedData: ProcessedFlowData;
+  tasks: ProcessedAndamento[]; // Now receives paginated tasks
+  connections: Connection[]; // Now receives filtered connections for the current page
+  svgWidth: number; // Global SVG width for the entire dataset
+  svgHeight: number; // Global SVG height
+  laneMap: Map<string, number>; // Global lane map
 }
 
-// const NODE_RADIUS = 18; // Agora vem de ProcessedAndamento.nodeRadius
-const CURVE_CONTROL_OFFSET_X = 70; // Controls the "S" shape of curves
+const CURVE_CONTROL_OFFSET_X = 70; 
 
-export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
-  const { tasks, connections, svgWidth, svgHeight, laneMap } = processedData;
+export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, laneMap }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -29,8 +31,8 @@ export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
     setSelectedTask(null);
   };
 
-  if (tasks.length === 0) {
-    return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir.</p>;
+  if (tasks.length === 0 && connections.length === 0) { // Check if there are any tasks on the current page
+    return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir nesta página.</p>;
   }
 
   const getPathDefinition = (conn: Connection): string => {
@@ -38,18 +40,13 @@ export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
     const sRadius = s.nodeRadius || 18; 
     const tRadius = t.nodeRadius || 18;
 
-
-    if (s.y === t.y) { // Same lane, horizontal line
-      // Start after the source node, end before the target node
+    if (s.y === t.y) { 
       return `M ${s.x + sRadius} ${s.y} L ${t.x - tRadius} ${t.y}`;
-    } else { // Different lanes, curved line (cubic Bezier)
+    } else { 
       const controlX1 = s.x + CURVE_CONTROL_OFFSET_X;
       const controlY1 = s.y;
       const controlX2 = t.x - CURVE_CONTROL_OFFSET_X;
       const controlY2 = t.y;
-      // For curves, it's typical to aim for the center of the nodes if the node itself isn't handling the offset.
-      // However, since TaskNode is a circle drawn at (s.x, s.y), we connect to these points.
-      // The arrowhead will be placed at the end of this path.
       return `M ${s.x} ${s.y} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${t.x} ${t.y}`;
     }
   };
@@ -57,7 +54,7 @@ export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
   const laneEntries = Array.from(laneMap.entries());
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 h-full flex flex-col">
+    <div className="p-4 md:p-6 lg:p-8 h-full flex flex-col flex-grow">
       <ScrollArea className="w-full rounded-md border flex-grow bg-card shadow-inner">
         <div style={{ width: svgWidth, height: svgHeight, position: 'relative' }}>
           <svg 
@@ -69,19 +66,18 @@ export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
             <defs>
               <marker
                 id="arrowhead"
-                markerWidth="10" // Size of the arrowhead marker viewport
+                markerWidth="10"
                 markerHeight="7"
-                refX="9.5" // Arrow tip position relative to the end of the line. Adjusted for strokeWidth.
-                refY="3.5" // Center of the arrow vertically
+                refX="9.5" 
+                refY="3.5"
                 orient="auto"
-                markerUnits="strokeWidth" // Helps scale with strokeWidth, but can be tricky. 'userSpaceOnUse' is an alternative.
+                markerUnits="strokeWidth"
               >
-                {/* Polygon points define the shape of the arrow */}
                 <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--muted-foreground))" />
               </marker>
             </defs>
 
-            {/* Render Lane Labels */}
+            {/* Render Lane Labels using the global laneMap */}
             {laneEntries.map(([sigla, yPos]) => (
               <text
                 key={`lane-label-${sigla}`}
@@ -96,20 +92,19 @@ export function ProcessFlowDiagram({ processedData }: ProcessFlowDiagramProps) {
               </text>
             ))}
 
-
-            {/* Render Connections */}
+            {/* Render Connections for the current page */}
             {connections.map((conn, index) => (
               <path
-                key={`conn-${index}`}
+                key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}`}
                 d={getPathDefinition(conn)}
-                stroke="hsl(var(--muted-foreground))" // Changed to muted-foreground for darker, consistent lines
+                stroke="hsl(var(--muted-foreground))"
                 strokeWidth="2" 
                 fill="none"
                 markerEnd="url(#arrowhead)"
               />
             ))}
 
-            {/* Render Tasks (Nodes) */}
+            {/* Render Tasks (Nodes) for the current page */}
             {tasks.map((task) => (
               <TaskNode
                 key={task.IdAndamento}

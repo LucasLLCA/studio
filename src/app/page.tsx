@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData } from '@/types/process-flow';
-import { BarChart3, GitFork, Zap } from 'lucide-react';
+import { GitFork, Zap } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 
 // Hardcoded data as per user request
@@ -75,7 +75,7 @@ const andamentosArray = [
     "IdAndamento": "74718438",
     "Tarefa": "PROCESSO-REMETIDO-UNIDADE",
     "Descricao": "Processo remetido pela unidade <a href=\"javascript:void(0);\" alt=\"Diretoria de Unidade de Gestão de Pessoas - SEAD-PI\" title=\"Diretoria de Unidade de Gestão de Pessoas - SEAD-PI\" class=\"ancoraSigla\">SEAD-PI/SGP/DUGP</a>",
-    "DataHora": "23/04/2024 19:03:08",
+    "DataHora": "23/04/2024 19:03:08", // Same timestamp as above, secondary sort will apply
     "Unidade": { "IdUnidade": "110008884", "Sigla": "SEAD-PI/SGP/DDP", "Descricao": "Diretoria de Desenvolvimento de Pessoas - SEAD-PI" },
     "Usuario": { "IdUsuario": "100029670", "Sigla": "daniele.reis@sead.pi.gov.br", "Nome": "DANIELE REIS SOUSA SILVA  Matr.401285-2" },
     "Atributos": [{ "Nome": "UNIDADE", "Valor": "SEAD-PI/SGP/DUGP¥Diretoria de Unidade de Gestão de Pessoas - SEAD-PI", "IdOrigem": "110006183" }]
@@ -532,15 +532,15 @@ const andamentosArray = [
   }
 ];
 
-const ITEMS_PER_PAGE_FOR_INFO = 10; // Assuming a default for Info calculation
+const ITEMS_PER_PAGE = 10; 
+
 const totalAndamentosCount = andamentosArray.length;
-const totalPagesForInfo = Math.ceil(totalAndamentosCount / ITEMS_PER_PAGE_FOR_INFO);
 
 const sampleProcessData: ProcessoData = {
     Info: {
-      Pagina: 1, // Default, actual pagination might be handled in client
-      TotalPaginas: totalPagesForInfo,
-      QuantidadeItens: totalAndamentosCount, // Total items in the dataset
+      Pagina: 1, 
+      TotalPaginas: Math.ceil(totalAndamentosCount / ITEMS_PER_PAGE),
+      QuantidadeItens: totalAndamentosCount, 
       TotalItens: totalAndamentosCount
     },
     Andamentos: andamentosArray
@@ -571,14 +571,7 @@ export default function Home() {
         </div>
       </header>
       <div className="flex-grow container mx-auto max-w-full">
-        {/* 
-          Assuming ProcessFlowClient props are { initialData: ProcessoData; } 
-          as per the "Current User Code" for ProcessFlowClient.
-          If pagination was intended to be active, ProcessFlowClient would need
-          fullProcessData and itemsPerPage props, and internal pagination logic.
-          For now, passing the full data.
-        */}
-        <ProcessFlowClient initialData={sampleProcessData} />
+        <ProcessFlowClient fullProcessData={sampleProcessData} itemsPerPage={ITEMS_PER_PAGE} />
       </div>
       <footer className="p-4 border-t border-border text-center text-sm text-muted-foreground">
         © {currentYear !== null ? currentYear : new Date().getFullYear()} Process Flow Tracker. Todos os direitos reservados.
@@ -586,5 +579,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
