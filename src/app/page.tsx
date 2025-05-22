@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image'; // Importar o componente Image
+import { sampleProcessFlowData } from '@/data/sample-process-data';
 
 export default function Home() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
@@ -89,12 +90,11 @@ export default function Home() {
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Image 
-              src="https://placehold.co/200x60.png" // Placeholder para a logo da SEAD
-              alt="Logo SEAD" 
-              width={150} // Ajuste a largura conforme necessário
-              height={45} // Ajuste a altura conforme necessário
-              data-ai-hint="SEAD Piauí"
-              className="h-auto" // Mantém a proporção
+              src="/sead-logo.png" 
+              alt="Logo SEAD Piauí" 
+              width={160} 
+              height={60} 
+              className="h-auto" 
             />
             <h1 className="text-2xl font-semibold" style={{ color: '#107527' }}>
               Visualizador de Processos
