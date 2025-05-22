@@ -2,16 +2,85 @@
 "use client";
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
-import { sampleProcessFlowData } from '@/data/sample-process-data'; // Importar os dados
-import { GitFork, Zap } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { sampleProcessFlowData } from '@/data/sample-process-data';
+import type { ProcessoData } from '@/types/process-flow';
+import { GitFork, Zap, Upload } from 'lucide-react';
+import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Home() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
+  const [displayedProcessData, setDisplayedProcessData] = useState<ProcessoData>(sampleProcessFlowData);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
   }, []);
+
+  const handleFileUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (file.type !== "application/json") {
+      toast({
+        title: "Erro ao carregar arquivo",
+        description: "Por favor, selecione um arquivo JSON.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result;
+        if (typeof text === 'string') {
+          const jsonData = JSON.parse(text);
+          // Basic validation for ProcessoData structure
+          if (jsonData && jsonData.Andamentos && Array.isArray(jsonData.Andamentos) && jsonData.Info) {
+            setDisplayedProcessData(jsonData as ProcessoData);
+            toast({
+              title: "Sucesso!",
+              description: `Arquivo JSON "${file.name}" carregado e processado.`,
+            });
+          } else {
+            throw new Error("Formato JSON inválido. Estrutura esperada não encontrada.");
+          }
+        }
+      } catch (error) {
+        console.error("Error parsing JSON:", error);
+        toast({
+          title: "Erro ao processar JSON",
+          description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+          variant: "destructive",
+        });
+      } finally {
+        // Reset file input to allow uploading the same file again if needed
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
+    };
+    reader.onerror = () => {
+      toast({
+        title: "Erro ao ler arquivo",
+        description: "Não foi possível ler o arquivo selecionado.",
+        variant: "destructive",
+      });
+       if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+    };
+    reader.readAsText(file);
+  };
 
   return (
     <main className="min-h-screen flex flex-col bg-background">
@@ -23,15 +92,27 @@ export default function Home() {
               Process Flow Tracker
             </h1>
           </div>
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-            <Zap className="h-4 w-4 text-accent" />
-            <span>AI-Powered Insights</span>
+          <div className="flex items-center space-x-4">
+            <Button onClick={handleFileUploadClick} variant="outline">
+              <Upload className="mr-2 h-4 w-4" />
+              Carregar JSON
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".json"
+              className="hidden"
+            />
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+              <Zap className="h-4 w-4 text-accent" />
+              <span>AI-Powered Insights</span>
+            </div>
           </div>
         </div>
       </header>
       <div className="flex-grow container mx-auto max-w-full">
-        {/* Usar os dados importados */}
-        <ProcessFlowClient fullProcessData={sampleProcessFlowData} />
+        <ProcessFlowClient fullProcessData={displayedProcessData} />
       </div>
       <footer className="p-4 border-t border-border text-center text-sm text-muted-foreground">
         © {currentYear !== null ? currentYear : new Date().getFullYear()} Process Flow Tracker. Todos os direitos reservados.
@@ -39,5 +120,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
