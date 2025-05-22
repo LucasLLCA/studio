@@ -14,7 +14,7 @@ export interface Usuario {
 export interface Atributo {
   Nome: string;
   Valor: string;
-  IdOrigem?: string; // IdOrigem pode ser opcional dependendo do atributo
+  IdOrigem?: string; 
 }
 
 export interface Andamento {
@@ -24,16 +24,19 @@ export interface Andamento {
   DataHora: string;
   Unidade: Unidade;
   Usuario: Usuario;
-  Atributos?: Atributo[]; // Atributos é um array opcional
+  Atributos?: Atributo[]; 
+}
+
+export interface ProcessoInfo {
+  Pagina: number;
+  TotalPaginas: number;
+  QuantidadeItens: number;
+  TotalItens: number;
+  NumeroProcesso?: string; // Added for displaying process number
 }
 
 export interface ProcessoData {
-  Info: {
-    Pagina: number;
-    TotalPaginas: number;
-    QuantidadeItens: number;
-    TotalItens: number;
-  };
+  Info: ProcessoInfo;
   Andamentos: Andamento[];
 }
 
@@ -42,12 +45,12 @@ export interface ProcessedAndamento extends Andamento {
   parsedDate: Date;
   summary?: string;
   globalSequence: number;
-  x: number; // X-coordinate for graph node
-  y: number; // Y-coordinate for graph node
-  color?: string; // Color for the node
-  nodeRadius: number; // Raio do nó, para consistência
-  chronologicalIndex: number; // Índice após ordenação cronológica global
-  daysOpen?: number; // Number of days the task has been open (for red nodes)
+  x: number; 
+  y: number; 
+  color?: string; 
+  nodeRadius: number; 
+  chronologicalIndex: number; 
+  daysOpen?: number; 
 }
 
 export interface Connection {
@@ -60,6 +63,5 @@ export interface ProcessedFlowData {
   connections: Connection[];
   svgWidth: number;
   svgHeight: number;
-  laneMap: Map<string, number>; // To store Y positions of lanes by Unidade.Sigla
+  laneMap: Map<string, number>; 
 }
-
