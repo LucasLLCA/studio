@@ -7,7 +7,7 @@ import { Upload, FileJson, Zap } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import Image from 'next/image'; // Importar o componente Image
+import Image from 'next/image';
 import { sampleProcessFlowData } from '@/data/sample-process-data';
 
 export default function Home() {
@@ -48,6 +48,7 @@ export default function Home() {
         const text = e.target?.result;
         if (typeof text === 'string') {
           const jsonData = JSON.parse(text);
+          // Basic validation for ProcessoData structure
           if (jsonData && jsonData.Andamentos && Array.isArray(jsonData.Andamentos) && jsonData.Info) {
             setDisplayedProcessData(jsonData as ProcessoData);
             toast({
@@ -66,6 +67,7 @@ export default function Home() {
           variant: "destructive",
         });
       } finally {
+        // Clear the file input value so the user can upload the same file again if needed
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
@@ -90,7 +92,7 @@ export default function Home() {
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Image 
-              src="/sead-logo.png" 
+              src="/logo-sead.jpeg" 
               alt="Logo SEAD Piauí" 
               width={160} 
               height={60} 
@@ -129,9 +131,19 @@ export default function Home() {
             <p className="text-muted-foreground mb-6">
               Clique em "Carregar JSON" para selecionar um arquivo e visualizar o fluxo do processo.
             </p>
-            <Button onClick={handleFileUploadClick}>
+            <Button onClick={() => {
+                if (confirm("Usar dados de exemplo? Isso substituirá qualquer arquivo carregado.")) {
+                    setDisplayedProcessData(sampleProcessFlowData);
+                    toast({
+                        title: "Dados de exemplo carregados",
+                        description: "Visualizando o fluxograma de exemplo.",
+                    });
+                } else {
+                    handleFileUploadClick();
+                }
+            }}>
               <Upload className="mr-2 h-4 w-4" />
-              Selecionar Arquivo JSON
+              Selecionar Arquivo JSON ou Usar Exemplo
             </Button>
           </div>
         )}
