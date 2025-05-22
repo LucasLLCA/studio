@@ -7,17 +7,20 @@ import { processAndamentos } from '@/lib/process-flow-utils';
 import React, { useMemo } from 'react';
 
 interface ProcessFlowClientProps {
-  fullProcessData: ProcessoData;
+  fullProcessData: ProcessoData | null; // Allow null for initial state
 }
 
 export function ProcessFlowClient({ fullProcessData }: ProcessFlowClientProps) {
-  const processedFullData: ProcessedFlowData = useMemo(() => {
+  const processedFullData: ProcessedFlowData | null = useMemo(() => {
+    if (!fullProcessData || !fullProcessData.Andamentos) {
+      return null; // Handle null input gracefully
+    }
     // Process all andamentos to get global positions, sequences, and all connections
     return processAndamentos(fullProcessData.Andamentos);
-  }, [fullProcessData.Andamentos]);
+  }, [fullProcessData]);
 
-  if (!processedFullData.tasks.length) {
-    return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir.</p>;
+  if (!processedFullData || !processedFullData.tasks || processedFullData.tasks.length === 0) {
+    return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir ou dados inválidos.</p>;
   }
   
   return (

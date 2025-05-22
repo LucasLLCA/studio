@@ -2,16 +2,15 @@
 "use client";
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
-import { sampleProcessFlowData } from '@/data/sample-process-data';
 import type { ProcessoData } from '@/types/process-flow';
-import { GitFork, Zap, Upload } from 'lucide-react';
+import { GitFork, Zap, Upload, FileJson } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Home() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
-  const [displayedProcessData, setDisplayedProcessData] = useState<ProcessoData>(sampleProcessFlowData);
+  const [displayedProcessData, setDisplayedProcessData] = useState<ProcessoData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -35,6 +34,9 @@ export default function Home() {
         description: "Por favor, selecione um arquivo JSON.",
         variant: "destructive",
       });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       return;
     }
 
@@ -52,7 +54,7 @@ export default function Home() {
               description: `Arquivo JSON "${file.name}" carregado e processado.`,
             });
           } else {
-            throw new Error("Formato JSON inválido. Estrutura esperada não encontrada.");
+            throw new Error("Formato JSON inválido. Estrutura esperada (Info, Andamentos) não encontrada.");
           }
         }
       } catch (error) {
@@ -112,7 +114,21 @@ export default function Home() {
         </div>
       </header>
       <div className="flex-grow container mx-auto max-w-full">
-        <ProcessFlowClient fullProcessData={displayedProcessData} />
+        {displayedProcessData ? (
+          <ProcessFlowClient fullProcessData={displayedProcessData} />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full py-20">
+            <FileJson className="h-24 w-24 text-muted-foreground/50 mb-6" />
+            <h2 className="text-2xl font-semibold text-foreground mb-2">Nenhum processo carregado</h2>
+            <p className="text-muted-foreground mb-6">
+              Clique em "Carregar JSON" para selecionar um arquivo e visualizar o fluxo do processo.
+            </p>
+            <Button onClick={handleFileUploadClick}>
+              <Upload className="mr-2 h-4 w-4" />
+              Selecionar Arquivo JSON
+            </Button>
+          </div>
+        )}
       </div>
       <footer className="p-4 border-t border-border text-center text-sm text-muted-foreground">
         © {currentYear !== null ? currentYear : new Date().getFullYear()} Process Flow Tracker. Todos os direitos reservados.
