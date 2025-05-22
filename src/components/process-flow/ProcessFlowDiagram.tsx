@@ -44,25 +44,20 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
     const tRadius = t.nodeRadius || 18;
 
     if (s.Unidade.IdUnidade !== t.Unidade.IdUnidade) { // Different lanes (units) - Curved path
-      const startX = s.x; // Use center of node
+      const startX = s.x; 
       const startY = s.y;
-      const endX = t.x;   // Use center of node
+      const endX = t.x;   
       const endY = t.y;
-
-      // Control points for Bezier curve
-      // Make curves more pronounced if X distance is small, or Y distance is large
-      const dx = endX - startX;
-      // const dy = endY - startY;
       
-      // Adjusted control point logic for better curves
-      const controlX1 = startX + dx * 0.5; // Midpoint X for smoother horizontal transition start
-      const controlY1 = startY;             // Keep Y same as source for horizontal start of curve
-      const controlX2 = endX - dx * 0.5;   // Midpoint X for smoother horizontal transition end
-      const controlY2 = endY;               // Keep Y same as target for horizontal end of curve
+      const dx = endX - startX;
+      
+      const controlX1 = startX + dx * 0.5; 
+      const controlY1 = startY;             
+      const controlX2 = endX - dx * 0.5;   
+      const controlY2 = endY;               
 
       return `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
     } else { // Same lane (unit) - Straight horizontal line
-      // Connect from edge to edge of nodes
       const sourceXEdge = s.x < t.x ? s.x + sRadius : s.x - sRadius;
       const targetXEdge = s.x < t.x ? t.x - tRadius : t.x + tRadius;
       return `M ${sourceXEdge} ${s.y} L ${targetXEdge} ${t.y}`;
@@ -70,7 +65,7 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    if (viewportRef.current && e.button === 0) { // Only main left click
+    if (viewportRef.current && e.button === 0) { 
       setIsDragging(true);
       setDragStart({
         x: e.clientX,
@@ -129,7 +124,7 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
         <div
           data-diagram-root
           style={{
-            width: svgWidth + LANE_LABEL_AREA_WIDTH, // Total width for scrolling
+            width: svgWidth + LANE_LABEL_AREA_WIDTH, 
             height: svgHeight,
             position: 'relative',
             cursor: 'grab',
@@ -142,10 +137,10 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
               position: 'sticky',
               left: 0,
               width: `${LANE_LABEL_AREA_WIDTH}px`,
-              height: `${svgHeight}px`, // Match the SVG height for consistent sticky behavior
+              height: `${svgHeight}px`, 
               zIndex: 10,
-              pointerEvents: 'none', // Allow mousedown to pass to parent for dragging
-              backgroundColor: 'hsl(var(--card))', // Opaque background
+              pointerEvents: 'none', 
+              backgroundColor: 'hsl(var(--card))', 
             }}
           >
             {laneEntries.map(([sigla, yPos]) => (
@@ -153,11 +148,11 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
                 key={`lane-label-${sigla}`}
                 className="flex items-center pl-4 pr-2 text-sm font-semibold text-muted-foreground"
                 style={{
-                  position: 'absolute', // Position within the sticky container
-                  top: `${yPos - (VERTICAL_LANE_SPACING / 2)}px`, // Align with the center of the SVG lane
+                  position: 'absolute', 
+                  top: `${yPos - (VERTICAL_LANE_SPACING / 2)}px`, 
                   height: `${VERTICAL_LANE_SPACING}px`,
                   width: '100%',
-                  borderRight: '1px solid hsl(var(--border))', // Visual separation from SVG
+                  borderRight: '1px solid hsl(var(--border))', 
                   boxSizing: 'border-box',
                 }}
               >
@@ -168,15 +163,15 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
 
           {/* SVG Diagram - Positioned next to the lane labels */}
           <svg
-            width={svgWidth} // Actual drawing width
+            width={svgWidth} 
             height={svgHeight}
             xmlns="http://www.w3.org/2000/svg"
-            className="bg-background" // Background for the SVG drawing area
+            className="bg-background" 
             style={{
               position: 'absolute',
               left: `${LANE_LABEL_AREA_WIDTH}px`,
               top: 0,
-              display: 'block', // Prevents extra space issues
+              display: 'block', 
             }}
           >
             <defs>
@@ -184,9 +179,9 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
                 id="arrowhead"
                 markerWidth="10"
                 markerHeight="7"
-                refX="9" // Adjusted for better arrow appearance on curves
+                refX="9" 
                 refY="3.5"
-                orient="auto-start-reverse" // Better orientation for various line angles
+                orient="auto-start-reverse" 
                 markerUnits="strokeWidth"
               >
                 <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--muted-foreground))" />
@@ -226,3 +221,4 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
     </div>
   );
 }
+

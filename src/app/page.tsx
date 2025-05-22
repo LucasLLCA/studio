@@ -150,7 +150,7 @@ export default function Home() {
           processedData={displayedProcessData} 
           processNumberPlaceholder="0042431-96.2023.8.18.0001 (Exemplo)" 
         />
-        <div className="flex-1 flex flex-col overflow-auto_ // Diagram area">
+        <div className="flex-1 flex flex-col overflow-hidden"> {/* Alterado de overflow-auto_ para overflow-hidden */}
           {displayedProcessData ? (
             <ProcessFlowClient fullProcessData={displayedProcessData} />
           ) : (
