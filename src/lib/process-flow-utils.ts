@@ -3,15 +3,15 @@ import {
   type Andamento,
   type ProcessedAndamento,
   type Connection,
-  type ProcessoData,
+  type ProcessoData, // Ensure ProcessoData is imported if used directly in this file, though it's mainly for context
 } from '@/types/process-flow';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const NODE_RADIUS = 18;
-const HORIZONTAL_SPACING_BASE = 40; // Reduzido para gráfico mais compacto
+const HORIZONTAL_SPACING_BASE = 40; 
 const VERTICAL_LANE_SPACING = 100;
-const INITIAL_X_OFFSET = 200;
+const INITIAL_X_OFFSET = 200; // Increased to give more space for lane labels
 const INITIAL_Y_OFFSET = 60;
 
 // Cores simbólicas para tipos de tarefa (HSL format)
@@ -29,10 +29,10 @@ const OPEN_END_NODE_COLOR = 'hsl(var(--destructive))'; // Vermelho para pontas n
 
 export function parseCustomDateString(dateString: string): Date {
   const [datePart, timePart] = dateString.split(' ');
-  if (!datePart || !timePart) return new Date();
+  if (!datePart || !timePart) return new Date(); // Fallback or error
   const [day, month, year] = datePart.split('/').map(Number);
   const [hours, minutes, seconds] = timePart.split(':').map(Number);
-  if ([day, month, year, hours, minutes, seconds].some(isNaN)) return new Date();
+  if ([day, month, year, hours, minutes, seconds].some(isNaN)) return new Date(); // Fallback or error
   return new Date(year, month - 1, day, hours, minutes, seconds);
 }
 
@@ -56,13 +56,12 @@ export function processAndamentos(andamentosInput: Andamento[]): ProcessedFlowDa
     .map((andamento, index) => ({
       ...andamento,
       parsedDate: parseCustomDateString(andamento.DataHora),
-      originalIndexInInput: index, // Manter para referência se necessário
+      originalIndexInInput: index,
     }))
     .sort((a, b) => {
       const dateDiff = a.parsedDate.getTime() - b.parsedDate.getTime();
       if (dateDiff !== 0) return dateDiff;
-      // Se as datas forem iguais, usar IdAndamento para uma ordem estável
-      return a.IdAndamento.localeCompare(b.IdAndamento);
+      return a.IdAndamento.localeCompare(b.IdAndamento); // Stable sort by ID if dates are identical
     });
 
   const laneMap = new Map<string, number>();
@@ -75,25 +74,32 @@ export function processAndamentos(andamentosInput: Andamento[]): ProcessedFlowDa
     }
   });
 
-  // Identificar a última tarefa em cada unidade
-  const latestTaskDetailsByUnit = new Map<string, { IdAndamento: string; Tarefa: string }>();
+  // Identify the last task in each unit for "open end" node coloring
+  const latestTaskDetailsByUnit = new Map<string, { IdAndamento: string; Tarefa: string; parsedDate: Date }>();
   for (const andamento of globallySortedAndamentos) {
-      latestTaskDetailsByUnit.set(andamento.Unidade.IdUnidade, { IdAndamento: andamento.IdAndamento, Tarefa: andamento.Tarefa });
+      latestTaskDetailsByUnit.set(andamento.Unidade.IdUnidade, { 
+        IdAndamento: andamento.IdAndamento, 
+        Tarefa: andamento.Tarefa,
+        parsedDate: andamento.parsedDate 
+      });
   }
+  
+  const currentDate = new Date(); // For calculating daysOpen
 
   const processedTasks: ProcessedAndamento[] = globallySortedAndamentos.map((a, index) => {
     const yPos = laneMap.get(a.Unidade.Sigla) ?? INITIAL_Y_OFFSET;
     const xPos = INITIAL_X_OFFSET + index * HORIZONTAL_SPACING_BASE + NODE_RADIUS;
     
     let taskColor = SYMBOLIC_TASK_COLORS[a.Tarefa] || DEFAULT_TASK_COLOR;
-    const latestInUnit = latestTaskDetailsByUnit.get(a.Unidade.IdUnidade);
+    let daysOpen: number | undefined = undefined;
 
+    const latestInUnit = latestTaskDetailsByUnit.get(a.Unidade.IdUnidade);
     if (latestInUnit && latestInUnit.IdAndamento === a.IdAndamento) {
-        // É a última tarefa desta unidade
         if (a.Tarefa !== 'CONCLUSAO-PROCESSO-UNIDADE' &&
             a.Tarefa !== 'CONCLUSAO-AUTOMATICA-UNIDADE' &&
             a.Tarefa !== 'PROCESSO-REMETIDO-UNIDADE') {
             taskColor = OPEN_END_NODE_COLOR;
+            daysOpen = differenceInDays(currentDate, a.parsedDate);
         }
     }
 
@@ -105,11 +111,12 @@ export function processAndamentos(andamentosInput: Andamento[]): ProcessedFlowDa
       color: taskColor,
       nodeRadius: NODE_RADIUS,
       chronologicalIndex: index,
+      daysOpen: daysOpen,
     };
   });
 
   const connections: Connection[] = [];
-  const latestTaskInLane = new Map<string, ProcessedAndamento>(); // Rastreia a última tarefa *processada* em cada lane
+  const latestTaskInLane = new Map<string, ProcessedAndamento>(); // Tracks the latest processed task in each lane by UnitID
 
   for (let i = 0; i < processedTasks.length; i++) {
     const currentTask = processedTasks[i];
@@ -117,7 +124,7 @@ export function processAndamentos(andamentosInput: Andamento[]): ProcessedFlowDa
 
     if (currentTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
       const senderUnitAttr = currentTask.Atributos?.find(attr => attr.Nome === "UNIDADE");
-      const senderUnitId = senderUnitAttr?.IdOrigem; // Este é o IdUnidade da unidade REMETENTE
+      const senderUnitId = senderUnitAttr?.IdOrigem; // This is the IdUnidade of the SENDER unit
 
       if (senderUnitId) {
         const lastActionInSenderLane = latestTaskInLane.get(senderUnitId);
@@ -125,10 +132,10 @@ export function processAndamentos(andamentosInput: Andamento[]): ProcessedFlowDa
           connections.push({ sourceTask: lastActionInSenderLane, targetTask: currentTask });
         }
       }
-      // A currentTask (remessa) atualiza o 'latestTaskInLane' para sua própria unidade (a de destino)
+      // The currentTask (remittance) updates the 'latestTaskInLane' for its own unit (the target unit where it's logged)
       latestTaskInLane.set(performingUnitId, currentTask);
     } else {
-      // Para outras tarefas, conecta-se da última tarefa na *mesma* lane
+      // For other tasks, connect from the latest task in the *same* lane (performing unit)
       const lastActionInThisLane = latestTaskInLane.get(performingUnitId);
       if (lastActionInThisLane) {
          connections.push({ sourceTask: lastActionInThisLane, targetTask: currentTask });
@@ -143,8 +150,8 @@ export function processAndamentos(andamentosInput: Andamento[]): ProcessedFlowDa
   return {
     tasks: processedTasks,
     connections,
-    svgWidth: maxX + NODE_RADIUS + HORIZONTAL_SPACING_BASE, // Adiciona um pouco de padding à direita
-    svgHeight: maxY + NODE_RADIUS + VERTICAL_LANE_SPACING / 2, // Adiciona um pouco de padding abaixo
+    svgWidth: maxX + NODE_RADIUS + HORIZONTAL_SPACING_BASE * 2, // Increased padding
+    svgHeight: maxY + NODE_RADIUS + VERTICAL_LANE_SPACING, // Increased padding
     laneMap,
   };
 }

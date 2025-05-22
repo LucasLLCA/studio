@@ -47,6 +47,7 @@ export interface ProcessedAndamento extends Andamento {
   color?: string; // Color for the node
   nodeRadius: number; // Raio do nó, para consistência
   chronologicalIndex: number; // Índice após ordenação cronológica global
+  daysOpen?: number; // Number of days the task has been open (for red nodes)
 }
 
 export interface Connection {
@@ -61,3 +62,4 @@ export interface ProcessedFlowData {
   svgHeight: number;
   laneMap: Map<string, number>; // To store Y positions of lanes by Unidade.Sigla
 }
+
