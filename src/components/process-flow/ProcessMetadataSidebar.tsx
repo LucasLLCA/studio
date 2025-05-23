@@ -2,7 +2,6 @@
 "use client";
 
 import type { ProcessoData, ProcessedAndamento } from '@/types/process-flow';
-import { ProcessFlowLegend } from './ProcessFlowLegend';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AlertTriangle, Clock, FileText } from 'lucide-react';
 import { useMemo } from 'react';
@@ -23,7 +22,6 @@ export function ProcessMetadataSidebar({ processedData: rawProcessData, processN
     return processAndamentos(rawProcessData.Andamentos);
   }, [rawProcessData]);
   
-  // Placeholder - ideally sourced from rawProcessData.Info or a dedicated field
   const displayProcessNumber = rawProcessData?.Info?.NumeroProcesso || processNumberPlaceholder || "Não disponível";
 
   if (!processedFullData || processedFullData.tasks.length === 0) {
@@ -39,9 +37,7 @@ export function ProcessMetadataSidebar({ processedData: rawProcessData, processN
           </p>
         </div>
         <p className="text-sm text-muted-foreground flex-grow">Carregue um arquivo JSON para visualizar os detalhes e o fluxograma.</p>
-        <div className="mt-auto">
-          <ProcessFlowLegend />
-        </div>
+        {/* ProcessFlowLegend removed from here */}
       </aside>
     );
   }
@@ -87,9 +83,7 @@ export function ProcessMetadataSidebar({ processedData: rawProcessData, processN
         </div>
       )}
       
-      <div className="mt-auto pt-4"> {/* Pushes legend to bottom */}
-        <ProcessFlowLegend />
-      </div>
+      {/* ProcessFlowLegend removed from here */}
     </aside>
   );
 }

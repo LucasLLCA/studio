@@ -4,10 +4,10 @@
 import type { ProcessedAndamento, Connection } from '@/types/process-flow';
 import { TaskNode } from './TaskNode';
 import { TaskDetailsModal } from './TaskDetailsModal';
-import { ProcessFlowLegend } from './ProcessFlowLegend';
+import { ProcessFlowLegend } from './ProcessFlowLegend'; // Added import
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils'; // Import for consistent spacing
+import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils'; 
 
 interface ProcessFlowDiagramProps {
   tasks: ProcessedAndamento[];
@@ -26,7 +26,7 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
   const [dragStart, setDragStart] = useState({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 
   const laneEntries = Array.from(laneMap.entries());
-  const LANE_LABEL_AREA_WIDTH = 150; // Increased width for lane labels
+  const LANE_LABEL_AREA_WIDTH = 150;
 
   const handleTaskClick = (task: ProcessedAndamento) => {
     setSelectedTask(task);
@@ -43,7 +43,7 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
     const sRadius = s.nodeRadius || 18;
     const tRadius = t.nodeRadius || 18;
 
-    if (s.Unidade.IdUnidade !== t.Unidade.IdUnidade) { // Different lanes (units) - Curved path
+    if (s.Unidade.IdUnidade !== t.Unidade.IdUnidade) { 
       const startX = s.x; 
       const startY = s.y;
       const endX = t.x;   
@@ -57,7 +57,7 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
       const controlY2 = endY;               
 
       return `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
-    } else { // Same lane (unit) - Straight horizontal line
+    } else { 
       const sourceXEdge = s.x < t.x ? s.x + sRadius : s.x - sRadius;
       const targetXEdge = s.x < t.x ? t.x - tRadius : t.x + tRadius;
       return `M ${sourceXEdge} ${s.y} L ${targetXEdge} ${t.y}`;
@@ -117,8 +117,9 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
 
   return (
     <div className="p-4 md:p-6 lg:p-8 h-full flex flex-col flex-grow">
+      <ProcessFlowLegend /> {/* Legend moved here */}
       <ScrollArea
-        className="w-full rounded-t-md border flex-grow bg-card shadow-inner overflow-hidden"
+        className="w-full rounded-md border flex-grow bg-card shadow-inner overflow-hidden mt-4" // Added mt-4 for spacing
         viewportRef={viewportRef}
       >
         <div
@@ -212,7 +213,7 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
         <ScrollBar orientation="vertical" />
       </ScrollArea>
 
-      <ProcessFlowLegend />
+      {/* Legend removed from here - it's now above ScrollArea */}
       <TaskDetailsModal
         task={selectedTask}
         isOpen={isModalOpen}
@@ -221,4 +222,3 @@ export function ProcessFlowDiagram({ tasks, connections, svgWidth, svgHeight, la
     </div>
   );
 }
-
