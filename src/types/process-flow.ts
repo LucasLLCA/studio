@@ -32,7 +32,7 @@ export interface ProcessoInfo {
   TotalPaginas: number;
   QuantidadeItens: number;
   TotalItens: number;
-  NumeroProcesso?: string; // Added for displaying process number
+  NumeroProcesso?: string; 
 }
 
 export interface ProcessoData {
@@ -40,7 +40,6 @@ export interface ProcessoData {
   Andamentos: Andamento[];
 }
 
-// Extended type for internal use after processing
 export interface ProcessedAndamento extends Andamento {
   parsedDate: Date;
   summary?: string;
@@ -64,6 +63,7 @@ export interface ProcessedFlowData {
   svgWidth: number;
   svgHeight: number;
   laneMap: Map<string, number>; 
+  processNumber?: string;
 }
 
 export interface UnidadeFiltro {

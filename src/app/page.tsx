@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, ProcessedAndamento, UnidadeFiltro, UnidadesFiltroData } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, ChevronsLeft, ChevronsRight, Loader2 } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import Image from 'next/image';
 import { sampleProcessFlowData } from '@/data/sample-process-data';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
 import { processAndamentos } from '@/lib/process-flow-utils';
-import unidadesData from '@/../unidades_filtradas.json'; // Import the JSON file
+import unidadesData from '@/../unidades_filtradas.json';
 import {
   Select,
   SelectContent,
@@ -22,21 +22,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { fetchProcessDataFromSEI } from './sei-actions';
 
 
 export default function Home() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
-  const [rawProcessData, setRawProcessData] = useState<ProcessoData | null>(sampleProcessFlowData);
+  const [rawProcessData, setRawProcessData] = useState<ProcessoData | null>(null); // Start with null
   const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>([]);
   const [selectedUnidadeFiltro, setSelectedUnidadeFiltro] = useState<string | undefined>(undefined);
+  const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
-    // The imported JSON is already a JavaScript object
     const data = unidadesData as UnidadesFiltroData;
     if (data && data.Unidades) {
       setUnidadesFiltroList(data.Unidades);
@@ -45,14 +47,19 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
-      // If loading sample data initially and it's null, process it
-      if (rawProcessData === sampleProcessFlowData && sampleProcessFlowData?.Andamentos) {
-         return processAndamentos(sampleProcessFlowData.Andamentos);
-      }
       return null;
     }
-    return processAndamentos(rawProcessData.Andamentos);
-  }, [rawProcessData]);
+    // Add the process number to the Info object if it exists in rawProcessData
+    // This helps display it in the sidebar, as the API data might not have it directly in Info.
+    const dataToProcess = {
+      ...rawProcessData,
+      Info: {
+        ...rawProcessData.Info,
+        NumeroProcesso: rawProcessData.Info?.NumeroProcesso || processoNumeroInput,
+      }
+    };
+    return processAndamentos(dataToProcess.Andamentos, dataToProcess.Info?.NumeroProcesso || processoNumeroInput);
+  }, [rawProcessData, processoNumeroInput]);
 
   const handleFileUploadClick = () => {
     fileInputRef.current?.click();
@@ -82,9 +89,9 @@ export default function Home() {
         const text = e.target?.result;
         if (typeof text === 'string') {
           const jsonData = JSON.parse(text);
-          // Basic validation: check for Info and Andamentos properties
           if (jsonData && jsonData.Andamentos && Array.isArray(jsonData.Andamentos) && jsonData.Info) {
             setRawProcessData(jsonData as ProcessoData);
+            setProcessoNumeroInput(jsonData.Info?.NumeroProcesso || "N/A via JSON");
             toast({
               title: "Sucesso!",
               description: `Arquivo JSON "${file.name}" carregado e processado.`,
@@ -101,7 +108,6 @@ export default function Home() {
           variant: "destructive",
         });
       } finally {
-        // Clear the file input so the same file can be re-uploaded if needed
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
@@ -122,10 +128,78 @@ export default function Home() {
   
   const loadSampleData = () => {
     setRawProcessData(sampleProcessFlowData);
+    setProcessoNumeroInput(sampleProcessFlowData.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)");
     toast({
         title: "Dados de exemplo carregados",
         description: "Visualizando o fluxograma de exemplo.",
     });
+  };
+
+  const handleSearchClick = async () => {
+    if (!processoNumeroInput) {
+      toast({ title: "Entrada Inválida", description: "Por favor, insira o número do processo.", variant: "destructive" });
+      return;
+    }
+    if (!selectedUnidadeFiltro) {
+      toast({ title: "Entrada Inválida", description: "Por favor, selecione uma unidade.", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+    setRawProcessData(null); // Clear previous data
+
+    try {
+      const result = await fetchProcessDataFromSEI(processoNumeroInput, selectedUnidadeFiltro);
+      
+      if ('error' in result) {
+        let description = result.error;
+        if (result.details) {
+           if (typeof result.details === 'string') {
+            description += ` Detalhes: ${result.details}`;
+          } else if (result.details.Fault && result.details.Fault.Reason) {
+            description += ` Detalhes: ${result.details.Fault.Reason.Text}`;
+          } else if (result.details.message) {
+             description += ` Detalhes: ${result.details.message}`;
+          }
+        }
+         if (result.status === 404) {
+          description = `Processo não encontrado ou sem andamentos na unidade selecionada. Verifique o número e a unidade. (Erro: ${result.status})`;
+        } else if (result.status === 401) {
+          description = `Falha na autenticação com a API SEI. Verifique as credenciais do servidor. (Erro: ${result.status})`;
+        }
+
+        toast({
+          title: "Erro ao buscar dados do processo",
+          description: description,
+          variant: "destructive",
+        });
+        setRawProcessData(null);
+      } else {
+        // Ensure NumeroProcesso is available in Info for the sidebar
+        const fetchedDataWithProcessNumber = {
+          ...result,
+          Info: {
+            ...result.Info,
+            NumeroProcesso: result.Info?.NumeroProcesso || processoNumeroInput,
+          }
+        };
+        setRawProcessData(fetchedDataWithProcessNumber);
+        toast({
+          title: "Sucesso!",
+          description: "Dados do processo carregados da API.",
+        });
+      }
+    } catch (error) {
+      console.error("Error in handleSearchClick:", error);
+      toast({
+        title: "Erro Inesperado",
+        description: "Ocorreu um erro inesperado ao buscar os dados.",
+        variant: "destructive",
+      });
+      setRawProcessData(null);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleTaskCardClick = (task: ProcessedAndamento) => {
@@ -166,7 +240,13 @@ export default function Home() {
           </div>
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
-              <Input type="text" placeholder="Número do Processo..." className="h-9 text-sm w-48" />
+              <Input 
+                type="text" 
+                placeholder="Número do Processo..." 
+                className="h-9 text-sm w-48" 
+                value={processoNumeroInput}
+                onChange={(e) => setProcessoNumeroInput(e.target.value)}
+              />
                <Select value={selectedUnidadeFiltro} onValueChange={setSelectedUnidadeFiltro}>
                 <SelectTrigger className="h-9 text-sm w-[200px]">
                   <SelectValue placeholder="Filtrar por Unidade" />
@@ -174,17 +254,22 @@ export default function Home() {
                 <SelectContent>
                   {unidadesFiltroList.map((unidade) => (
                     <SelectItem key={unidade.Id} value={unidade.Id}>
-                      {unidade.Sigla}
+                      {unidade.Sigla} ({unidade.Descricao.substring(0,25)}...)
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm">
-                <Search className="mr-2 h-4 w-4" />
-                Pesquisar
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleSearchClick}
+                disabled={isLoading || !processoNumeroInput || !selectedUnidadeFiltro}
+              >
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                {isLoading ? "Pesquisando..." : "Pesquisar"}
               </Button>
             </div>
-            <Button onClick={handleFileUploadClick} variant="outline" size="sm">
+            <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading}>
               <Upload className="mr-2 h-4 w-4" />
               Carregar JSON
             </Button>
@@ -196,7 +281,7 @@ export default function Home() {
               className="hidden"
             />
             <div className="flex items-center space-x-2">
-              <Switch id="summarize-graph" />
+              <Switch id="summarize-graph" disabled={isLoading} />
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Versão Resumida</Label>
             </div>
             <div className="flex items-center space-x-1 text-sm text-muted-foreground">
@@ -210,12 +295,20 @@ export default function Home() {
       <div className="flex flex-1 overflow-hidden">
         <ProcessMetadataSidebar 
           processedFlowData={processedFlowData} 
-          processNumber={rawProcessData?.Info?.NumeroProcesso}
-          processNumberPlaceholder="0042431-96.2023.8.18.0001 (Exemplo)" 
+          processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
+          processNumberPlaceholder="Nenhum processo carregado" 
           onTaskCardClick={handleTaskCardClick}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
-          {processedFlowData ? (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+              <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
+              <h2 className="text-xl font-semibold text-foreground mb-2">Buscando dados do processo...</h2>
+              <p className="text-muted-foreground max-w-md">
+                Por favor, aguarde.
+              </p>
+            </div>
+          ) : processedFlowData ? (
             <ProcessFlowClient 
               processedFlowData={processedFlowData} 
               taskToScrollTo={taskToScrollTo}
@@ -227,14 +320,11 @@ export default function Home() {
               <FileJson className="h-20 w-20 text-muted-foreground/50 mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">Nenhum processo carregado</h2>
               <p className="text-muted-foreground mb-6 max-w-md">
-                Para iniciar, clique em "Carregar JSON" para selecionar um arquivo do seu computador ou carregue os dados de exemplo.
+                Para iniciar, insira o número do processo, selecione a unidade e clique em "Pesquisar",
+                clique em "Carregar JSON" para selecionar um arquivo do seu computador, ou carregue os dados de exemplo.
               </p>
               <div className="flex space-x-4">
-                <Button onClick={handleFileUploadClick}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Selecionar Arquivo JSON
-                </Button>
-                <Button onClick={loadSampleData} variant="secondary">
+                <Button onClick={loadSampleData} variant="secondary" disabled={isLoading}>
                   Usar Dados de Exemplo
                 </Button>
               </div>
