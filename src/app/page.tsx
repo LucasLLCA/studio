@@ -143,6 +143,7 @@ export default function Home() {
       return;
     }
 
+    console.log(`Iniciando busca SEI com: Processo='${processoNumeroInput}', Unidade='${selectedUnidadeFiltro}'`);
     setIsLoading(true);
     setRawProcessData(null); 
 
@@ -155,7 +156,7 @@ export default function Home() {
 
         if (result.status === 422) {
           errorTitle = "Erro de Validação dos Dados (422)";
-          errorDescription = "A API não pôde processar os dados fornecidos. Verifique se o 'Número do Processo' está correto e se a 'Unidade' é válida para esta consulta.";
+          errorDescription = "A API não pôde processar os dados. Verifique se o 'Número do Processo' (ex: 00002.001000/2024-92) e a 'Unidade' selecionada estão corretos e são válidos para esta consulta.";
           if (result.details) {
             try {
                 const detailsString = typeof result.details === 'string' ? result.details : JSON.stringify(result.details);
@@ -163,7 +164,6 @@ export default function Home() {
                     errorDescription += ` Detalhes da API: ${detailsString}`;
                 }
             } catch (e) {
-                // If stringify fails or details is not a simple string
                 errorDescription += ` Detalhes da API (erro ao formatar): ${String(result.details)}`;
             }
           }
@@ -368,3 +368,4 @@ export default function Home() {
     </main>
   );
 }
+
