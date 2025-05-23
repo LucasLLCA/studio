@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { sampleProcessFlowData } from '@/data/sample-process-data';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
-import { processAndamentos } from '@/lib/process-flow-utils'; // Import processAndamentos
+import { processAndamentos } from '@/lib/process-flow-utils';
 
 export default function Home() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
@@ -61,7 +61,6 @@ export default function Home() {
         const text = e.target?.result;
         if (typeof text === 'string') {
           const jsonData = JSON.parse(text);
-          // Basic validation for ProcessoData structure
           if (jsonData && jsonData.Andamentos && Array.isArray(jsonData.Andamentos) && jsonData.Info) {
             setDisplayedProcessData(jsonData as ProcessoData);
             toast({
@@ -110,6 +109,18 @@ export default function Home() {
     setTaskToScrollTo(task);
   };
 
+  const handleScrollToFirstTask = () => {
+    if (processedFlowData && processedFlowData.tasks.length > 0) {
+      setTaskToScrollTo(processedFlowData.tasks[0]);
+    }
+  };
+
+  const handleScrollToLastTask = () => {
+    if (processedFlowData && processedFlowData.tasks.length > 0) {
+      setTaskToScrollTo(processedFlowData.tasks[processedFlowData.tasks.length - 1]);
+    }
+  };
+
   return (
     <main className="min-h-screen flex flex-col bg-background">
       <header className="p-4 border-b border-border shadow-sm">
@@ -130,6 +141,24 @@ export default function Home() {
             <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Beta</span>
           </div>
           <div className="flex items-center space-x-3">
+            <Button 
+              onClick={handleScrollToFirstTask} 
+              variant="outline" 
+              size="sm"
+              disabled={!processedFlowData || processedFlowData.tasks.length === 0}
+            >
+              <ChevronsLeft className="mr-2 h-4 w-4" />
+              Início
+            </Button>
+            <Button 
+              onClick={handleScrollToLastTask} 
+              variant="outline" 
+              size="sm"
+              disabled={!processedFlowData || processedFlowData.tasks.length === 0}
+            >
+              <ChevronsRight className="mr-2 h-4 w-4" />
+              Fim
+            </Button>
             <div className="flex items-center space-x-2">
               <Input type="text" placeholder="Número do Processo..." className="h-9 text-sm w-48" />
               <Button variant="outline" size="sm">
