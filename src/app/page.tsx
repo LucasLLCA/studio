@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, ProcessedAndamento, UnidadeFiltro, UnidadesFiltroData } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, ChevronsLeft, ChevronsRight, Loader2 } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2 } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +27,7 @@ import { fetchProcessDataFromSEI } from './sei-actions';
 
 export default function Home() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
-  const [rawProcessData, setRawProcessData] = useState<ProcessoData | null>(null); // Start with null
+  const [rawProcessData, setRawProcessData] = useState<ProcessoData | null>(null);
   const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -49,8 +49,6 @@ export default function Home() {
     if (!rawProcessData || !rawProcessData.Andamentos) {
       return null;
     }
-    // Add the process number to the Info object if it exists in rawProcessData
-    // This helps display it in the sidebar, as the API data might not have it directly in Info.
     const dataToProcess = {
       ...rawProcessData,
       Info: {
@@ -152,30 +150,51 @@ export default function Home() {
       const result = await fetchProcessDataFromSEI(processoNumeroInput, selectedUnidadeFiltro);
       
       if ('error' in result) {
-        let description = result.error;
-        if (result.details) {
-           if (typeof result.details === 'string') {
-            description += ` Detalhes: ${result.details}`;
-          } else if (result.details.Fault && result.details.Fault.Reason) {
-            description += ` Detalhes: ${result.details.Fault.Reason.Text}`;
-          } else if (result.details.message) {
-             description += ` Detalhes: ${result.details.message}`;
-          }
-        }
-         if (result.status === 404) {
-          description = `Processo não encontrado ou sem andamentos na unidade selecionada. Verifique o número e a unidade. (Erro: ${result.status})`;
-        } else if (result.status === 401) {
-          description = `Falha na autenticação com a API SEI. Verifique as credenciais do servidor. (Erro: ${result.status})`;
+        let errorTitle = "Erro ao buscar dados do processo";
+        let errorDescription = result.error;
+
+        if (result.status) {
+            errorDescription = `Erro ${result.status}: ${result.error}`;
         }
 
+        if (result.details) {
+           if (typeof result.details === 'string') {
+            errorDescription += ` Detalhes: ${result.details}`;
+          } else if (result.details.Fault && result.details.Fault.Reason && result.details.Fault.Reason.Text) {
+            errorDescription += ` Detalhes: ${result.details.Fault.Reason.Text}`;
+          } else if (typeof result.details === 'object' && result.details !== null && Object.keys(result.details).length > 0) {
+            // Attempt to stringify non-empty objects for more details
+            try {
+                const detailsString = JSON.stringify(result.details);
+                if (detailsString !== '{}') { // Avoid empty object strings
+                    errorDescription += ` Detalhes: ${detailsString}`;
+                }
+            } catch (e) {
+                // If stringify fails, do nothing or log a client-side warning
+            }
+          } else if (result.details.message) { // General message property from Error objects
+             errorDescription += ` Detalhes: ${result.details.message}`;
+          }
+        }
+        
+        if (result.status === 404) {
+          errorDescription = `Processo não encontrado ou sem andamentos na unidade selecionada (${selectedUnidadeFiltro}) para o número ${processoNumeroInput}. Verifique os dados. (Erro: ${result.status})`;
+        } else if (result.status === 401) {
+          errorTitle = "Falha na Autenticação com a API SEI";
+          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais configuradas no servidor da aplicação estão corretas e ativas. (Erro: ${result.status})`;
+        } else if (result.status === 500) {
+            errorTitle = "Erro Interno no Servidor da API SEI";
+            errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde. (Erro: ${result.status})`;
+        }
+
+
         toast({
-          title: "Erro ao buscar dados do processo",
-          description: description,
+          title: errorTitle,
+          description: errorDescription,
           variant: "destructive",
         });
         setRawProcessData(null);
       } else {
-        // Ensure NumeroProcesso is available in Info for the sidebar
         const fetchedDataWithProcessNumber = {
           ...result,
           Info: {
@@ -192,8 +211,8 @@ export default function Home() {
     } catch (error) {
       console.error("Error in handleSearchClick:", error);
       toast({
-        title: "Erro Inesperado",
-        description: "Ocorreu um erro inesperado ao buscar os dados.",
+        title: "Erro Inesperado na Aplicação",
+        description: "Ocorreu um erro inesperado ao tentar buscar os dados. Verifique o console para mais detalhes.",
         variant: "destructive",
       });
       setRawProcessData(null);
@@ -305,7 +324,7 @@ export default function Home() {
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">Buscando dados do processo...</h2>
               <p className="text-muted-foreground max-w-md">
-                Por favor, aguarde.
+                Por favor, aguarde. A consulta à API SEI pode levar alguns instantes.
               </p>
             </div>
           ) : processedFlowData ? (
@@ -339,3 +358,6 @@ export default function Home() {
     </main>
   );
 }
+
+
+    
