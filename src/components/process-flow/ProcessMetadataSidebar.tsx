@@ -1,30 +1,27 @@
 
 "use client";
 
-import type { ProcessoData, ProcessedAndamento } from '@/types/process-flow';
+import type { ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AlertTriangle, Clock, FileText } from 'lucide-react';
-import { useMemo } from 'react';
-import { processAndamentos } from '@/lib/process-flow-utils';
-
 
 interface ProcessMetadataSidebarProps {
-  processedData: ProcessoData | null; 
+  processedFlowData: ProcessedFlowData | null; 
+  processNumber?: string;
   processNumberPlaceholder?: string;
+  onTaskCardClick: (task: ProcessedAndamento) => void;
 }
 
-export function ProcessMetadataSidebar({ processedData: rawProcessData, processNumberPlaceholder }: ProcessMetadataSidebarProps) {
+export function ProcessMetadataSidebar({ 
+  processedFlowData, 
+  processNumber, 
+  processNumberPlaceholder,
+  onTaskCardClick 
+}: ProcessMetadataSidebarProps) {
   
-  const processedFullData = useMemo(() => {
-    if (!rawProcessData || !rawProcessData.Andamentos) {
-      return null;
-    }
-    return processAndamentos(rawProcessData.Andamentos);
-  }, [rawProcessData]);
-  
-  const displayProcessNumber = rawProcessData?.Info?.NumeroProcesso || processNumberPlaceholder || "Não disponível";
+  const displayProcessNumber = processNumber || processNumberPlaceholder || "Não disponível";
 
-  if (!processedFullData || processedFullData.tasks.length === 0) {
+  if (!processedFlowData || processedFlowData.tasks.length === 0) {
     return (
       <aside className="w-80 p-4 border-r bg-card flex-shrink-0 flex flex-col space-y-6 overflow-y-auto">
         <div>
@@ -37,12 +34,11 @@ export function ProcessMetadataSidebar({ processedData: rawProcessData, processN
           </p>
         </div>
         <p className="text-sm text-muted-foreground flex-grow">Carregue um arquivo JSON para visualizar os detalhes e o fluxograma.</p>
-        {/* ProcessFlowLegend removed from here */}
       </aside>
     );
   }
 
-  const openTasks = processedFullData.tasks.filter(
+  const openTasks = processedFlowData.tasks.filter(
     task => task.color === 'hsl(var(--destructive))' && typeof task.daysOpen === 'number' && task.daysOpen >= 0
   );
 
@@ -64,9 +60,13 @@ export function ProcessMetadataSidebar({ processedData: rawProcessData, processN
             <AlertTriangle className="mr-2 h-5 w-5" />
             Tarefas Pendentes
           </h3>
-          <div className="space-y-3 max-h-96 overflow-y-auto pr-2"> {/* Added max-h and overflow for cards */}
+          <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
             {openTasks.map(task => (
-              <Card key={`${task.IdAndamento}-${task.globalSequence}`} className="shadow-sm border-destructive/50">
+              <Card 
+                key={`${task.IdAndamento}-${task.globalSequence}`} 
+                className="shadow-sm border-destructive/50 cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => onTaskCardClick(task)}
+              >
                 <CardHeader className="p-3">
                   <CardTitle className="text-sm font-semibold">{task.Unidade.Sigla}</CardTitle>
                   <CardDescription className="text-xs">{task.Tarefa}</CardDescription>
@@ -82,8 +82,6 @@ export function ProcessMetadataSidebar({ processedData: rawProcessData, processN
           </div>
         </div>
       )}
-      
-      {/* ProcessFlowLegend removed from here */}
     </aside>
   );
 }

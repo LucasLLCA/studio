@@ -2,9 +2,9 @@
 "use client";
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
-import type { ProcessoData } from '@/types/process-flow';
-import { Upload, FileJson, Zap, Search, Sparkles } from 'lucide-react';
-import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
+import type { ProcessoData, ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
+import { Upload, FileJson, Search, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -13,16 +13,25 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { sampleProcessFlowData } from '@/data/sample-process-data';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
+import { processAndamentos } from '@/lib/process-flow-utils'; // Import processAndamentos
 
 export default function Home() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [displayedProcessData, setDisplayedProcessData] = useState<ProcessoData | null>(null);
+  const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
   }, []);
+
+  const processedFlowData: ProcessedFlowData | null = useMemo(() => {
+    if (!displayedProcessData || !displayedProcessData.Andamentos) {
+      return null;
+    }
+    return processAndamentos(displayedProcessData.Andamentos);
+  }, [displayedProcessData]);
 
   const handleFileUploadClick = () => {
     fileInputRef.current?.click();
@@ -52,6 +61,7 @@ export default function Home() {
         const text = e.target?.result;
         if (typeof text === 'string') {
           const jsonData = JSON.parse(text);
+          // Basic validation for ProcessoData structure
           if (jsonData && jsonData.Andamentos && Array.isArray(jsonData.Andamentos) && jsonData.Info) {
             setDisplayedProcessData(jsonData as ProcessoData);
             toast({
@@ -96,6 +106,10 @@ export default function Home() {
     });
   };
 
+  const handleTaskCardClick = (task: ProcessedAndamento) => {
+    setTaskToScrollTo(task);
+  };
+
   return (
     <main className="min-h-screen flex flex-col bg-background">
       <header className="p-4 border-b border-border shadow-sm">
@@ -104,10 +118,11 @@ export default function Home() {
             <Image 
               src="/logo-sead.jpeg" 
               alt="Logo SEAD Piauí" 
-              width={120} 
-              height={45} 
+              width={160} 
+              height={60} 
               className="h-auto" 
               priority
+              data-ai-hint="logo government"
             />
             <h1 className="text-xl font-semibold" style={{ color: '#107527' }}>
               Visualizador de Processos
@@ -147,12 +162,17 @@ export default function Home() {
       
       <div className="flex flex-1 overflow-hidden">
         <ProcessMetadataSidebar 
-          processedData={displayedProcessData} 
+          processedFlowData={processedFlowData} 
+          processNumber={displayedProcessData?.Info?.NumeroProcesso}
           processNumberPlaceholder="0042431-96.2023.8.18.0001 (Exemplo)" 
+          onTaskCardClick={handleTaskCardClick}
         />
-        <div className="flex-1 flex flex-col overflow-hidden"> {/* Alterado de overflow-auto_ para overflow-hidden */}
-          {displayedProcessData ? (
-            <ProcessFlowClient fullProcessData={displayedProcessData} />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {displayedProcessData && processedFlowData ? (
+            <ProcessFlowClient 
+              processedFlowData={processedFlowData} 
+              taskToScrollTo={taskToScrollTo}
+            />
           ) : (
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <FileJson className="h-20 w-20 text-muted-foreground/50 mb-6" />

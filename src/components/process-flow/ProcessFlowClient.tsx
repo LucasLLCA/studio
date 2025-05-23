@@ -1,36 +1,29 @@
 
 "use client";
 
-import type { ProcessoData, ProcessedFlowData } from '@/types/process-flow';
+import type { ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
 import { ProcessFlowDiagram } from './ProcessFlowDiagram';
-import { processAndamentos } from '@/lib/process-flow-utils';
-import React, { useMemo } from 'react';
+import React from 'react';
 
 interface ProcessFlowClientProps {
-  fullProcessData: ProcessoData | null; // Allow null for initial state
+  processedFlowData: ProcessedFlowData | null;
+  taskToScrollTo?: ProcessedAndamento | null;
 }
 
-export function ProcessFlowClient({ fullProcessData }: ProcessFlowClientProps) {
-  const processedFullData: ProcessedFlowData | null = useMemo(() => {
-    if (!fullProcessData || !fullProcessData.Andamentos) {
-      return null; // Handle null input gracefully
-    }
-    // Process all andamentos to get global positions, sequences, and all connections
-    return processAndamentos(fullProcessData.Andamentos);
-  }, [fullProcessData]);
-
-  if (!processedFullData || !processedFullData.tasks || processedFullData.tasks.length === 0) {
+export function ProcessFlowClient({ processedFlowData, taskToScrollTo }: ProcessFlowClientProps) {
+  if (!processedFlowData || !processedFlowData.tasks || processedFlowData.tasks.length === 0) {
     return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir ou dados inválidos.</p>;
   }
   
   return (
     <div className="h-full flex flex-col">
       <ProcessFlowDiagram 
-        tasks={processedFullData.tasks}
-        connections={processedFullData.connections}
-        svgWidth={processedFullData.svgWidth}
-        svgHeight={processedFullData.svgHeight}
-        laneMap={processedFullData.laneMap}
+        tasks={processedFlowData.tasks}
+        connections={processedFlowData.connections}
+        svgWidth={processedFlowData.svgWidth}
+        svgHeight={processedFlowData.svgHeight}
+        laneMap={processedFlowData.laneMap}
+        taskToScrollTo={taskToScrollTo}
       />
     </div>
   );
