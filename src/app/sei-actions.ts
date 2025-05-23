@@ -77,6 +77,8 @@ export async function fetchProcessDataFromSEI(
 
   const encodedProtocolo = encodeURIComponent(protocoloProcedimento);
   const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/andamentos?protocolo_procedimento=${encodedProtocolo}&sinal_atributos=S&pagina=1`;
+  
+  console.log(`[SEI API] Tentando buscar URL: ${url}`); // Adicionado log da URL
 
   try {
     const response = await fetch(url, {
@@ -94,7 +96,7 @@ export async function fetchProcessDataFromSEI(
       } catch (e) {
         errorDetails = await response.text();
       }
-      console.error(`Failed to fetch process data: ${response.status}`, errorDetails);
+      console.error(`Falha ao buscar dados do processo: ${response.status}`, errorDetails);
       return { error: `Falha ao buscar dados do processo: ${response.status}`, details: errorDetails, status: response.status };
     }
 
@@ -103,12 +105,14 @@ export async function fetchProcessDataFromSEI(
     if (data && data.Andamentos && Array.isArray(data.Andamentos) && data.Info) {
       return data as ProcessoData;
     } else {
-      console.error("Invalid data structure received from API:", data);
-      return { error: "Formato de dados inesperado recebido da API." };
+      // This case might also be relevant for 422 if the API returns an OK status but an unexpected body
+      console.error("Estrutura de dados inválida recebida da API, mesmo com status OK:", data);
+      return { error: "Formato de dados inesperado recebido da API, verifique a resposta.", details: data, status: response.status };
     }
 
   } catch (error) {
-    console.error("Error fetching process data:", error);
+    console.error("Erro ao buscar dados do processo:", error);
     return { error: "Erro ao conectar com o serviço de dados do processo.", details: error instanceof Error ? error.message : String(error) };
   }
 }
+

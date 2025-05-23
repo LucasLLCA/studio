@@ -144,7 +144,7 @@ export default function Home() {
     }
 
     setIsLoading(true);
-    setRawProcessData(null); // Clear previous data
+    setRawProcessData(null); 
 
     try {
       const result = await fetchProcessDataFromSEI(processoNumeroInput, selectedUnidadeFiltro);
@@ -153,36 +153,46 @@ export default function Home() {
         let errorTitle = "Erro ao buscar dados do processo";
         let errorDescription = result.error;
 
-        if (result.status) {
-            errorDescription = `Erro ${result.status}: ${result.error}`;
-        }
-
-        if (result.details) {
-           if (typeof result.details === 'string') {
-            errorDescription += ` Detalhes: ${result.details}`;
-          } else if (result.details.Fault && result.details.Fault.Reason && result.details.Fault.Reason.Text) {
-            errorDescription += ` Detalhes: ${result.details.Fault.Reason.Text}`;
-          } else if (typeof result.details === 'object' && result.details !== null && Object.keys(result.details).length > 0) {
-            // Attempt to stringify non-empty objects for more details
+        if (result.status === 422) {
+          errorTitle = "Erro de Validação dos Dados (422)";
+          errorDescription = "A API não pôde processar os dados fornecidos. Verifique se o 'Número do Processo' está correto e se a 'Unidade' é válida para esta consulta.";
+          if (result.details) {
             try {
-                const detailsString = JSON.stringify(result.details);
-                if (detailsString !== '{}') { // Avoid empty object strings
-                    errorDescription += ` Detalhes: ${detailsString}`;
+                const detailsString = typeof result.details === 'string' ? result.details : JSON.stringify(result.details);
+                if (detailsString && detailsString !== '{}') {
+                    errorDescription += ` Detalhes da API: ${detailsString}`;
                 }
             } catch (e) {
-                // If stringify fails, do nothing or log a client-side warning
+                // If stringify fails or details is not a simple string
+                errorDescription += ` Detalhes da API (erro ao formatar): ${String(result.details)}`;
             }
-          } else if (result.details.message) { // General message property from Error objects
-             errorDescription += ` Detalhes: ${result.details.message}`;
           }
+        } else if (result.status) {
+            errorDescription = `Erro ${result.status}: ${result.error}`;
+             if (result.details) {
+               if (typeof result.details === 'string') {
+                errorDescription += ` Detalhes: ${result.details}`;
+              } else if (result.details.Fault && result.details.Fault.Reason && result.details.Fault.Reason.Text) {
+                errorDescription += ` Detalhes: ${result.details.Fault.Reason.Text}`;
+              } else if (typeof result.details === 'object' && result.details !== null && Object.keys(result.details).length > 0) {
+                try {
+                    const detailsString = JSON.stringify(result.details);
+                    if (detailsString !== '{}') { 
+                        errorDescription += ` Detalhes: ${detailsString}`;
+                    }
+                } catch (e) { /* ... */ }
+              } else if (result.details.message) { 
+                 errorDescription += ` Detalhes: ${result.details.message}`;
+              }
+            }
         }
         
-        if (result.status === 404) {
+        if (result.status === 404 && result.status !== 422) {
           errorDescription = `Processo não encontrado ou sem andamentos na unidade selecionada (${selectedUnidadeFiltro}) para o número ${processoNumeroInput}. Verifique os dados. (Erro: ${result.status})`;
-        } else if (result.status === 401) {
+        } else if (result.status === 401 && result.status !== 422) {
           errorTitle = "Falha na Autenticação com a API SEI";
           errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais configuradas no servidor da aplicação estão corretas e ativas. (Erro: ${result.status})`;
-        } else if (result.status === 500) {
+        } else if (result.status === 500 && result.status !== 422) {
             errorTitle = "Erro Interno no Servidor da API SEI";
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde. (Erro: ${result.status})`;
         }
@@ -358,6 +368,3 @@ export default function Home() {
     </main>
   );
 }
-
-
-    
