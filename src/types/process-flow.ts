@@ -65,3 +65,13 @@ export interface ProcessedFlowData {
   svgHeight: number;
   laneMap: Map<string, number>; 
 }
+
+export interface UnidadeFiltro {
+  Id: string;
+  Sigla: string;
+  Descricao: string;
+}
+
+export interface UnidadesFiltroData {
+  Unidades: UnidadeFiltro[];
+}

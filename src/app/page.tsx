@@ -2,8 +2,8 @@
 "use client";
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
-import type { ProcessoData, ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles } from 'lucide-react';
+import type { ProcessoData, ProcessedFlowData, ProcessedAndamento, UnidadeFiltro, UnidadesFiltroData } from '@/types/process-flow';
+import { Upload, FileJson, Search, Sparkles, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,20 +14,41 @@ import Image from 'next/image';
 import { sampleProcessFlowData } from '@/data/sample-process-data';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
 import { processAndamentos } from '@/lib/process-flow-utils';
+import unidadesData from '@/../unidades_filtradas.json'; // Import the JSON file
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 
 export default function Home() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
-  const [rawProcessData, setRawProcessData] = useState<ProcessoData | null>(null);
+  const [rawProcessData, setRawProcessData] = useState<ProcessoData | null>(sampleProcessFlowData);
   const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>([]);
+  const [selectedUnidadeFiltro, setSelectedUnidadeFiltro] = useState<string | undefined>(undefined);
+
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
+    // The imported JSON is already a JavaScript object
+    const data = unidadesData as UnidadesFiltroData;
+    if (data && data.Unidades) {
+      setUnidadesFiltroList(data.Unidades);
+    }
   }, []);
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
+      // If loading sample data initially and it's null, process it
+      if (rawProcessData === sampleProcessFlowData && sampleProcessFlowData?.Andamentos) {
+         return processAndamentos(sampleProcessFlowData.Andamentos);
+      }
       return null;
     }
     return processAndamentos(rawProcessData.Andamentos);
@@ -61,6 +82,7 @@ export default function Home() {
         const text = e.target?.result;
         if (typeof text === 'string') {
           const jsonData = JSON.parse(text);
+          // Basic validation: check for Info and Andamentos properties
           if (jsonData && jsonData.Andamentos && Array.isArray(jsonData.Andamentos) && jsonData.Info) {
             setRawProcessData(jsonData as ProcessoData);
             toast({
@@ -79,6 +101,7 @@ export default function Home() {
           variant: "destructive",
         });
       } finally {
+        // Clear the file input so the same file can be re-uploaded if needed
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
@@ -96,7 +119,7 @@ export default function Home() {
     };
     reader.readAsText(file);
   };
-
+  
   const loadSampleData = () => {
     setRawProcessData(sampleProcessFlowData);
     toast({
@@ -121,6 +144,7 @@ export default function Home() {
     }
   };
 
+
   return (
     <main className="min-h-screen flex flex-col bg-background">
       <header className="p-4 border-b border-border shadow-sm">
@@ -143,6 +167,18 @@ export default function Home() {
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
               <Input type="text" placeholder="Número do Processo..." className="h-9 text-sm w-48" />
+               <Select value={selectedUnidadeFiltro} onValueChange={setSelectedUnidadeFiltro}>
+                <SelectTrigger className="h-9 text-sm w-[200px]">
+                  <SelectValue placeholder="Filtrar por Unidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unidadesFiltroList.map((unidade) => (
+                    <SelectItem key={unidade.Id} value={unidade.Id}>
+                      {unidade.Sigla}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button variant="outline" size="sm">
                 <Search className="mr-2 h-4 w-4" />
                 Pesquisar
