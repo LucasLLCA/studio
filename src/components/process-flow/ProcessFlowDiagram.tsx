@@ -7,6 +7,8 @@ import { TaskDetailsModal } from './TaskDetailsModal';
 import { ProcessFlowLegend } from './ProcessFlowLegend';
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { VERTICAL_LANE_SPACING, INITIAL_X_OFFSET } from '@/lib/process-flow-utils'; 
 
 interface ProcessFlowDiagramProps {
@@ -16,6 +18,8 @@ interface ProcessFlowDiagramProps {
   svgHeight: number;
   laneMap: Map<string, number>;
   taskToScrollTo?: ProcessedAndamento | null;
+  onScrollToFirstTask: () => void;
+  onScrollToLastTask: () => void;
 }
 
 export function ProcessFlowDiagram({ 
@@ -24,7 +28,9 @@ export function ProcessFlowDiagram({
   svgWidth, 
   svgHeight, 
   laneMap,
-  taskToScrollTo 
+  taskToScrollTo,
+  onScrollToFirstTask,
+  onScrollToLastTask
 }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,29 +40,21 @@ export function ProcessFlowDiagram({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 
   const laneEntries = Array.from(laneMap.entries());
-  const LANE_LABEL_AREA_WIDTH = 150; // Width for the sticky lane labels
+  const LANE_LABEL_AREA_WIDTH = 150; 
 
   useEffect(() => {
     if (taskToScrollTo && viewportRef.current) {
       const viewport = viewportRef.current;
-      // Calculate target scroll positions to center the task
-      // taskToScrollTo.x is relative to the SVG's origin.
-      // The SVG's visible area in the viewport needs to be considered.
-      
-      // Target X to center the node in the *scrollable SVG area*:
-      // scrollLeft should be task.x - half_viewport_width_of_svg_area
-      const targetScrollLeft = taskToScrollTo.x - (viewport.offsetWidth / 2) + (INITIAL_X_OFFSET / 2);
-      
-      // Target Y to center the node vertically in the viewport
+      const targetScrollLeft = taskToScrollTo.x - (viewport.offsetWidth / 2) + (LANE_LABEL_AREA_WIDTH / 2) - (INITIAL_X_OFFSET /2) ;
       const targetScrollTop = taskToScrollTo.y - (viewport.offsetHeight / 2);
 
       viewport.scrollTo({
-        left: Math.max(0, targetScrollLeft), // Ensure not scrolling to negative values
+        left: Math.max(0, targetScrollLeft),
         top: Math.max(0, targetScrollTop),
         behavior: 'smooth',
       });
     }
-  }, [taskToScrollTo]);
+  }, [taskToScrollTo, LANE_LABEL_AREA_WIDTH]);
 
 
   const handleTaskClick = (task: ProcessedAndamento) => {
@@ -74,7 +72,6 @@ export function ProcessFlowDiagram({
     const sRadius = s.nodeRadius || 18;
     const tRadius = t.nodeRadius || 18;
 
-    // If tasks are in different units (lanes), draw a bezier curve
     if (s.Unidade.IdUnidade !== t.Unidade.IdUnidade) { 
       const startX = s.x; 
       const startY = s.y;
@@ -82,15 +79,13 @@ export function ProcessFlowDiagram({
       const endY = t.y;
       
       const dx = endX - startX;
-      // Control points for a C-shaped curve (horizontal first, then vertical, then horizontal)
       const controlX1 = startX + dx * 0.5; 
       const controlY1 = startY;             
       const controlX2 = endX - dx * 0.5;   
       const controlY2 = endY;               
 
       return `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
-    } else { // If tasks are in the same unit, draw a straight horizontal line
-      // Adjust start and end points to be at the edge of the circles
+    } else { 
       const sourceXEdge = s.x < t.x ? s.x + sRadius : s.x - sRadius;
       const targetXEdge = s.x < t.x ? t.x - tRadius : t.x + tRadius;
       return `M ${sourceXEdge} ${s.y} L ${targetXEdge} ${t.y}`;
@@ -98,11 +93,8 @@ export function ProcessFlowDiagram({
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    // Only activate dragging for the main mouse button (left-click)
-    // and if the click is directly on the diagram root, not on a task node (g element)
-    // or other interactive elements within the SVG.
     const targetTagName = (e.target as HTMLElement).tagName.toLowerCase();
-    if (viewportRef.current && e.button === 0 && (targetTagName === 'svg' || targetTagName === 'div' && (e.target as HTMLElement).dataset.diagramRoot)) { 
+    if (viewportRef.current && e.button === 0 && (targetTagName === 'svg' || (targetTagName === 'div' && (e.target as HTMLElement).dataset.diagramRoot))) { 
       setIsDragging(true);
       setDragStart({
         x: e.clientX,
@@ -110,11 +102,9 @@ export function ProcessFlowDiagram({
         scrollLeft: viewportRef.current.scrollLeft,
         scrollTop: viewportRef.current.scrollTop,
       });
-      // Change cursor on the specific element that handles dragging
       if ((e.target as HTMLElement).dataset.diagramRoot) {
         (e.target as HTMLElement).style.cursor = 'grabbing';
       } else if (targetTagName === 'svg') {
-         // If direct click on SVG, its parent (data-diagram-root) might be better for cursor
         const diagramRoot = viewportRef.current?.querySelector('[data-diagram-root]') as HTMLElement | null;
         if (diagramRoot) diagramRoot.style.cursor = 'grabbing';
       }
@@ -137,7 +127,6 @@ export function ProcessFlowDiagram({
     const handleMouseUpGlobal = (e: MouseEvent) => {
       if (isDragging) {
         setIsDragging(false);
-        // Reset cursor on the diagram root element
         if (diagramRootElement) {
           diagramRootElement.style.cursor = 'grab';
         }
@@ -147,7 +136,6 @@ export function ProcessFlowDiagram({
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUpGlobal);
-      // Also listen for mouseleave on the document to stop dragging if mouse leaves window
       document.addEventListener('mouseleave', handleMouseUpGlobal); 
     }
 
@@ -163,33 +151,56 @@ export function ProcessFlowDiagram({
     return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir.</p>;
   }
 
+  const areTasksAvailable = tasks && tasks.length > 0;
+
   return (
     <div className="p-4 md:p-6 lg:p-8 h-full flex flex-col flex-grow">
       <ProcessFlowLegend />
+      <div className="flex justify-end space-x-2 my-2">
+        <Button 
+          onClick={onScrollToFirstTask} 
+          variant="outline" 
+          size="sm"
+          disabled={!areTasksAvailable}
+          aria-label="Ir para o início do fluxo"
+        >
+          <ChevronsLeft className="mr-2 h-4 w-4" />
+          Início
+        </Button>
+        <Button 
+          onClick={onScrollToLastTask} 
+          variant="outline" 
+          size="sm"
+          disabled={!areTasksAvailable}
+          aria-label="Ir para o fim do fluxo"
+        >
+          <ChevronsRight className="mr-2 h-4 w-4" />
+          Fim
+        </Button>
+      </div>
       <ScrollArea
-        className="w-full rounded-md border flex-grow bg-card shadow-inner overflow-hidden mt-4"
-        viewportRef={viewportRef} // Pass ref to ScrollArea's viewport
+        className="w-full rounded-md border flex-grow bg-card shadow-inner overflow-hidden mt-2" // Reduced mt-4 to mt-2
+        viewportRef={viewportRef}
       >
         <div
-          data-diagram-root // Add data attribute for specific targeting
+          data-diagram-root 
           style={{
-            width: svgWidth + LANE_LABEL_AREA_WIDTH, // Total width includes lane labels
+            width: svgWidth + LANE_LABEL_AREA_WIDTH, 
             height: svgHeight,
-            position: 'relative', // For sticky positioning of labels
-            cursor: 'grab', // Initial cursor for dragging
+            position: 'relative', 
+            cursor: 'grab', 
           }}
-          onMouseDown={handleMouseDown} // Attach mouse down directly here
+          onMouseDown={handleMouseDown} 
         >
-          {/* Fixed Lane Labels Container */}
           <div
             style={{
-              position: 'sticky', // Makes labels stick to the left
+              position: 'sticky', 
               left: 0,
               width: `${LANE_LABEL_AREA_WIDTH}px`,
-              height: `${svgHeight}px`, // Match SVG height
-              zIndex: 10, // Ensure labels are on top
-              pointerEvents: 'none', // Allow clicks to pass through to the diagram for dragging
-              backgroundColor: 'hsl(var(--card))', // Background for opacity over SVG
+              height: `${svgHeight}px`, 
+              zIndex: 10, 
+              pointerEvents: 'none', 
+              backgroundColor: 'hsl(var(--card))', 
             }}
           >
             {laneEntries.map(([sigla, yPos]) => (
@@ -197,11 +208,11 @@ export function ProcessFlowDiagram({
                 key={`lane-label-${sigla}`}
                 className="flex items-center pl-4 pr-2 text-sm font-semibold text-muted-foreground"
                 style={{
-                  position: 'absolute', // Position within the sticky container
-                  top: `${yPos - (VERTICAL_LANE_SPACING / 2)}px`, // Center vertically in its lane space
+                  position: 'absolute', 
+                  top: `${yPos - (VERTICAL_LANE_SPACING / 2)}px`, 
                   height: `${VERTICAL_LANE_SPACING}px`,
                   width: '100%',
-                  borderRight: '1px solid hsl(var(--border))', // Visual separator
+                  borderRight: '1px solid hsl(var(--border))', 
                   boxSizing: 'border-box',
                 }}
               >
@@ -210,35 +221,32 @@ export function ProcessFlowDiagram({
             ))}
           </div>
 
-          {/* SVG Diagram - Positioned next to the lane labels */}
           <svg
             width={svgWidth} 
             height={svgHeight}
             xmlns="http://www.w3.org/2000/svg"
             className="bg-background" 
             style={{
-              position: 'absolute', // Position relative to data-diagram-root
-              left: `${LANE_LABEL_AREA_WIDTH}px`, // Offset by lane label width
+              position: 'absolute', 
+              left: `${LANE_LABEL_AREA_WIDTH}px`, 
               top: 0,
-              display: 'block', // Prevents extra space below SVG
+              display: 'block', 
             }}
-            // onMouseDown should be on the parent div for better drag control
           >
             <defs>
               <marker
                 id="arrowhead"
                 markerWidth="10"
                 markerHeight="7"
-                refX="9" // Adjusted for better arrow tip alignment
+                refX="9" 
                 refY="3.5"
-                orient="auto-start-reverse" // Ensures arrow orients with line direction
+                orient="auto-start-reverse" 
                 markerUnits="strokeWidth"
               >
                 <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--muted-foreground))" />
               </marker>
             </defs>
 
-            {/* Render Connections */}
             {connections.map((conn) => (
               <path
                 key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}-${conn.sourceTask.globalSequence}-${conn.targetTask.globalSequence}`}
@@ -250,7 +258,6 @@ export function ProcessFlowDiagram({
               />
             ))}
 
-            {/* Render Task Nodes */}
             {tasks.map((task) => (
               <TaskNode
                 key={`${task.IdAndamento}-${task.globalSequence}`}

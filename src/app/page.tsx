@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,7 @@ import { processAndamentos } from '@/lib/process-flow-utils';
 
 export default function Home() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
-  const [displayedProcessData, setDisplayedProcessData] = useState<ProcessoData | null>(null);
+  const [rawProcessData, setRawProcessData] = useState<ProcessoData | null>(null);
   const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -27,11 +27,11 @@ export default function Home() {
   }, []);
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
-    if (!displayedProcessData || !displayedProcessData.Andamentos) {
+    if (!rawProcessData || !rawProcessData.Andamentos) {
       return null;
     }
-    return processAndamentos(displayedProcessData.Andamentos);
-  }, [displayedProcessData]);
+    return processAndamentos(rawProcessData.Andamentos);
+  }, [rawProcessData]);
 
   const handleFileUploadClick = () => {
     fileInputRef.current?.click();
@@ -62,7 +62,7 @@ export default function Home() {
         if (typeof text === 'string') {
           const jsonData = JSON.parse(text);
           if (jsonData && jsonData.Andamentos && Array.isArray(jsonData.Andamentos) && jsonData.Info) {
-            setDisplayedProcessData(jsonData as ProcessoData);
+            setRawProcessData(jsonData as ProcessoData);
             toast({
               title: "Sucesso!",
               description: `Arquivo JSON "${file.name}" carregado e processado.`,
@@ -98,7 +98,7 @@ export default function Home() {
   };
 
   const loadSampleData = () => {
-    setDisplayedProcessData(sampleProcessFlowData);
+    setRawProcessData(sampleProcessFlowData);
     toast({
         title: "Dados de exemplo carregados",
         description: "Visualizando o fluxograma de exemplo.",
@@ -141,24 +141,6 @@ export default function Home() {
             <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Beta</span>
           </div>
           <div className="flex items-center space-x-3">
-            <Button 
-              onClick={handleScrollToFirstTask} 
-              variant="outline" 
-              size="sm"
-              disabled={!processedFlowData || processedFlowData.tasks.length === 0}
-            >
-              <ChevronsLeft className="mr-2 h-4 w-4" />
-              Início
-            </Button>
-            <Button 
-              onClick={handleScrollToLastTask} 
-              variant="outline" 
-              size="sm"
-              disabled={!processedFlowData || processedFlowData.tasks.length === 0}
-            >
-              <ChevronsRight className="mr-2 h-4 w-4" />
-              Fim
-            </Button>
             <div className="flex items-center space-x-2">
               <Input type="text" placeholder="Número do Processo..." className="h-9 text-sm w-48" />
               <Button variant="outline" size="sm">
@@ -192,15 +174,17 @@ export default function Home() {
       <div className="flex flex-1 overflow-hidden">
         <ProcessMetadataSidebar 
           processedFlowData={processedFlowData} 
-          processNumber={displayedProcessData?.Info?.NumeroProcesso}
+          processNumber={rawProcessData?.Info?.NumeroProcesso}
           processNumberPlaceholder="0042431-96.2023.8.18.0001 (Exemplo)" 
           onTaskCardClick={handleTaskCardClick}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
-          {displayedProcessData && processedFlowData ? (
+          {processedFlowData ? (
             <ProcessFlowClient 
               processedFlowData={processedFlowData} 
               taskToScrollTo={taskToScrollTo}
+              onScrollToFirstTask={handleScrollToFirstTask}
+              onScrollToLastTask={handleScrollToLastTask}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">

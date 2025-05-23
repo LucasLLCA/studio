@@ -8,9 +8,16 @@ import React from 'react';
 interface ProcessFlowClientProps {
   processedFlowData: ProcessedFlowData | null;
   taskToScrollTo?: ProcessedAndamento | null;
+  onScrollToFirstTask: () => void;
+  onScrollToLastTask: () => void;
 }
 
-export function ProcessFlowClient({ processedFlowData, taskToScrollTo }: ProcessFlowClientProps) {
+export function ProcessFlowClient({ 
+  processedFlowData, 
+  taskToScrollTo, 
+  onScrollToFirstTask, 
+  onScrollToLastTask 
+}: ProcessFlowClientProps) {
   if (!processedFlowData || !processedFlowData.tasks || processedFlowData.tasks.length === 0) {
     return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir ou dados inválidos.</p>;
   }
@@ -24,6 +31,8 @@ export function ProcessFlowClient({ processedFlowData, taskToScrollTo }: Process
         svgHeight={processedFlowData.svgHeight}
         laneMap={processedFlowData.laneMap}
         taskToScrollTo={taskToScrollTo}
+        onScrollToFirstTask={onScrollToFirstTask}
+        onScrollToLastTask={onScrollToLastTask}
       />
     </div>
   );
