@@ -3,7 +3,6 @@
 
 import type { ProcessoData, Andamento, ProcessoInfo } from '@/types/process-flow';
 
-// Ensure these are set in your .env.local or server environment variables
 const SEI_API_BASE_URL = process.env.NEXT_PUBLIC_SEI_API_BASE_URL;
 const SEI_API_USER = process.env.SEI_API_USER;
 const SEI_API_PASSWORD = process.env.SEI_API_PASSWORD;
@@ -65,16 +64,17 @@ async function getAuthToken(): Promise<string | ApiError> {
   }
 }
 
-async function fetchAndamentosPage(
+async function fetchAndamentosApiCall(
   protocoloProcedimento: string,
   unidadeId: string,
   token: string,
-  pagina: number
+  pagina: number,
+  quantidade: number
 ): Promise<ProcessoData | ApiError> {
   const encodedProtocolo = encodeURIComponent(protocoloProcedimento);
-  const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/andamentos?protocolo_procedimento=${encodedProtocolo}&sinal_atributos=S&pagina=${pagina}`;
+  const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/andamentos?protocolo_procedimento=${encodedProtocolo}&sinal_atributos=S&pagina=${pagina}&quantidade=${quantidade}`;
   
-  console.log(`[SEI API] Tentando buscar URL (página ${pagina}): ${url}`);
+  console.log(`[SEI API] Tentando buscar URL: ${url}`);
   
   try {
     const response = await fetch(url, {
@@ -94,18 +94,23 @@ async function fetchAndamentosPage(
         errorDetails = await response.text();
       }
       console.error(`Falha ao buscar dados do processo (URL: ${url}, Status: ${response.status})`, errorDetails);
-      return { error: `Falha ao buscar dados do processo (página ${pagina}): ${response.status}`, details: errorDetails, status: response.status };
+      return { error: `Falha ao buscar dados do processo (pagina ${pagina}, quantidade ${quantidade}): ${response.status}`, details: errorDetails, status: response.status };
     }
 
     const data = await response.json();
-    if (data && data.Andamentos && Array.isArray(data.Andamentos) && data.Info) {
+     // Mesmo com status OK, precisamos validar a estrutura mínima esperada.
+    if (data && data.Info && (data.Andamentos || quantidade === 0)) { // Se quantidade é 0, Andamentos pode não vir ou ser vazio.
       // Add NumeroProcesso to Info if it's missing but was used in the query
       if (!data.Info.NumeroProcesso && protocoloProcedimento) {
         data.Info.NumeroProcesso = protocoloProcedimento;
       }
+       // Garante que Andamentos seja um array, mesmo que vazio, se não presente e quantidade > 0
+      if (quantidade > 0 && !Array.isArray(data.Andamentos)) {
+        data.Andamentos = [];
+      }
       return data as ProcessoData;
     } else {
-      console.error("Estrutura de dados inválida recebida da API (página ${pagina}), mesmo com status OK:", data);
+      console.error(`Estrutura de dados inválida recebida da API (pagina ${pagina}, quantidade ${quantidade}), mesmo com status OK:`, data);
       return { 
         error: "Formato de dados inesperado recebido da API.", 
         details: data, 
@@ -113,8 +118,8 @@ async function fetchAndamentosPage(
       };
     }
   } catch (error) {
-    console.error(`Erro ao buscar dados do processo (página ${pagina}):`, error);
-    return { error: `Erro ao conectar com o serviço de dados do processo (página ${pagina}).`, details: error instanceof Error ? error.message : String(error), status: 500 };
+    console.error(`Erro ao buscar dados do processo (pagina ${pagina}, quantidade ${quantidade}):`, error);
+    return { error: `Erro ao conectar com o serviço de dados do processo (pagina ${pagina}, quantidade ${quantidade}).`, details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
 
@@ -136,44 +141,56 @@ export async function fetchProcessDataFromSEI(
   }
   const token = tokenResult;
 
-  // Fetch first page
-  const firstPageResult = await fetchAndamentosPage(protocoloProcedimento, unidadeId, token, 1);
-  if ('error' in firstPageResult) {
-    return firstPageResult;
+  // Primeira chamada: obter a contagem total de itens
+  console.log(`[SEI API] Etapa 1: Buscando contagem total de itens para o processo ${protocoloProcedimento}`);
+  const countResponse = await fetchAndamentosApiCall(protocoloProcedimento, unidadeId, token, 1, 0);
+  
+  if ('error' in countResponse) {
+    console.error("[SEI API] Erro ao buscar contagem de itens:", countResponse);
+    return countResponse;
   }
 
-  const allAndamentos: Andamento[] = [...firstPageResult.Andamentos];
-  const firstPageInfo: ProcessoInfo = firstPageResult.Info;
+  const totalItens = countResponse.Info?.TotalItens;
 
-  if (firstPageInfo.TotalPaginas && firstPageInfo.TotalPaginas > 1) {
-    console.log(`[SEI API] Total de páginas para buscar: ${firstPageInfo.TotalPaginas}`);
-    for (let i = 2; i <= firstPageInfo.TotalPaginas; i++) {
-      const subsequentPageResult = await fetchAndamentosPage(protocoloProcedimento, unidadeId, token, i);
-      if ('error' in subsequentPageResult) {
-        // Optionally, return partial data with a warning, or fail completely
-        // For now, fail completely if any page fails after the first
-        console.error(`Erro ao buscar página ${i}. Retornando erro.`, subsequentPageResult);
-        return { 
-            error: `Falha ao buscar todos os andamentos. Erro na página ${i}: ${subsequentPageResult.error}`, 
-            details: subsequentPageResult.details, 
-            status: subsequentPageResult.status 
-        };
-      }
-      allAndamentos.push(...subsequentPageResult.Andamentos);
-      console.log(`[SEI API] Página ${i} buscada. Total de andamentos acumulados: ${allAndamentos.length}`);
-    }
+  if (typeof totalItens !== 'number' || totalItens < 0) {
+    console.error("[SEI API] TotalItens não é um número válido ou está ausente na resposta da contagem:", countResponse.Info);
+    return { error: "Não foi possível obter a contagem total de andamentos da API.", details: countResponse.Info, status: 500 };
   }
   
-  // Construct the final ProcessoData object with all andamentos
+  if (totalItens === 0) {
+    console.log(`[SEI API] Processo ${protocoloProcedimento} não possui andamentos registrados.`);
+    return {
+      Info: {
+        ...countResponse.Info,
+        Pagina: 1,
+        TotalPaginas: 1, // Ou 0, dependendo da preferência
+        QuantidadeItens: 0,
+        TotalItens: 0,
+        NumeroProcesso: countResponse.Info?.NumeroProcesso || protocoloProcedimento,
+      },
+      Andamentos: [],
+    };
+  }
+
+  // Segunda chamada: buscar todos os itens
+  console.log(`[SEI API] Etapa 2: Buscando todos os ${totalItens} andamentos para o processo ${protocoloProcedimento}`);
+  const allItemsResponse = await fetchAndamentosApiCall(protocoloProcedimento, unidadeId, token, 1, totalItens);
+
+  if ('error' in allItemsResponse) {
+     console.error("[SEI API] Erro ao buscar todos os andamentos:", allItemsResponse);
+    return allItemsResponse;
+  }
+  
+  // Construir o objeto ProcessoData final com todos os andamentos
   const finalProcessoData: ProcessoData = {
     Info: {
-      Pagina: 1, // Consolidated result
-      TotalPaginas: 1, // Consolidated result
-      QuantidadeItens: allAndamentos.length,
-      TotalItens: firstPageInfo.TotalItens, // Grand total from the API
-      NumeroProcesso: firstPageInfo.NumeroProcesso || protocoloProcedimento,
+      Pagina: 1, // Resultado consolidado
+      TotalPaginas: 1, // Resultado consolidado
+      QuantidadeItens: allItemsResponse.Andamentos?.length || 0,
+      TotalItens: totalItens, // Total real da API
+      NumeroProcesso: allItemsResponse.Info?.NumeroProcesso || protocoloProcedimento,
     },
-    Andamentos: allAndamentos,
+    Andamentos: allItemsResponse.Andamentos || [],
   };
 
   return finalProcessoData;

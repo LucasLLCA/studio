@@ -134,8 +134,20 @@ export default function Home() {
   const loadSampleData = () => {
     setIsLoading(true);
     setLoadingMessage("Carregando dados de exemplo...");
-    setRawProcessData(sampleProcessFlowData);
-    setProcessoNumeroInput(sampleProcessFlowData.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)");
+    // Ensure sampleProcessFlowData structure matches ProcessoData, especially Info
+    const sampleDataWithInfo: ProcessoData = {
+      Info: {
+        Pagina: 1,
+        TotalPaginas: 1,
+        QuantidadeItens: sampleProcessFlowData.Andamentos.length,
+        TotalItens: sampleProcessFlowData.Andamentos.length,
+        NumeroProcesso: sampleProcessFlowData.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)",
+      },
+      Andamentos: sampleProcessFlowData.Andamentos,
+    };
+    setRawProcessData(sampleDataWithInfo);
+    setProcessoNumeroInput(sampleDataWithInfo.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)");
+
     toast({
         title: "Dados de exemplo carregados",
         description: "Visualizando o fluxograma de exemplo.",
@@ -154,7 +166,7 @@ export default function Home() {
     }
 
     console.log(`[UI] Iniciando busca SEI com: Processo='${processoNumeroInput}', Unidade='${selectedUnidadeFiltro}'`);
-    setLoadingMessage("Buscando dados do processo na API SEI...");
+    setLoadingMessage("Buscando dados do processo na API SEI... (Etapa 1: Contagem)");
     setIsLoading(true);
     setRawProcessData(null); 
 
@@ -219,14 +231,8 @@ export default function Home() {
         });
         setRawProcessData(null);
       } else {
-        const fetchedDataWithProcessNumber = {
-          ...result,
-          Info: {
-            ...result.Info,
-            NumeroProcesso: result.Info?.NumeroProcesso || processoNumeroInput,
-          }
-        };
-        setRawProcessData(fetchedDataWithProcessNumber);
+        // A API agora retorna o Info.NumeroProcesso preenchido
+        setRawProcessData(result);
         toast({
           title: "Sucesso!",
           description: `Dados do processo (total ${result.Andamentos.length} andamentos) carregados da API.`,
@@ -242,6 +248,7 @@ export default function Home() {
       });
       setRawProcessData(null);
     } finally {
+      setLoadingMessage("Processando dados..."); // Reset message for next load
       setIsLoading(false);
     }
   };
@@ -353,7 +360,7 @@ export default function Home() {
               </h2>
               <p className="text-muted-foreground max-w-md">
                 Por favor, aguarde. 
-                {loadingMessage.includes("API SEI") ? 
+                {loadingMessage.includes("API SEI") || loadingMessage.includes("Contagem") ? 
                   " A consulta à API SEI pode levar alguns instantes, especialmente para processos com muitos andamentos." : 
                   " Os dados estão sendo preparados para visualização."
                 }
@@ -390,3 +397,4 @@ export default function Home() {
     </main>
   );
 }
+
