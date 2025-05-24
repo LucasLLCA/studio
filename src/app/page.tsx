@@ -37,6 +37,7 @@ export default function Home() {
   const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>("Processando dados...");
+  const [isSummarizedView, setIsSummarizedView] = useState<boolean>(false);
 
 
   useEffect(() => {
@@ -58,8 +59,8 @@ export default function Home() {
         NumeroProcesso: rawProcessData.Info?.NumeroProcesso || processoNumeroInput,
       }
     };
-    return processAndamentos(dataToProcess.Andamentos, dataToProcess.Info?.NumeroProcesso || processoNumeroInput);
-  }, [rawProcessData, processoNumeroInput]);
+    return processAndamentos(dataToProcess.Andamentos, dataToProcess.Info?.NumeroProcesso || processoNumeroInput, isSummarizedView);
+  }, [rawProcessData, processoNumeroInput, isSummarizedView]);
 
   const handleFileUploadClick = () => {
     fileInputRef.current?.click();
@@ -134,7 +135,6 @@ export default function Home() {
   const loadSampleData = () => {
     setIsLoading(true);
     setLoadingMessage("Carregando dados de exemplo...");
-    // Ensure sampleProcessFlowData structure matches ProcessoData, especially Info
     const sampleDataWithInfo: ProcessoData = {
       Info: {
         Pagina: 1,
@@ -166,7 +166,7 @@ export default function Home() {
     }
 
     console.log(`[UI] Iniciando busca SEI com: Processo='${processoNumeroInput}', Unidade='${selectedUnidadeFiltro}'`);
-    setLoadingMessage("Buscando dados do processo na API SEI... (Etapa 1: Contagem)");
+    setLoadingMessage("Buscando dados do processo na API SEI...");
     setIsLoading(true);
     setRawProcessData(null); 
 
@@ -231,7 +231,6 @@ export default function Home() {
         });
         setRawProcessData(null);
       } else {
-        // A API agora retorna o Info.NumeroProcesso preenchido
         setRawProcessData(result);
         toast({
           title: "Sucesso!",
@@ -239,16 +238,20 @@ export default function Home() {
         });
       }
     } catch (error) { 
-      console.error("Error in handleSearchClick (unexpected application error):", error);
+      console.error("[UI] Erro inesperado ao buscar dados do processo:", error);
+      let errorMessage = "Ocorreu um erro inesperado ao tentar buscar os dados.";
+      if (error instanceof Error) {
+        errorMessage += ` Detalhes: ${error.message}`;
+      }
       toast({
         title: "Erro Inesperado na Aplicação",
-        description: "Ocorreu um erro inesperado ao tentar buscar os dados. Verifique o console para mais detalhes.",
+        description: errorMessage,
         variant: "destructive",
         duration: 7000,
       });
       setRawProcessData(null);
     } finally {
-      setLoadingMessage("Processando dados..."); // Reset message for next load
+      setLoadingMessage("Processando dados..."); 
       setIsLoading(false);
     }
   };
@@ -333,7 +336,12 @@ export default function Home() {
               className="hidden"
             />
             <div className="flex items-center space-x-2">
-              <Switch id="summarize-graph" disabled={true} /> {/* Summarization not implemented */}
+              <Switch 
+                id="summarize-graph" 
+                checked={isSummarizedView}
+                onCheckedChange={setIsSummarizedView}
+                disabled={!rawProcessData} 
+              />
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Versão Resumida</Label>
             </div>
             <div className="flex items-center space-x-1 text-sm text-muted-foreground">
@@ -360,7 +368,7 @@ export default function Home() {
               </h2>
               <p className="text-muted-foreground max-w-md">
                 Por favor, aguarde. 
-                {loadingMessage.includes("API SEI") || loadingMessage.includes("Contagem") ? 
+                {loadingMessage.includes("API SEI") ? 
                   " A consulta à API SEI pode levar alguns instantes, especialmente para processos com muitos andamentos." : 
                   " Os dados estão sendo preparados para visualização."
                 }

@@ -43,13 +43,17 @@ export interface ProcessoData {
 export interface ProcessedAndamento extends Andamento {
   parsedDate: Date;
   summary?: string;
-  globalSequence: number;
+  globalSequence: number; // Sequence number in the (potentially summarized) display list
+  originalGlobalSequence?: number; // Sequence number in the original full list of andamentos
   x: number; 
   y: number; 
   color?: string; 
   nodeRadius: number; 
-  chronologicalIndex: number; 
+  chronologicalIndex: number; // Index in the original globallySortedAndamentos
   daysOpen?: number; 
+  isSummaryNode?: boolean;
+  groupedTasksCount?: number;
+  originalTaskIds?: string[];
 }
 
 export interface Connection {
