@@ -137,7 +137,7 @@ export default function Home() {
     setLoadingMessage("Carregando dados de exemplo...");
     const sampleDataWithInfo: ProcessoData = {
       Info: {
-        ...sampleProcessFlowData.Info, // Ensure Info from sample is spread
+        ...sampleProcessFlowData.Info, 
         Pagina: sampleProcessFlowData.Info?.Pagina || 1,
         TotalPaginas: sampleProcessFlowData.Info?.TotalPaginas || 1,
         QuantidadeItens: sampleProcessFlowData.Andamentos.length,
@@ -284,7 +284,6 @@ export default function Home() {
               alt="Logo SEAD Piauí" 
               width={160} 
               height={60} 
-              className="h-auto" 
               priority
               data-ai-hint="logo government"
             />
