@@ -86,6 +86,8 @@ export default function Home() {
 
     setIsLoading(true);
     setLoadingMessage("Processando arquivo JSON...");
+    setRawProcessData(null); // Clear previous data
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
@@ -135,6 +137,8 @@ export default function Home() {
   const loadSampleData = () => {
     setIsLoading(true);
     setLoadingMessage("Carregando dados de exemplo...");
+    setRawProcessData(null); 
+
     const sampleDataWithInfo: ProcessoData = {
       Info: {
         ...sampleProcessFlowData.Info, 
@@ -198,7 +202,7 @@ export default function Home() {
           errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro} para o número ${processoNumeroInput}, ou o processo não possui andamentos registrados nessa unidade. Verifique os dados e tente novamente.`;
         } else if (result.status === 401) {
           errorTitle = "Falha na Autenticação com a API SEI (401)";
-          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais configuradas no servidor da aplicação (.env.local) estão corretas e ativas.`;
+          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais configuradas no servidor da aplicação (.env ou .env.local) estão corretas e ativas.`;
         } else if (result.status === 500) {
             errorTitle = "Erro Interno no Servidor da API SEI (500)";
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
@@ -279,11 +283,11 @@ export default function Home() {
       <header className="p-4 border-b border-border shadow-sm">
         <div className="container mx-auto flex items-center justify-between max-w-full">
           <div className="flex items-center space-x-3">
-            <Image 
-              src="/logo-sead-piaui.png" 
-              alt="Logo SEAD Piauí" 
-              width={280} 
-              height={60} 
+            <Image
+              src="/logo-sead-piaui.png"
+              alt="Logo SEAD Piauí"
+              width={280}
+              height={60}
               priority
               data-ai-hint="logo government"
             />
@@ -320,8 +324,8 @@ export default function Home() {
                 onClick={handleSearchClick}
                 disabled={isLoading || !processoNumeroInput || !selectedUnidadeFiltro}
               >
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                {isLoading ? "Pesquisando..." : "Pesquisar"}
+                {isLoading && loadingMessage.includes("API SEI") ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                {isLoading && loadingMessage.includes("API SEI") ? "Pesquisando..." : "Pesquisar"}
               </Button>
             </div>
             <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading}>
@@ -359,19 +363,15 @@ export default function Home() {
           processNumberPlaceholder="Nenhum processo carregado" 
           onTaskCardClick={handleTaskCardClick}
         />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {isLoading ? (
+        <div className="flex-1 flex flex-col overflow-hidden"> {/* Changed from overflow-auto to overflow-hidden */}
+          {isLoading && !loadingMessage.includes("API SEI") ? ( // Show general loading for JSON/Sample data
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">
                 {loadingMessage}
               </h2>
               <p className="text-muted-foreground max-w-md">
-                Por favor, aguarde. 
-                {loadingMessage.includes("API SEI") ? 
-                  " A consulta à API SEI pode levar alguns instantes, especialmente para processos com muitos andamentos." : 
-                  " Os dados estão sendo preparados para visualização."
-                }
+                Por favor, aguarde. Os dados estão sendo preparados para visualização.
               </p>
             </div>
           ) : processedFlowData ? (
@@ -381,6 +381,16 @@ export default function Home() {
               onScrollToFirstTask={handleScrollToFirstTask}
               onScrollToLastTask={handleScrollToLastTask}
             />
+          ) : isLoading && loadingMessage.includes("API SEI") ? ( // Specific loading for API calls
+             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+              <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
+              <h2 className="text-xl font-semibold text-foreground mb-2">
+                {loadingMessage}
+              </h2>
+              <p className="text-muted-foreground max-w-md">
+                Por favor, aguarde. A consulta à API SEI pode levar alguns instantes, especialmente para processos com muitos andamentos.
+              </p>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <FileJson className="h-20 w-20 text-muted-foreground/50 mb-6" />
@@ -405,7 +415,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
-
-      
