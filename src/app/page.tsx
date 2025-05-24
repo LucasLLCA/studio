@@ -139,6 +139,7 @@ export default function Home() {
     setLoadingMessage("Carregando dados de exemplo...");
     setRawProcessData(null); 
 
+    // Ensure sampleProcessFlowData has the Info field correctly typed
     const sampleDataWithInfo: ProcessoData = {
       Info: {
         ...sampleProcessFlowData.Info, 
@@ -177,6 +178,7 @@ export default function Home() {
 
     try {
       const result = await fetchProcessDataFromSEI(processoNumeroInput, selectedUnidadeFiltro);
+      console.log("[UI] Resultado da API SEI:", result);
       
       if ('error' in result) {
         let errorTitle = "Erro ao buscar dados do processo";
@@ -236,11 +238,24 @@ export default function Home() {
         });
         setRawProcessData(null);
       } else {
-        setRawProcessData(result);
-        toast({
-          title: "Sucesso!",
-          description: `Dados do processo (total ${result.Andamentos.length} andamentos) carregados da API.`,
-        });
+        // Verifique se result.Andamentos existe e é um array
+        if (result && result.Andamentos && Array.isArray(result.Andamentos)) {
+          setRawProcessData(result);
+          toast({
+            title: "Sucesso!",
+            description: `Dados do processo (total ${result.Andamentos.length} andamentos) carregados da API.`,
+          });
+        } else {
+          // Se Andamentos estiver ausente ou não for um array, trate como um erro de formato ou dados vazios
+          console.error("[UI] Resposta da API SEI bem-sucedida, mas 'Andamentos' está ausente ou não é um array:", result);
+          toast({
+            title: "Dados Incompletos da API",
+            description: "A API retornou uma resposta, mas não contém os andamentos do processo esperados. Pode não haver andamentos para este processo nesta unidade.",
+            variant: "destructive",
+            duration: 7000,
+          });
+          setRawProcessData(null); // Limpa para evitar erros no processamento
+        }
       }
     } catch (error) { 
       console.error("[UI] Erro inesperado ao buscar dados do processo:", error);
@@ -284,7 +299,7 @@ export default function Home() {
         <div className="container mx-auto flex items-center justify-between max-w-full">
           <div className="flex items-center space-x-3">
             <Image
-              src="/logo-sead.jpg"
+              src="/logo-sead.png"
               alt="Logo SEAD Piauí"
               width={160} 
               height={60}
