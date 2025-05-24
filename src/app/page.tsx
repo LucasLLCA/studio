@@ -280,7 +280,7 @@ export default function Home() {
         <div className="container mx-auto flex items-center justify-between max-w-full">
           <div className="flex items-center space-x-3">
             <Image 
-              src="/logo-sead.jpeg" 
+              src="/logo-sead.jpg" 
               alt="Logo SEAD Piauí" 
               width={160} 
               height={60} 
@@ -405,3 +405,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
