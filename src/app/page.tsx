@@ -280,9 +280,9 @@ export default function Home() {
         <div className="container mx-auto flex items-center justify-between max-w-full">
           <div className="flex items-center space-x-3">
             <Image 
-              src="/logo-sead.jpg" 
+              src="/logo-sead-piaui.png" 
               alt="Logo SEAD Piauí" 
-              width={160} 
+              width={280} 
               height={60} 
               priority
               data-ai-hint="logo government"
@@ -407,3 +407,5 @@ export default function Home() {
 }
 
     
+
+      
