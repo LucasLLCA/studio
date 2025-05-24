@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { formatDisplayDate } from '@/lib/process-flow-utils'; // Updated import
+import { formatDisplayDate } from '@/lib/process-flow-utils';
 import React from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -22,11 +22,14 @@ interface ProcessHistoryTableProps {
 
 // Helper to clean HTML from descriptions for display
 const stripHtml = (html: string): string => {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent || "";
+  if (typeof document !== 'undefined') {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || "";
+  }
+  // Fallback for server-side rendering or environments without DOMParser
+  return html.replace(/<[^>]*>?/gm, '');
 };
 
-const MAX_DESC_LENGTH = 100; // Max characters for description in table cell
 
 export function ProcessHistoryTable({ tasks }: ProcessHistoryTableProps) {
   if (!tasks || tasks.length === 0) {
@@ -53,32 +56,25 @@ export function ProcessHistoryTable({ tasks }: ProcessHistoryTableProps) {
             <TableBody>
               {tasks.map((task) => {
                 const cleanedDescription = stripHtml(task.Descricao);
-                const displayDescription = cleanedDescription.length > MAX_DESC_LENGTH
-                  ? `${cleanedDescription.substring(0, MAX_DESC_LENGTH)}...`
-                  : cleanedDescription;
 
                 return (
                   <TableRow key={`${task.IdAndamento}-${task.globalSequence}`}>
-                    <TableCell className="font-medium text-center">{task.globalSequence}</TableCell>
-                    <TableCell>{formatDisplayDate(task.parsedDate)}</TableCell>
-                    <TableCell title={task.Unidade.Descricao}>{task.Unidade.Sigla}</TableCell>
-                    <TableCell>{task.Tarefa}</TableCell>
-                    <TableCell>
-                      {cleanedDescription.length > MAX_DESC_LENGTH ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span>{displayDescription}</span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" align="start" className="max-w-md whitespace-normal break-words">
-                            <p>{cleanedDescription}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      ) : (
-                        displayDescription
-                      )}
+                    <TableCell className="font-medium text-center align-top">{task.globalSequence}</TableCell>
+                    <TableCell className="align-top">{formatDisplayDate(task.parsedDate)}</TableCell>
+                    <TableCell title={task.Unidade.Descricao} className="align-top">{task.Unidade.Sigla}</TableCell>
+                    <TableCell className="align-top">{task.Tarefa}</TableCell>
+                    <TableCell className="whitespace-normal break-words max-w-xs md:max-w-sm lg:max-w-md align-top">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-default block">{cleanedDescription}</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" align="start" className="max-w-lg">
+                          <p>{cleanedDescription}</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </TableCell>
-                    <TableCell>{task.Usuario.Nome} ({task.Usuario.Sigla})</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="align-top">{task.Usuario.Nome} ({task.Usuario.Sigla})</TableCell>
+                    <TableCell className="text-center align-top">
                       {task.daysOpen !== undefined && task.daysOpen >= 0 ? (
                         <Badge variant="destructive">{task.daysOpen} dia(s)</Badge>
                       ) : (
