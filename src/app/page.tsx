@@ -137,10 +137,11 @@ export default function Home() {
     setLoadingMessage("Carregando dados de exemplo...");
     const sampleDataWithInfo: ProcessoData = {
       Info: {
-        Pagina: 1,
-        TotalPaginas: 1,
+        ...sampleProcessFlowData.Info, // Ensure Info from sample is spread
+        Pagina: sampleProcessFlowData.Info?.Pagina || 1,
+        TotalPaginas: sampleProcessFlowData.Info?.TotalPaginas || 1,
         QuantidadeItens: sampleProcessFlowData.Andamentos.length,
-        TotalItens: sampleProcessFlowData.Andamentos.length,
+        TotalItens: sampleProcessFlowData.Info?.TotalItens || sampleProcessFlowData.Andamentos.length,
         NumeroProcesso: sampleProcessFlowData.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)",
       },
       Andamentos: sampleProcessFlowData.Andamentos,
@@ -202,14 +203,14 @@ export default function Home() {
             errorTitle = "Erro Interno no Servidor da API SEI (500)";
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
         } else if (result.status) { 
-             errorDescription = `Erro ${result.status}: ${result.error}`;
+             errorDescription = `Erro ${result.status}: ${result.error || 'Desconhecido'}`;
              if (result.details) {
                if (typeof result.details === 'string' && result.details.length < 200) {
                 errorDescription += ` Detalhes: ${result.details}`;
-              } else if (result.details && typeof result.details.message === 'string' && result.details.message.length < 200) { 
-                 errorDescription += ` Detalhes: ${result.details.message}`;
-              } else if (result.details && result.details.Fault && result.details.Fault.Reason && result.details.Fault.Reason.Text && result.details.Fault.Reason.Text.length < 200) {
-                errorDescription += ` Detalhes: ${result.details.Fault.Reason.Text}`;
+              } else if (result.details && typeof (result.details as any).message === 'string' && (result.details as any).message.length < 200) { 
+                 errorDescription += ` Detalhes: ${(result.details as any).message}`;
+              } else if (result.details && (result.details as any).Fault && (result.details as any).Fault.Reason && (result.details as any).Fault.Reason.Text && (result.details as any).Fault.Reason.Text.length < 200) {
+                errorDescription += ` Detalhes: ${(result.details as any).Fault.Reason.Text}`;
               } else {
                  try {
                     const detailsString = JSON.stringify(result.details);
@@ -340,7 +341,7 @@ export default function Home() {
                 id="summarize-graph" 
                 checked={isSummarizedView}
                 onCheckedChange={setIsSummarizedView}
-                disabled={!rawProcessData} 
+                disabled={!rawProcessData || isLoading} 
               />
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Versão Resumida</Label>
             </div>
@@ -405,4 +406,3 @@ export default function Home() {
     </main>
   );
 }
-
