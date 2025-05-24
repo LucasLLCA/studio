@@ -301,8 +301,8 @@ export default function Home() {
             <Image
               src="/logo-sead.png"
               alt="Logo SEAD Piauí"
-              width={160} 
-              height={60}
+              width={250} 
+              height={100}
               priority
               data-ai-hint="logo government"
             />
