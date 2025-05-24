@@ -38,7 +38,13 @@ export function parseCustomDateString(dateString: string): Date {
 
 export function formatDisplayDate(date: Date): string {
   if (!(date instanceof Date) || isNaN(date.getTime())) return 'Data inválida';
-  return format(date, "dd/MM/yyyy HH:mm:ss", { locale: ptBR });
+  // Example: 23/08/2023 10:56
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
 export function processAndamentos(andamentosInput: Andamento[], numeroProcesso?: string): ProcessedFlowData {
@@ -116,17 +122,15 @@ export function processAndamentos(andamentosInput: Andamento[], numeroProcesso?:
   });
 
   const connections: Connection[] = [];
-  const latestTaskInLane = new Map<string, ProcessedAndamento>(); // Key: UnitID (e.g., "110006180"), Value: Latest task in that unit's lane
+  const latestTaskInLane = new Map<string, ProcessedAndamento>(); 
 
   for (let i = 0; i < processedTasks.length; i++) {
     const currentTask = processedTasks[i];
     const performingUnitId = currentTask.Unidade.IdUnidade;
 
     if (currentTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
-      // The 'Unidade' in currentTask is the *target* unit of the remittance.
-      // The *sender* unit is in currentTask.Atributos
       const senderUnitAttribute = currentTask.Atributos?.find(attr => attr.Nome === "UNIDADE");
-      const senderUnitId = senderUnitAttribute?.IdOrigem; // This is the ID of the unit that SENT the process
+      const senderUnitId = senderUnitAttribute?.IdOrigem;
 
       if (senderUnitId) {
         const lastActionInSenderLane = latestTaskInLane.get(senderUnitId);
@@ -134,13 +138,10 @@ export function processAndamentos(andamentosInput: Andamento[], numeroProcesso?:
           connections.push({ sourceTask: lastActionInSenderLane, targetTask: currentTask });
         }
       }
-      // This remittance task becomes the latest in its own (target) lane
-      latestTaskInLane.set(performingUnitId, currentTask);
-
+      latestTaskInLane.set(performingUnitId, currentTask); // The "remetido" task is now the latest in its (target) lane
     } else {
-      // For other tasks, connect from the latest task in the *same* lane (performing unit)
       const lastActionInThisLane = latestTaskInLane.get(performingUnitId);
-      if (lastActionInThisLane && lastActionInThisLane.globalSequence < currentTask.globalSequence) {
+      if (lastActionInThisLane) {
          connections.push({ sourceTask: lastActionInThisLane, targetTask: currentTask });
       }
       latestTaskInLane.set(performingUnitId, currentTask);
@@ -160,3 +161,4 @@ export function processAndamentos(andamentosInput: Andamento[], numeroProcesso?:
     processNumber: numeroProcesso,
   };
 }
+

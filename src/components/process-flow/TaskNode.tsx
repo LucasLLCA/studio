@@ -3,6 +3,7 @@
 
 import type { ProcessedAndamento } from '@/types/process-flow';
 import React from 'react';
+import { formatDisplayDate } from '@/lib/process-flow-utils'; // Updated import
 
 interface TaskNodeProps {
   task: ProcessedAndamento;
@@ -60,15 +61,3 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick }) => {
 };
 
 TaskNode.displayName = 'TaskNode';
-
-// Helper function (can be moved to utils if used elsewhere)
-function formatDisplayDate(date: Date): string {
-  if (!(date instanceof Date) || isNaN(date.getTime())) return 'Data inválida';
-  // Example: 23/08/2023 10:56
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-  const year = date.getFullYear();
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${day}/${month}/${year} ${hours}:${minutes}`;
-}

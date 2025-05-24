@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { formatDisplayDate } from '@/lib/process-flow-utils';
+import { formatDisplayDate } from '@/lib/process-flow-utils'; // Updated import
 import React from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
