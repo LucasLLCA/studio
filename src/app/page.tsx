@@ -36,6 +36,8 @@ export default function Home() {
   const [selectedUnidadeFiltro, setSelectedUnidadeFiltro] = useState<string | undefined>(undefined);
   const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>("Processando dados...");
+
 
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
@@ -53,7 +55,6 @@ export default function Home() {
       ...rawProcessData,
       Info: {
         ...rawProcessData.Info,
-        // Ensure NumeroProcesso from input is preferred if API doesn't return it or if loading from sample
         NumeroProcesso: rawProcessData.Info?.NumeroProcesso || processoNumeroInput,
       }
     };
@@ -83,6 +84,7 @@ export default function Home() {
     }
 
     setIsLoading(true);
+    setLoadingMessage("Processando arquivo JSON...");
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
@@ -131,6 +133,7 @@ export default function Home() {
   
   const loadSampleData = () => {
     setIsLoading(true);
+    setLoadingMessage("Carregando dados de exemplo...");
     setRawProcessData(sampleProcessFlowData);
     setProcessoNumeroInput(sampleProcessFlowData.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)");
     toast({
@@ -151,6 +154,7 @@ export default function Home() {
     }
 
     console.log(`[UI] Iniciando busca SEI com: Processo='${processoNumeroInput}', Unidade='${selectedUnidadeFiltro}'`);
+    setLoadingMessage("Buscando dados do processo na API SEI...");
     setIsLoading(true);
     setRawProcessData(null); 
 
@@ -185,7 +189,7 @@ export default function Home() {
         } else if (result.status === 500) {
             errorTitle = "Erro Interno no Servidor da API SEI (500)";
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
-        } else if (result.status) { // Generic status error
+        } else if (result.status) { 
              errorDescription = `Erro ${result.status}: ${result.error}`;
              if (result.details) {
                if (typeof result.details === 'string' && result.details.length < 200) {
@@ -215,7 +219,6 @@ export default function Home() {
         });
         setRawProcessData(null);
       } else {
-        // Ensure NumeroProcesso is set, especially if API's Info object might not have it.
         const fetchedDataWithProcessNumber = {
           ...result,
           Info: {
@@ -226,10 +229,10 @@ export default function Home() {
         setRawProcessData(fetchedDataWithProcessNumber);
         toast({
           title: "Sucesso!",
-          description: "Dados do processo carregados da API.",
+          description: `Dados do processo (total ${result.Andamentos.length} andamentos) carregados da API.`,
         });
       }
-    } catch (error) { // Catch unexpected errors in the frontend logic
+    } catch (error) { 
       console.error("Error in handleSearchClick (unexpected application error):", error);
       toast({
         title: "Erro Inesperado na Aplicação",
@@ -341,20 +344,17 @@ export default function Home() {
           processNumberPlaceholder="Nenhum processo carregado" 
           onTaskCardClick={handleTaskCardClick}
         />
-        <div className="flex-1 flex flex-col overflow-hidden"> {/* Ensure this parent also allows flex content to grow/shrink */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">
-                {rawProcessData === null && !processoNumeroInput.startsWith("0042431") ? 
-                  "Buscando dados do processo na API SEI..." : 
-                  "Processando dados..."
-                }
+                {loadingMessage}
               </h2>
               <p className="text-muted-foreground max-w-md">
                 Por favor, aguarde. 
-                {rawProcessData === null && !processoNumeroInput.startsWith("0042431") ? 
-                  " A consulta à API SEI pode levar alguns instantes." : 
+                {loadingMessage.includes("API SEI") ? 
+                  " A consulta à API SEI pode levar alguns instantes, especialmente para processos com muitos andamentos." : 
                   " Os dados estão sendo preparados para visualização."
                 }
               </p>
