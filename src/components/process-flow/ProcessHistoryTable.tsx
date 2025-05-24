@@ -63,7 +63,8 @@ export function ProcessHistoryTable({ tasks }: ProcessHistoryTableProps) {
                     <TableCell className="align-top">{formatDisplayDate(task.parsedDate)}</TableCell>
                     <TableCell title={task.Unidade.Descricao} className="align-top">{task.Unidade.Sigla}</TableCell>
                     <TableCell className="align-top">{task.Tarefa}</TableCell>
-                    <TableCell className="whitespace-normal break-words max-w-xs md:max-w-sm lg:max-w-md align-top">
+                    {/* Removed max-w-* classes to allow full width for description */}
+                    <TableCell className="whitespace-normal break-words align-top">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="cursor-default block">{cleanedDescription}</span>
@@ -93,3 +94,4 @@ export function ProcessHistoryTable({ tasks }: ProcessHistoryTableProps) {
     </div>
   );
 }
+
