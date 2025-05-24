@@ -11,6 +11,10 @@ const SEI_API_ORGAO = process.env.SEI_API_ORGAO;
 
 interface AuthTokenResponse {
   Token: string;
+  // Include other fields if needed, based on the actual response structure
+  Login?: {
+    IdLogin?: string;
+  };
 }
 
 interface ApiError {
@@ -22,7 +26,7 @@ interface ApiError {
 async function getAuthToken(): Promise<string | ApiError> {
   if (!SEI_API_BASE_URL || !SEI_API_USER || !SEI_API_PASSWORD || !SEI_API_ORGAO) {
     console.error("SEI API environment variables are not set.");
-    return { error: "Configuração do servidor incompleta para acessar a API." };
+    return { error: "Configuração do servidor incompleta para acessar a API.", status: 500 };
   }
 
   try {
@@ -50,10 +54,15 @@ async function getAuthToken(): Promise<string | ApiError> {
     }
 
     const data = await response.json() as AuthTokenResponse;
+    if (!data.Token) {
+      console.error("Token not found in authentication response:", data);
+      return { error: "Token não encontrado na resposta da autenticação.", details: data, status: 500 };
+    }
+    console.log(`[SEI API] Token de autenticação obtido (início): ${data.Token.substring(0, 20)}...`);
     return data.Token;
   } catch (error) {
     console.error("Error fetching auth token:", error);
-    return { error: "Erro ao conectar com o serviço de autenticação.", details: error instanceof Error ? error.message : String(error) };
+    return { error: "Erro ao conectar com o serviço de autenticação.", details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
 
@@ -63,22 +72,22 @@ export async function fetchProcessDataFromSEI(
 ): Promise<ProcessoData | ApiError> {
   if (!SEI_API_BASE_URL) {
     console.error("SEI API Base URL environment variable is not set.");
-    return { error: "Configuração do servidor incompleta para acessar a API." };
+    return { error: "Configuração do servidor incompleta para acessar a API.", status: 500 };
   }
   if (!protocoloProcedimento || !unidadeId) {
-    return { error: "Número do processo e unidade são obrigatórios." };
+    return { error: "Número do processo e unidade são obrigatórios.", status: 400 };
   }
 
   const tokenResult = await getAuthToken();
   if (typeof tokenResult !== 'string') {
-    return tokenResult; // This is an ApiError object
+    return tokenResult; // This is an ApiError object from getAuthToken
   }
   const token = tokenResult;
 
   const encodedProtocolo = encodeURIComponent(protocoloProcedimento);
   const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/andamentos?protocolo_procedimento=${encodedProtocolo}&sinal_atributos=S&pagina=1`;
   
-  console.log(`[SEI API] Tentando buscar URL: ${url}`); // Adicionado log da URL
+  console.log(`[SEI API] Tentando buscar URL: ${url}`);
 
   try {
     const response = await fetch(url, {
@@ -96,7 +105,7 @@ export async function fetchProcessDataFromSEI(
       } catch (e) {
         errorDetails = await response.text();
       }
-      console.error(`Falha ao buscar dados do processo: ${response.status}`, errorDetails);
+      console.error(`Falha ao buscar dados do processo (URL: ${url}): ${response.status}`, errorDetails);
       return { error: `Falha ao buscar dados do processo: ${response.status}`, details: errorDetails, status: response.status };
     }
 
@@ -105,14 +114,12 @@ export async function fetchProcessDataFromSEI(
     if (data && data.Andamentos && Array.isArray(data.Andamentos) && data.Info) {
       return data as ProcessoData;
     } else {
-      // This case might also be relevant for 422 if the API returns an OK status but an unexpected body
       console.error("Estrutura de dados inválida recebida da API, mesmo com status OK:", data);
-      return { error: "Formato de dados inesperado recebido da API, verifique a resposta.", details: data, status: response.status };
+      return { error: "Formato de dados inesperado recebido da API.", details: data, status: response.status === 200 ? 500 : response.status };
     }
 
   } catch (error) {
     console.error("Erro ao buscar dados do processo:", error);
-    return { error: "Erro ao conectar com o serviço de dados do processo.", details: error instanceof Error ? error.message : String(error) };
+    return { error: "Erro ao conectar com o serviço de dados do processo.", details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
-

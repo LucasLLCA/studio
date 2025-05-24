@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, ProcessedAndamento, UnidadeFiltro, UnidadesFiltroData } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2 } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -143,7 +143,7 @@ export default function Home() {
       return;
     }
 
-    console.log(`Iniciando busca SEI com: Processo='${processoNumeroInput}', Unidade='${selectedUnidadeFiltro}'`);
+    console.log(`[UI] Iniciando busca SEI com: Processo='${processoNumeroInput}', Unidade='${selectedUnidadeFiltro}'`);
     setIsLoading(true);
     setRawProcessData(null); 
 
@@ -152,47 +152,51 @@ export default function Home() {
       
       if ('error' in result) {
         let errorTitle = "Erro ao buscar dados do processo";
-        let errorDescription = result.error;
+        let errorDescription = result.error || "Erro desconhecido da API";
 
         if (result.status === 422) {
           errorTitle = "Erro de Validação dos Dados (422)";
-          errorDescription = "A API não pôde processar os dados. Verifique se o 'Número do Processo' (ex: 00002.001000/2024-92) e a 'Unidade' selecionada estão corretos e são válidos para esta consulta.";
+          errorDescription = `A API não pôde processar os dados fornecidos. Verifique se o 'Número do Processo' (ex: 00002.001000/2024-92) e a 'Unidade' selecionada estão corretos e são válidos para esta consulta.`;
           if (result.details) {
             try {
                 const detailsString = typeof result.details === 'string' ? result.details : JSON.stringify(result.details);
-                if (detailsString && detailsString !== '{}') {
+                if (detailsString && detailsString !== '{}' && detailsString.length < 200) { // Avoid overly long details
                     errorDescription += ` Detalhes da API: ${detailsString}`;
+                } else if (detailsString.length >= 200) {
+                    errorDescription += ` Detalhes da API muito longos para exibição.`;
                 }
             } catch (e) {
-                errorDescription += ` Detalhes da API (erro ao formatar): ${String(result.details)}`;
+                errorDescription += ` Detalhes da API (erro ao formatar).`;
             }
           }
         } else if (result.status) {
-            errorDescription = `Erro ${result.status}: ${result.error}`;
+             errorDescription = `Erro ${result.status}: ${result.error}`;
              if (result.details) {
-               if (typeof result.details === 'string') {
+               if (typeof result.details === 'string' && result.details.length < 200) {
                 errorDescription += ` Detalhes: ${result.details}`;
               } else if (result.details.Fault && result.details.Fault.Reason && result.details.Fault.Reason.Text) {
                 errorDescription += ` Detalhes: ${result.details.Fault.Reason.Text}`;
               } else if (typeof result.details === 'object' && result.details !== null && Object.keys(result.details).length > 0) {
                 try {
                     const detailsString = JSON.stringify(result.details);
-                    if (detailsString !== '{}') { 
+                    if (detailsString !== '{}' && detailsString.length < 200) { 
                         errorDescription += ` Detalhes: ${detailsString}`;
+                    } else if (detailsString.length >= 200) {
+                        errorDescription += ` Detalhes da API muito longos para exibição.`;
                     }
                 } catch (e) { /* ... */ }
-              } else if (result.details.message) { 
+              } else if (result.details && typeof result.details.message === 'string') { 
                  errorDescription += ` Detalhes: ${result.details.message}`;
               }
             }
         }
         
-        if (result.status === 404 && result.status !== 422) {
-          errorDescription = `Processo não encontrado ou sem andamentos na unidade selecionada (${selectedUnidadeFiltro}) para o número ${processoNumeroInput}. Verifique os dados. (Erro: ${result.status})`;
-        } else if (result.status === 401 && result.status !== 422) {
+        if (result.status === 404) {
+          errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro} para o número ${processoNumeroInput}, ou o processo não possui andamentos registrados nessa unidade. Verifique os dados e tente novamente. (Erro: ${result.status})`;
+        } else if (result.status === 401) {
           errorTitle = "Falha na Autenticação com a API SEI";
-          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais configuradas no servidor da aplicação estão corretas e ativas. (Erro: ${result.status})`;
-        } else if (result.status === 500 && result.status !== 422) {
+          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais configuradas no servidor da aplicação (.env.local) estão corretas e ativas. (Erro: ${result.status})`;
+        } else if (result.status === 500) {
             errorTitle = "Erro Interno no Servidor da API SEI";
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde. (Erro: ${result.status})`;
         }
@@ -202,6 +206,7 @@ export default function Home() {
           title: errorTitle,
           description: errorDescription,
           variant: "destructive",
+          duration: 7000,
         });
         setRawProcessData(null);
       } else {
@@ -219,11 +224,12 @@ export default function Home() {
         });
       }
     } catch (error) {
-      console.error("Error in handleSearchClick:", error);
+      console.error("Error in handleSearchClick (unexpected application error):", error);
       toast({
         title: "Erro Inesperado na Aplicação",
         description: "Ocorreu um erro inesperado ao tentar buscar os dados. Verifique o console para mais detalhes.",
         variant: "destructive",
+        duration: 7000,
       });
       setRawProcessData(null);
     } finally {
@@ -332,9 +338,10 @@ export default function Home() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">Buscando dados do processo...</h2>
+              <h2 className="text-xl font-semibold text-foreground mb-2">Buscando dados do processo na API SEI...</h2>
               <p className="text-muted-foreground max-w-md">
                 Por favor, aguarde. A consulta à API SEI pode levar alguns instantes.
+                Isso envolve autenticação e busca dos andamentos.
               </p>
             </div>
           ) : processedFlowData ? (
