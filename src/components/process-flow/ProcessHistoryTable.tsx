@@ -39,7 +39,7 @@ export function ProcessHistoryTable({ tasks }: ProcessHistoryTableProps) {
   return (
     <div className="mt-8 p-4 md:p-6 lg:p-8 border-t border-border">
       <h2 className="text-xl font-semibold text-foreground mb-4">Histórico Detalhado do Processo</h2>
-      <ScrollArea className="w-full whitespace-nowrap rounded-md border max-h-[600px]">
+      <ScrollArea className="w-full rounded-md border max-h-[600px]">
         <TooltipProvider>
           <Table>
             <TableHeader>
@@ -63,7 +63,6 @@ export function ProcessHistoryTable({ tasks }: ProcessHistoryTableProps) {
                     <TableCell className="align-top">{formatDisplayDate(task.parsedDate)}</TableCell>
                     <TableCell title={task.Unidade.Descricao} className="align-top">{task.Unidade.Sigla}</TableCell>
                     <TableCell className="align-top">{task.Tarefa}</TableCell>
-                    {/* Removed max-w-* classes to allow full width for description */}
                     <TableCell className="whitespace-normal break-words align-top">
                       <Tooltip>
                         <TooltipTrigger asChild>
