@@ -53,6 +53,7 @@ export default function Home() {
       ...rawProcessData,
       Info: {
         ...rawProcessData.Info,
+        // Ensure NumeroProcesso from input is preferred if API doesn't return it or if loading from sample
         NumeroProcesso: rawProcessData.Info?.NumeroProcesso || processoNumeroInput,
       }
     };
@@ -81,6 +82,7 @@ export default function Home() {
       return;
     }
 
+    setIsLoading(true);
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
@@ -100,6 +102,7 @@ export default function Home() {
         }
       } catch (error) {
         console.error("Error parsing JSON:", error);
+        setRawProcessData(null);
         toast({
           title: "Erro ao processar JSON",
           description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
@@ -109,6 +112,7 @@ export default function Home() {
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
+        setIsLoading(false);
       }
     };
     reader.onerror = () => {
@@ -120,17 +124,20 @@ export default function Home() {
        if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
+       setIsLoading(false);
     };
     reader.readAsText(file);
   };
   
   const loadSampleData = () => {
+    setIsLoading(true);
     setRawProcessData(sampleProcessFlowData);
     setProcessoNumeroInput(sampleProcessFlowData.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)");
     toast({
         title: "Dados de exemplo carregados",
         description: "Visualizando o fluxograma de exemplo.",
     });
+    setIsLoading(false);
   };
 
   const handleSearchClick = async () => {
@@ -160,7 +167,7 @@ export default function Home() {
           if (result.details) {
             try {
                 const detailsString = typeof result.details === 'string' ? result.details : JSON.stringify(result.details);
-                if (detailsString && detailsString !== '{}' && detailsString.length < 200) { // Avoid overly long details
+                if (detailsString && detailsString !== '{}' && detailsString.length < 200) { 
                     errorDescription += ` Detalhes da API: ${detailsString}`;
                 } else if (detailsString.length >= 200) {
                     errorDescription += ` Detalhes da API muito longos para exibição.`;
@@ -169,47 +176,46 @@ export default function Home() {
                 errorDescription += ` Detalhes da API (erro ao formatar).`;
             }
           }
-        } else if (result.status) {
+        } else if (result.status === 404) {
+          errorTitle = "Processo Não Encontrado (404)";
+          errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro} para o número ${processoNumeroInput}, ou o processo não possui andamentos registrados nessa unidade. Verifique os dados e tente novamente.`;
+        } else if (result.status === 401) {
+          errorTitle = "Falha na Autenticação com a API SEI (401)";
+          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais configuradas no servidor da aplicação (.env.local) estão corretas e ativas.`;
+        } else if (result.status === 500) {
+            errorTitle = "Erro Interno no Servidor da API SEI (500)";
+            errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
+        } else if (result.status) { // Generic status error
              errorDescription = `Erro ${result.status}: ${result.error}`;
              if (result.details) {
                if (typeof result.details === 'string' && result.details.length < 200) {
                 errorDescription += ` Detalhes: ${result.details}`;
-              } else if (result.details.Fault && result.details.Fault.Reason && result.details.Fault.Reason.Text) {
+              } else if (result.details && typeof result.details.message === 'string' && result.details.message.length < 200) { 
+                 errorDescription += ` Detalhes: ${result.details.message}`;
+              } else if (result.details && result.details.Fault && result.details.Fault.Reason && result.details.Fault.Reason.Text && result.details.Fault.Reason.Text.length < 200) {
                 errorDescription += ` Detalhes: ${result.details.Fault.Reason.Text}`;
-              } else if (typeof result.details === 'object' && result.details !== null && Object.keys(result.details).length > 0) {
-                try {
+              } else {
+                 try {
                     const detailsString = JSON.stringify(result.details);
                     if (detailsString !== '{}' && detailsString.length < 200) { 
                         errorDescription += ` Detalhes: ${detailsString}`;
                     } else if (detailsString.length >= 200) {
                         errorDescription += ` Detalhes da API muito longos para exibição.`;
                     }
-                } catch (e) { /* ... */ }
-              } else if (result.details && typeof result.details.message === 'string') { 
-                 errorDescription += ` Detalhes: ${result.details.message}`;
+                 } catch (e) { /* erro ao formatar detalhes */ }
               }
             }
         }
         
-        if (result.status === 404) {
-          errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro} para o número ${processoNumeroInput}, ou o processo não possui andamentos registrados nessa unidade. Verifique os dados e tente novamente. (Erro: ${result.status})`;
-        } else if (result.status === 401) {
-          errorTitle = "Falha na Autenticação com a API SEI";
-          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais configuradas no servidor da aplicação (.env.local) estão corretas e ativas. (Erro: ${result.status})`;
-        } else if (result.status === 500) {
-            errorTitle = "Erro Interno no Servidor da API SEI";
-            errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde. (Erro: ${result.status})`;
-        }
-
-
         toast({
           title: errorTitle,
           description: errorDescription,
           variant: "destructive",
-          duration: 7000,
+          duration: 9000,
         });
         setRawProcessData(null);
       } else {
+        // Ensure NumeroProcesso is set, especially if API's Info object might not have it.
         const fetchedDataWithProcessNumber = {
           ...result,
           Info: {
@@ -223,7 +229,7 @@ export default function Home() {
           description: "Dados do processo carregados da API.",
         });
       }
-    } catch (error) {
+    } catch (error) { // Catch unexpected errors in the frontend logic
       console.error("Error in handleSearchClick (unexpected application error):", error);
       toast({
         title: "Erro Inesperado na Aplicação",
@@ -281,8 +287,9 @@ export default function Home() {
                 className="h-9 text-sm w-48" 
                 value={processoNumeroInput}
                 onChange={(e) => setProcessoNumeroInput(e.target.value)}
+                disabled={isLoading}
               />
-               <Select value={selectedUnidadeFiltro} onValueChange={setSelectedUnidadeFiltro}>
+               <Select value={selectedUnidadeFiltro} onValueChange={setSelectedUnidadeFiltro} disabled={isLoading}>
                 <SelectTrigger className="h-9 text-sm w-[200px]">
                   <SelectValue placeholder="Filtrar por Unidade" />
                 </SelectTrigger>
@@ -316,7 +323,7 @@ export default function Home() {
               className="hidden"
             />
             <div className="flex items-center space-x-2">
-              <Switch id="summarize-graph" disabled={isLoading} />
+              <Switch id="summarize-graph" disabled={true} /> {/* Summarization not implemented */}
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Versão Resumida</Label>
             </div>
             <div className="flex items-center space-x-1 text-sm text-muted-foreground">
@@ -334,14 +341,22 @@ export default function Home() {
           processNumberPlaceholder="Nenhum processo carregado" 
           onTaskCardClick={handleTaskCardClick}
         />
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden"> {/* Ensure this parent also allows flex content to grow/shrink */}
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">Buscando dados do processo na API SEI...</h2>
+              <h2 className="text-xl font-semibold text-foreground mb-2">
+                {rawProcessData === null && !processoNumeroInput.startsWith("0042431") ? 
+                  "Buscando dados do processo na API SEI..." : 
+                  "Processando dados..."
+                }
+              </h2>
               <p className="text-muted-foreground max-w-md">
-                Por favor, aguarde. A consulta à API SEI pode levar alguns instantes.
-                Isso envolve autenticação e busca dos andamentos.
+                Por favor, aguarde. 
+                {rawProcessData === null && !processoNumeroInput.startsWith("0042431") ? 
+                  " A consulta à API SEI pode levar alguns instantes." : 
+                  " Os dados estão sendo preparados para visualização."
+                }
               </p>
             </div>
           ) : processedFlowData ? (
@@ -375,4 +390,3 @@ export default function Home() {
     </main>
   );
 }
-

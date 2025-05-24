@@ -11,7 +11,6 @@ const SEI_API_ORGAO = process.env.SEI_API_ORGAO;
 
 interface AuthTokenResponse {
   Token: string;
-  // Include other fields if needed, based on the actual response structure
   Login?: {
     IdLogin?: string;
   };
@@ -88,13 +87,15 @@ export async function fetchProcessDataFromSEI(
   const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/andamentos?protocolo_procedimento=${encodedProtocolo}&sinal_atributos=S&pagina=1`;
   
   console.log(`[SEI API] Tentando buscar URL: ${url}`);
+  console.log(`[SEI API] Usando token (início): ${token.substring(0,20)}...`);
 
   try {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        'token': token, // Changed from 'Authorization': `Bearer ${token}`
+        'Content-Type': 'application/json', // Kept as it might still be useful or expected
+        'accept': 'application/json', // Added based on cURL
       },
     });
 
@@ -105,17 +106,29 @@ export async function fetchProcessDataFromSEI(
       } catch (e) {
         errorDetails = await response.text();
       }
-      console.error(`Falha ao buscar dados do processo (URL: ${url}): ${response.status}`, errorDetails);
+      console.error(`Falha ao buscar dados do processo (URL: ${url}, Status: ${response.status})`, errorDetails);
       return { error: `Falha ao buscar dados do processo: ${response.status}`, details: errorDetails, status: response.status };
     }
 
     const data = await response.json();
     // Basic validation for ProcessoData structure
     if (data && data.Andamentos && Array.isArray(data.Andamentos) && data.Info) {
+      // Add NumeroProcesso to Info if it's missing but was used in the query
+      if (!data.Info.NumeroProcesso && protocoloProcedimento) {
+        data.Info.NumeroProcesso = protocoloProcedimento;
+      }
       return data as ProcessoData;
     } else {
+      // Even if status is OK, if data structure is unexpected, it's an issue.
       console.error("Estrutura de dados inválida recebida da API, mesmo com status OK:", data);
-      return { error: "Formato de dados inesperado recebido da API.", details: data, status: response.status === 200 ? 500 : response.status };
+      // If response.status was 200 but data is wrong, we might still consider it an error from our app's perspective.
+      // However, if it was, for instance, 204 No Content with an empty body, that's different.
+      // For now, let's assume if it's 200 and not matching structure, it's a problem.
+      return { 
+        error: "Formato de dados inesperado recebido da API.", 
+        details: data, 
+        status: response.status === 200 ? 500 : response.status // If 200 but bad data, treat as internal error
+      };
     }
 
   } catch (error) {
