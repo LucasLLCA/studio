@@ -3,7 +3,7 @@
 
 import type { ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
 import { ProcessFlowDiagram } from './ProcessFlowDiagram';
-import { ProcessHistoryTable } from './ProcessHistoryTable'; // Import the new table component
+// Removed import for ProcessHistoryTable
 import React from 'react';
 
 interface ProcessFlowClientProps {
@@ -35,8 +35,7 @@ export function ProcessFlowClient({
         onScrollToFirstTask={onScrollToFirstTask}
         onScrollToLastTask={onScrollToLastTask}
       />
-      {/* Add the ProcessHistoryTable component here */}
-      <ProcessHistoryTable tasks={processedFlowData.tasks} />
+      {/* Removed ProcessHistoryTable component here */}
     </div>
   );
 }
