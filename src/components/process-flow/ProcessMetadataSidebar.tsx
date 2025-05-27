@@ -33,7 +33,7 @@ export function ProcessMetadataSidebar({
             Número: <span className="font-medium text-foreground">{displayProcessNumber}</span>
           </p>
         </div>
-        <p className="text-sm text-muted-foreground flex-grow">Carregue um arquivo JSON para visualizar os detalhes e o fluxograma.</p>
+        <p className="text-sm text-muted-foreground flex-grow">Carregue um arquivo JSON ou busque um processo para visualizar os detalhes e o fluxograma.</p>
       </aside>
     );
   }
@@ -60,7 +60,8 @@ export function ProcessMetadataSidebar({
             <AlertTriangle className="mr-2 h-5 w-5" />
             Tarefas Pendentes
           </h3>
-          <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+          {/* Removed max-h-96 and overflow-y-auto from the div below */}
+          <div className="space-y-3 pr-2"> 
             {openTasks.map(task => (
               <Card 
                 key={`${task.IdAndamento}-${task.globalSequence}`} 
@@ -82,6 +83,11 @@ export function ProcessMetadataSidebar({
           </div>
         </div>
       )}
+      
+      {openTasks.length === 0 && (
+         <p className="text-sm text-muted-foreground">Nenhuma tarefa pendente neste processo.</p>
+      )}
+
     </aside>
   );
 }
