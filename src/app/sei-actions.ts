@@ -206,9 +206,20 @@ export async function fetchOpenUnitsForProcess(
   const token = tokenResult;
 
   const encodedProtocolo = encodeURIComponent(protocoloProcedimento);
-  // sinal_completo=N&sinal_assuntos=N&sinal_interessados=N&sinal_observacoes=N&sinal_andamento_geracao=N&sinal_andamento_conclusao=N&sinal_ultimo_andamento=N&sinal_procedimentos_relacionados=N&sinal_procedimentos_anexados=N
-  // These are all N to minimize response size, only sinal_unidades_procedimento_aberto=S is needed
-  const queryParams = `protocolo_procedimento=${encodedProtocolo}&sinal_unidades_procedimento_aberto=S&sinal_completo=N&sinal_assuntos=N&sinal_interessados=N&sinal_observacoes=N&sinal_andamento_geracao=N&sinal_andamento_conclusao=N&sinal_ultimo_andamento=N&sinal_procedimentos_relacionados=N&sinal_procedimentos_anexados=N`;
+  const queryParams = new URLSearchParams({
+    protocolo_procedimento: encodedProtocolo,
+    sinal_unidades_procedimento_aberto: 'S',
+    sinal_completo: 'N',
+    sinal_assuntos: 'N',
+    sinal_interessados: 'N',
+    sinal_observacoes: 'N',
+    sinal_andamento_geracao: 'N',
+    sinal_andamento_conclusao: 'N',
+    sinal_ultimo_andamento: 'N',
+    sinal_procedimentos_relacionados: 'N',
+    sinal_procedimentos_anexados: 'N',
+  }).toString();
+  
   const url = `${SEI_API_BASE_URL}/unidades/${unidadeOrigemConsulta}/procedimentos/consulta?${queryParams}`;
 
   console.log(`[SEI API Consulta] Tentando buscar URL para unidades abertas: ${url}`);
@@ -251,3 +262,4 @@ export async function fetchOpenUnitsForProcess(
     return { error: "Erro ao conectar com o serviço de consulta de processo.", details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
+
