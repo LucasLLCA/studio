@@ -2,8 +2,8 @@
 "use client";
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
-import type { ProcessoData, ProcessedFlowData, ProcessedAndamento, UnidadeFiltro, UnidadesFiltroData } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import type { ProcessoData, ProcessedFlowData, ProcessedAndamento, UnidadeFiltro, UnidadesFiltroData, UnidadeAberta, ApiError } from '@/types/process-flow';
+import { Upload, FileJson, Search, Sparkles, Loader2, AlertTriangle, ListChecks } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchProcessDataFromSEI } from './sei-actions';
+import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess } from './sei-actions';
 
 
 export default function Home() {
@@ -36,8 +36,10 @@ export default function Home() {
   const [selectedUnidadeFiltro, setSelectedUnidadeFiltro] = useState<string | undefined>(undefined);
   const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoadingOpenUnits, setIsLoadingOpenUnits] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>("Processando dados...");
   const [isSummarizedView, setIsSummarizedView] = useState<boolean>(false);
+  const [openUnitsInProcess, setOpenUnitsInProcess] = useState<UnidadeAberta[] | null>(null);
 
 
   useEffect(() => {
@@ -50,6 +52,8 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
+      setRawProcessData(null); // Clear if invalid
+      setOpenUnitsInProcess(null);
       return null;
     }
     const dataToProcess = {
@@ -61,6 +65,36 @@ export default function Home() {
     };
     return processAndamentos(dataToProcess.Andamentos, dataToProcess.Info?.NumeroProcesso || processoNumeroInput, isSummarizedView);
   }, [rawProcessData, processoNumeroInput, isSummarizedView]);
+
+  // Effect to fetch open units when process data is available
+  useEffect(() => {
+    if (rawProcessData && rawProcessData.Info?.NumeroProcesso && selectedUnidadeFiltro) {
+      setIsLoadingOpenUnits(true);
+      setOpenUnitsInProcess(null); // Clear previous
+      fetchOpenUnitsForProcess(rawProcessData.Info.NumeroProcesso, selectedUnidadeFiltro)
+        .then(result => {
+          if ('error' in result) {
+            console.error("Error fetching open units:", result.error, result.details);
+            // Optionally, show a toast for this specific error
+            // toast({ title: "Erro ao buscar unidades abertas", description: result.error, variant: "destructive" });
+            setOpenUnitsInProcess([]); // Set to empty array on error to stop loading state
+          } else {
+            setOpenUnitsInProcess(result);
+          }
+        })
+        .catch(error => {
+          console.error("Unexpected error fetching open units:", error);
+          // toast({ title: "Erro inesperado", description: "Não foi possível buscar as unidades com processo aberto.", variant: "destructive" });
+          setOpenUnitsInProcess([]);
+        })
+        .finally(() => {
+          setIsLoadingOpenUnits(false);
+        });
+    } else {
+        setOpenUnitsInProcess(null); // Clear if no process data or unit selected
+    }
+  }, [rawProcessData, selectedUnidadeFiltro]); // processoNumeroInput is implicitly covered by rawProcessData.Info.NumeroProcesso check
+
 
   const handleFileUploadClick = () => {
     fileInputRef.current?.click();
@@ -86,7 +120,9 @@ export default function Home() {
 
     setIsLoading(true);
     setLoadingMessage("Processando arquivo JSON...");
-    setRawProcessData(null); // Clear previous data
+    setRawProcessData(null); 
+    setOpenUnitsInProcess(null);
+
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -96,7 +132,8 @@ export default function Home() {
           const jsonData = JSON.parse(text);
           if (jsonData && jsonData.Andamentos && Array.isArray(jsonData.Andamentos) && jsonData.Info) {
             setRawProcessData(jsonData as ProcessoData);
-            setProcessoNumeroInput(jsonData.Info?.NumeroProcesso || "N/A via JSON");
+            // Use NumeroProcesso from JSON if available, otherwise keep input (or clear if not relevant)
+            setProcessoNumeroInput(jsonData.Info?.NumeroProcesso || processoNumeroInput || ""); 
             toast({
               title: "Sucesso!",
               description: `Arquivo JSON "${file.name}" carregado e processado.`,
@@ -108,6 +145,7 @@ export default function Home() {
       } catch (error) {
         console.error("Error parsing JSON:", error);
         setRawProcessData(null);
+        setOpenUnitsInProcess(null);
         toast({
           title: "Erro ao processar JSON",
           description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
@@ -138,8 +176,8 @@ export default function Home() {
     setIsLoading(true);
     setLoadingMessage("Carregando dados de exemplo...");
     setRawProcessData(null); 
+    setOpenUnitsInProcess(null);
 
-    // Ensure sampleProcessFlowData has the Info field correctly typed
     const sampleDataWithInfo: ProcessoData = {
       Info: {
         ...sampleProcessFlowData.Info, 
@@ -175,30 +213,20 @@ export default function Home() {
     setLoadingMessage("Buscando dados do processo na API SEI...");
     setIsLoading(true);
     setRawProcessData(null); 
+    setOpenUnitsInProcess(null);
+
 
     try {
       const result = await fetchProcessDataFromSEI(processoNumeroInput, selectedUnidadeFiltro);
-      console.log("[UI] Resultado da API SEI:", result);
+      console.log("[UI] Resultado da API SEI para andamentos:", result);
       
-      if ('error' in result) {
+      if ('error' in result && typeof result.error === 'string') { // Type guard for ApiError
         let errorTitle = "Erro ao buscar dados do processo";
-        let errorDescription = result.error || "Erro desconhecido da API";
+        let errorDescription = result.error;
 
         if (result.status === 422) {
           errorTitle = "Erro de Validação dos Dados (422)";
           errorDescription = `A API não pôde processar os dados fornecidos. Verifique se o 'Número do Processo' (ex: 00002.001000/2024-92) e a 'Unidade' selecionada estão corretos e são válidos para esta consulta.`;
-          if (result.details) {
-            try {
-                const detailsString = typeof result.details === 'string' ? result.details : JSON.stringify(result.details);
-                if (detailsString && detailsString !== '{}' && detailsString.length < 200) { 
-                    errorDescription += ` Detalhes da API: ${detailsString}`;
-                } else if (detailsString.length >= 200) {
-                    errorDescription += ` Detalhes da API muito longos para exibição.`;
-                }
-            } catch (e) {
-                errorDescription += ` Detalhes da API (erro ao formatar).`;
-            }
-          }
         } else if (result.status === 404) {
           errorTitle = "Processo Não Encontrado (404)";
           errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro} para o número ${processoNumeroInput}, ou o processo não possui andamentos registrados nessa unidade. Verifique os dados e tente novamente.`;
@@ -210,24 +238,17 @@ export default function Home() {
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
         } else if (result.status) { 
              errorDescription = `Erro ${result.status}: ${result.error || 'Desconhecido'}`;
-             if (result.details) {
-               if (typeof result.details === 'string' && result.details.length < 200) {
-                errorDescription += ` Detalhes: ${result.details}`;
-              } else if (result.details && typeof (result.details as any).message === 'string' && (result.details as any).message.length < 200) { 
-                 errorDescription += ` Detalhes: ${(result.details as any).message}`;
-              } else if (result.details && (result.details as any).Fault && (result.details as any).Fault.Reason && (result.details as any).Fault.Reason.Text && (result.details as any).Fault.Reason.Text.length < 200) {
-                errorDescription += ` Detalhes: ${(result.details as any).Fault.Reason.Text}`;
-              } else {
-                 try {
-                    const detailsString = JSON.stringify(result.details);
-                    if (detailsString !== '{}' && detailsString.length < 200) { 
-                        errorDescription += ` Detalhes: ${detailsString}`;
-                    } else if (detailsString.length >= 200) {
-                        errorDescription += ` Detalhes da API muito longos para exibição.`;
-                    }
-                 } catch (e) { /* erro ao formatar detalhes */ }
-              }
-            }
+        }
+        
+        if (result.details) {
+            try {
+                const detailsString = typeof result.details === 'string' ? result.details : JSON.stringify(result.details);
+                if (detailsString && detailsString !== '{}' && detailsString.length < 250) { 
+                    errorDescription += ` Detalhes: ${detailsString}`;
+                } else if (detailsString.length >= 250) {
+                    errorDescription += ` Detalhes da API muito longos para exibição.`;
+                }
+            } catch (e) { /* erro ao formatar detalhes */ }
         }
         
         toast({
@@ -237,8 +258,7 @@ export default function Home() {
           duration: 9000,
         });
         setRawProcessData(null);
-      } else {
-        // Verifique se result.Andamentos existe e é um array
+      } else if (!('error' in result)) { // Check if it's ProcessoData
         if (result && result.Andamentos && Array.isArray(result.Andamentos)) {
           setRawProcessData(result);
           toast({
@@ -246,7 +266,6 @@ export default function Home() {
             description: `Dados do processo (total ${result.Andamentos.length} andamentos) carregados da API.`,
           });
         } else {
-          // Se Andamentos estiver ausente ou não for um array, trate como um erro de formato ou dados vazios
           console.error("[UI] Resposta da API SEI bem-sucedida, mas 'Andamentos' está ausente ou não é um array:", result);
           toast({
             title: "Dados Incompletos da API",
@@ -254,8 +273,12 @@ export default function Home() {
             variant: "destructive",
             duration: 7000,
           });
-          setRawProcessData(null); // Limpa para evitar erros no processamento
+          setRawProcessData(null);
         }
+      } else { // Should not happen if types are correct, but as a fallback
+        console.error("[UI] Resposta inesperada da API SEI:", result);
+        toast({ title: "Erro Desconhecido", description: "A API retornou uma resposta inesperada.", variant: "destructive" });
+        setRawProcessData(null);
       }
     } catch (error) { 
       console.error("[UI] Erro inesperado ao buscar dados do processo:", error);
@@ -377,9 +400,11 @@ export default function Home() {
           processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
           processNumberPlaceholder="Nenhum processo carregado" 
           onTaskCardClick={handleTaskCardClick}
+          openUnitsInProcess={openUnitsInProcess}
+          isLoadingOpenUnits={isLoadingOpenUnits}
         />
-        <div className="flex-1 flex flex-col overflow-hidden"> {/* Changed from overflow-auto to overflow-hidden */}
-          {isLoading && !loadingMessage.includes("API SEI") ? ( // Show general loading for JSON/Sample data
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isLoading && !loadingMessage.includes("API SEI") ? ( 
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">
@@ -396,7 +421,7 @@ export default function Home() {
               onScrollToFirstTask={handleScrollToFirstTask}
               onScrollToLastTask={handleScrollToLastTask}
             />
-          ) : isLoading && loadingMessage.includes("API SEI") ? ( // Specific loading for API calls
+          ) : isLoading && loadingMessage.includes("API SEI") ? ( 
              <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">
@@ -430,3 +455,4 @@ export default function Home() {
     </main>
   );
 }
+

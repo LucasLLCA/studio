@@ -43,13 +43,13 @@ export interface ProcessoData {
 export interface ProcessedAndamento extends Andamento {
   parsedDate: Date;
   summary?: string;
-  globalSequence: number; // Sequence number in the (potentially summarized) display list
-  originalGlobalSequence?: number; // Sequence number in the original full list of andamentos
+  globalSequence: number; 
+  originalGlobalSequence?: number; 
   x: number; 
   y: number; 
   color?: string; 
   nodeRadius: number; 
-  chronologicalIndex: number; // Index in the original globallySortedAndamentos
+  chronologicalIndex: number; 
   daysOpen?: number; 
   isSummaryNode?: boolean;
   groupedTasksCount?: number;
@@ -78,4 +78,23 @@ export interface UnidadeFiltro {
 
 export interface UnidadesFiltroData {
   Unidades: UnidadeFiltro[];
+}
+
+// Types for the /procedimentos/consulta endpoint
+export interface UnidadeAberta {
+  IdUnidade: string;
+  SiglaUnidade: string;
+  DescricaoUnidade: string;
+  // Outros campos que possam vir da API, como NomeUnidade, etc.
+}
+
+export interface ConsultaProcessoResponse {
+  UnidadesProcedimentoAberto?: UnidadeAberta[];
+  // Outros campos da resposta da consulta, se houver
+}
+
+export interface ApiError {
+  error: string;
+  details?: any;
+  status?: number;
 }
