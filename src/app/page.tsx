@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, ProcessedAndamento, UnidadeFiltro, UnidadesFiltroData, UnidadeAberta, ApiError } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, AlertTriangle, ListChecks } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2, AlertTriangle, ListChecks, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,8 +52,6 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
-      // setRawProcessData(null); // Clear if invalid - This was causing issues, let's rely on initial null
-      // setOpenUnitsInProcess(null);
       return null;
     }
     const dataToProcess = {
@@ -67,20 +65,28 @@ export default function Home() {
   }, [rawProcessData, processoNumeroInput, isSummarizedView]);
 
   useEffect(() => {
-    if (rawProcessData && rawProcessData.Info?.NumeroProcesso && selectedUnidadeFiltro) {
+    const numeroProcessoAtual = rawProcessData?.Info?.NumeroProcesso;
+    if (numeroProcessoAtual && selectedUnidadeFiltro) {
       setIsLoadingOpenUnits(true);
       setOpenUnitsInProcess(null); 
-      fetchOpenUnitsForProcess(rawProcessData.Info.NumeroProcesso, selectedUnidadeFiltro)
+      fetchOpenUnitsForProcess(numeroProcessoAtual, selectedUnidadeFiltro)
         .then(result => {
           if ('error' in result) {
-            console.error("Error fetching open units:", result.error, result.details);
+            console.error(
+              `Error fetching open units: Status ${result.status || 'N/A'}, Error: "${result.error}"`,
+              `Details: ${typeof result.details === 'string' ? result.details : JSON.stringify(result.details)}`,
+              `Params used: processo="${numeroProcessoAtual}", unidade="${selectedUnidadeFiltro}"`
+            );
             setOpenUnitsInProcess([]); 
           } else {
             setOpenUnitsInProcess(result);
           }
         })
         .catch(error => {
-          console.error("Unexpected error fetching open units:", error);
+          console.error(
+            "[UI] Unexpected error fetching open units:", error,
+            `Params used: processo="${numeroProcessoAtual}", unidade="${selectedUnidadeFiltro}"`
+            );
           setOpenUnitsInProcess([]);
         })
         .finally(() => {
@@ -173,7 +179,8 @@ export default function Home() {
     setRawProcessData(null); 
     setOpenUnitsInProcess(null);
 
-    const sampleDataWithInfo: ProcessoData = {
+    // Ensure sampleProcessFlowData has a valid Info structure for NumeroProcesso
+     const sampleDataWithInfo: ProcessoData = {
       Info: {
         ...sampleProcessFlowData.Info, 
         Pagina: sampleProcessFlowData.Info?.Pagina || 1,
@@ -227,7 +234,7 @@ export default function Home() {
           errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro} para o número ${processoNumeroInput}, ou o processo não possui andamentos registrados nessa unidade. Verifique os dados e tente novamente.`;
         } else if (result.status === 401) {
           errorTitle = "Falha na Autenticação com a API SEI (401)";
-          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais configuradas no servidor da aplicação (.env ou .env.local) estão corretas e ativas.`;
+          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais configuradas no servidor da aplicação (.env.local) estão corretas e ativas.`;
         } else if (result.status === 500) {
             errorTitle = "Erro Interno no Servidor da API SEI (500)";
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
@@ -255,7 +262,7 @@ export default function Home() {
         setRawProcessData(null);
       } else if (!('error' in result)) { 
         if (result && result.Andamentos && Array.isArray(result.Andamentos)) {
-          setRawProcessData(result);
+          setRawProcessData(result); // This will trigger the useEffect for openUnits
           toast({
             title: "Sucesso!",
             description: `Dados do processo (total ${result.Andamentos.length} andamentos) carregados da API.`,
@@ -449,3 +456,4 @@ export default function Home() {
   );
 }
 
+    
