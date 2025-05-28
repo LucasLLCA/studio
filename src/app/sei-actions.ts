@@ -33,7 +33,7 @@ async function getAuthToken(): Promise<string | ApiError> {
         Senha: SEI_API_PASSWORD,
         Orgao: SEI_API_ORGAO,
       }),
-      cache: 'no-store', // Ensure fresh token
+      cache: 'no-store', 
     });
 
     if (!response.ok) {
@@ -95,12 +95,17 @@ async function fetchAndamentosApiCall(
     }
 
     const data = await response.json();
-    if (data && data.Info && (data.Andamentos !== undefined || quantidade === 0)) { 
+    if (data && data.Info && (data.Andamentos !== undefined || (quantidade === 0 && data.Andamentos === undefined))) { 
       if (!data.Info.NumeroProcesso && protocoloProcedimento) {
         data.Info.NumeroProcesso = protocoloProcedimento;
       }
       if (quantidade > 0 && !Array.isArray(data.Andamentos)) {
-        data.Andamentos = []; // Ensure Andamentos is an array even if empty
+         console.warn(`[SEI API Andamentos] 'Andamentos' não é um array na resposta para ${protocoloProcedimento}, mas quantidade=${quantidade} > 0. Tratando como lista vazia. Resposta:`, data);
+        data.Andamentos = []; 
+      } else if (data.Andamentos === undefined && quantidade === 0) {
+        // For count requests (quantidade=0), Andamentos might be legitimately undefined
+        // but Info should exist.
+        data.Andamentos = []; // Ensure it's an empty array for consistency if caller expects it.
       }
       return data as ProcessoData;
     } else {
@@ -201,13 +206,13 @@ export async function fetchOpenUnitsForProcess(
 
   const tokenResult = await getAuthToken();
   if (typeof tokenResult !== 'string') {
-    return tokenResult; // This is an ApiError object
+    return tokenResult; 
   }
   const token = tokenResult;
 
-  const encodedProtocolo = encodeURIComponent(protocoloProcedimento);
+  // Let URLSearchParams handle the encoding of protocoloProcedimento
   const queryParams = new URLSearchParams({
-    protocolo_procedimento: encodedProtocolo,
+    protocolo_procedimento: protocoloProcedimento, // Pass raw value
     sinal_unidades_procedimento_aberto: 'S',
     sinal_completo: 'N',
     sinal_assuntos: 'N',
@@ -251,7 +256,6 @@ export async function fetchOpenUnitsForProcess(
     if (data && data.UnidadesProcedimentoAberto) {
       return data.UnidadesProcedimentoAberto;
     } else if (data && !data.UnidadesProcedimentoAberto) {
-      // It's possible the API returns 200 OK with an empty list or no key if no units are open
       return [];
     } else {
       console.error("[SEI API Consulta] Estrutura de dados inválida recebida da API de consulta:", data);
@@ -262,4 +266,3 @@ export async function fetchOpenUnitsForProcess(
     return { error: "Erro ao conectar com o serviço de consulta de processo.", details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
-
