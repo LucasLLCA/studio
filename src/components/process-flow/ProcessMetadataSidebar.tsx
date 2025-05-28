@@ -3,8 +3,8 @@
 
 import type { ProcessedFlowData, ProcessedAndamento, UnidadeAberta } from '@/types/process-flow';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AlertTriangle, Clock, FileText, ListChecks, Loader2 } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton'; // For loading state
+import { AlertTriangle, Clock, ListChecks, Loader2 } from 'lucide-react'; // FileText removed from here
+import { Skeleton } from '@/components/ui/skeleton'; 
 
 interface ProcessMetadataSidebarProps {
   processedFlowData: ProcessedFlowData | null; 
@@ -33,8 +33,7 @@ export function ProcessMetadataSidebar({
   return (
     <aside className="w-80 p-4 border-r bg-card flex-shrink-0 flex flex-col space-y-6 overflow-y-auto">
       <div>
-        <h2 className="text-xl font-semibold mb-1 flex items-center">
-           <FileText className="mr-2 h-5 w-5 text-primary"/>
+        <h2 className="text-xl font-semibold mb-1"> {/* Removed flex items-center and FileText icon */}
            Metadados do Processo
         </h2>
         <p className="text-sm text-muted-foreground">
