@@ -2,8 +2,16 @@
 "use client";
 
 import type { UnidadeAberta } from '@/types/process-flow';
-import { ListChecks, Loader2 } from 'lucide-react';
+import { ListChecks, Loader2, Briefcase, User, Info } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton'; 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from '@/components/ui/badge';
 
 interface ProcessMetadataSidebarProps {
   processNumber?: string;
@@ -27,7 +35,7 @@ export function ProcessMetadataSidebar({
     if (openUnitsInProcess && openUnitsInProcess.length === 0) {
       return "Nenhuma unidade com este processo em aberto ou informação não disponível.";
     }
-    if (!openUnitsInProcess) { 
+    if (!openUnitsInProcess && processNumber) { 
         return "Verificando unidades abertas...";
     }
     return null; 
@@ -45,34 +53,56 @@ export function ProcessMetadataSidebar({
         </p>
       </div>
       
-      <div>
+      <div className="space-y-3">
         {isLoadingOpenUnits && (
-          <div className="space-y-2 pr-2 mt-2">
-            <Skeleton className="h-8 w-full rounded-md" />
-            <Skeleton className="h-8 w-full rounded-md" />
-          </div>
+          <>
+            <h3 className="text-md font-semibold text-foreground mb-2">Unidades com Processo Aberto:</h3>
+            <Skeleton className="h-24 w-full rounded-md" />
+            <Skeleton className="h-24 w-full rounded-md" />
+          </>
         )}
         {!isLoadingOpenUnits && openUnitsInProcess && openUnitsInProcess.length > 0 && (
-          <ul className="space-y-1 text-sm text-muted-foreground list-disc list-inside pl-2 mt-2">
+          <>
+            <h3 className="text-md font-semibold text-foreground mb-2">Unidades com Processo Aberto:</h3>
             {openUnitsInProcess.map(unitInfo => (
-              <li key={unitInfo.Unidade.IdUnidade} title={unitInfo.Unidade.Descricao}>
-                {unitInfo.Unidade.Sigla}
-                {unitInfo.UsuarioAtribuicao.Nome && (
-                  <span className="text-xs text-muted-foreground/70"> (Atribuído a: {unitInfo.UsuarioAtribuicao.Nome})</span>
-                )}
-              </li>
+              <Card key={unitInfo.Unidade.IdUnidade} className="shadow-sm">
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <CardTitle className="text-base flex items-center">
+                    <Briefcase className="mr-2 h-4 w-4 text-primary" />
+                    {unitInfo.Unidade.Sigla}
+                  </CardTitle>
+                  <CardDescription className="text-xs pt-1">
+                    {unitInfo.Unidade.Descricao}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                  {unitInfo.UsuarioAtribuicao.Nome ? (
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <User className="mr-2 h-3 w-3" />
+                      <span>Atribuído a: {unitInfo.UsuarioAtribuicao.Nome}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-xs text-muted-foreground/70">
+                      <Info className="mr-2 h-3 w-3" />
+                      <span>Não atribuído a um usuário específico.</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             ))}
-          </ul>
+          </>
         )}
         {!isLoadingOpenUnits && openUnitsMessage && (
-          <p className="text-sm text-muted-foreground mt-2">
+          <p className="text-sm text-muted-foreground mt-2 p-2 bg-secondary/50 rounded-md">
             {openUnitsMessage}
           </p>
         )}
       </div>
       
       {!processNumber && !isLoadingOpenUnits && (!openUnitsInProcess || openUnitsInProcess.length === 0) && (
-        <p className="text-sm text-muted-foreground flex-grow pt-6">Carregue um arquivo JSON ou busque um processo para visualizar os detalhes.</p>
+         <p className="text-sm text-muted-foreground flex-grow pt-6">
+          Busque um processo ou carregue um arquivo JSON para visualizar os detalhes.
+         </p>
       )}
 
     </aside>
