@@ -52,8 +52,8 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
-      setRawProcessData(null); // Clear if invalid
-      setOpenUnitsInProcess(null);
+      // setRawProcessData(null); // Clear if invalid - This was causing issues, let's rely on initial null
+      // setOpenUnitsInProcess(null);
       return null;
     }
     const dataToProcess = {
@@ -66,34 +66,30 @@ export default function Home() {
     return processAndamentos(dataToProcess.Andamentos, dataToProcess.Info?.NumeroProcesso || processoNumeroInput, isSummarizedView);
   }, [rawProcessData, processoNumeroInput, isSummarizedView]);
 
-  // Effect to fetch open units when process data is available
   useEffect(() => {
     if (rawProcessData && rawProcessData.Info?.NumeroProcesso && selectedUnidadeFiltro) {
       setIsLoadingOpenUnits(true);
-      setOpenUnitsInProcess(null); // Clear previous
+      setOpenUnitsInProcess(null); 
       fetchOpenUnitsForProcess(rawProcessData.Info.NumeroProcesso, selectedUnidadeFiltro)
         .then(result => {
           if ('error' in result) {
             console.error("Error fetching open units:", result.error, result.details);
-            // Optionally, show a toast for this specific error
-            // toast({ title: "Erro ao buscar unidades abertas", description: result.error, variant: "destructive" });
-            setOpenUnitsInProcess([]); // Set to empty array on error to stop loading state
+            setOpenUnitsInProcess([]); 
           } else {
             setOpenUnitsInProcess(result);
           }
         })
         .catch(error => {
           console.error("Unexpected error fetching open units:", error);
-          // toast({ title: "Erro inesperado", description: "Não foi possível buscar as unidades com processo aberto.", variant: "destructive" });
           setOpenUnitsInProcess([]);
         })
         .finally(() => {
           setIsLoadingOpenUnits(false);
         });
     } else {
-        setOpenUnitsInProcess(null); // Clear if no process data or unit selected
+        setOpenUnitsInProcess(null); 
     }
-  }, [rawProcessData, selectedUnidadeFiltro]); // processoNumeroInput is implicitly covered by rawProcessData.Info.NumeroProcesso check
+  }, [rawProcessData, selectedUnidadeFiltro]);
 
 
   const handleFileUploadClick = () => {
@@ -132,7 +128,6 @@ export default function Home() {
           const jsonData = JSON.parse(text);
           if (jsonData && jsonData.Andamentos && Array.isArray(jsonData.Andamentos) && jsonData.Info) {
             setRawProcessData(jsonData as ProcessoData);
-            // Use NumeroProcesso from JSON if available, otherwise keep input (or clear if not relevant)
             setProcessoNumeroInput(jsonData.Info?.NumeroProcesso || processoNumeroInput || ""); 
             toast({
               title: "Sucesso!",
@@ -220,7 +215,7 @@ export default function Home() {
       const result = await fetchProcessDataFromSEI(processoNumeroInput, selectedUnidadeFiltro);
       console.log("[UI] Resultado da API SEI para andamentos:", result);
       
-      if ('error' in result && typeof result.error === 'string') { // Type guard for ApiError
+      if ('error' in result && typeof result.error === 'string') { 
         let errorTitle = "Erro ao buscar dados do processo";
         let errorDescription = result.error;
 
@@ -258,7 +253,7 @@ export default function Home() {
           duration: 9000,
         });
         setRawProcessData(null);
-      } else if (!('error' in result)) { // Check if it's ProcessoData
+      } else if (!('error' in result)) { 
         if (result && result.Andamentos && Array.isArray(result.Andamentos)) {
           setRawProcessData(result);
           toast({
@@ -275,7 +270,7 @@ export default function Home() {
           });
           setRawProcessData(null);
         }
-      } else { // Should not happen if types are correct, but as a fallback
+      } else { 
         console.error("[UI] Resposta inesperada da API SEI:", result);
         toast({ title: "Erro Desconhecido", description: "A API retornou uma resposta inesperada.", variant: "destructive" });
         setRawProcessData(null);
@@ -396,10 +391,8 @@ export default function Home() {
       
       <div className="flex flex-1 overflow-hidden">
         <ProcessMetadataSidebar 
-          processedFlowData={processedFlowData} 
           processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
           processNumberPlaceholder="Nenhum processo carregado" 
-          onTaskCardClick={handleTaskCardClick}
           openUnitsInProcess={openUnitsInProcess}
           isLoadingOpenUnits={isLoadingOpenUnits}
         />
