@@ -21,17 +21,16 @@ export function ProcessMetadataSidebar({
   
   const displayProcessNumber = processNumber || processNumberPlaceholder || "Não disponível";
 
-  // Helper logic to determine message for open units section
   const getOpenUnitsMessage = () => {
-    if (isLoadingOpenUnits) return null; // Loading skeleton will show
+    if (isLoadingOpenUnits) return null; 
     if (!processNumber) return "Carregue um processo para ver as unidades em aberto.";
     if (openUnitsInProcess && openUnitsInProcess.length === 0) {
       return "Nenhuma unidade com este processo em aberto ou informação não disponível.";
     }
-    if (!openUnitsInProcess) { // Error or not yet loaded but process number exists
+    if (!openUnitsInProcess) { 
         return "Verificando unidades abertas...";
     }
-    return null; // Will render list
+    return null; 
   };
   const openUnitsMessage = getOpenUnitsMessage();
 
@@ -45,8 +44,7 @@ export function ProcessMetadataSidebar({
           Número: <span className="font-medium text-foreground">{displayProcessNumber}</span>
         </p>
       </div>
-
-      {/* Seção Unidades com Processo Aberto */}
+      
       <div>
         {isLoadingOpenUnits && (
           <div className="space-y-2 pr-2 mt-2">
@@ -56,9 +54,12 @@ export function ProcessMetadataSidebar({
         )}
         {!isLoadingOpenUnits && openUnitsInProcess && openUnitsInProcess.length > 0 && (
           <ul className="space-y-1 text-sm text-muted-foreground list-disc list-inside pl-2 mt-2">
-            {openUnitsInProcess.map(unit => (
-              <li key={unit.IdUnidade} title={unit.DescricaoUnidade}>
-                {unit.SiglaUnidade}
+            {openUnitsInProcess.map(unitInfo => (
+              <li key={unitInfo.Unidade.IdUnidade} title={unitInfo.Unidade.Descricao}>
+                {unitInfo.Unidade.Sigla}
+                {unitInfo.UsuarioAtribuicao.Nome && (
+                  <span className="text-xs text-muted-foreground/70"> (Atribuído a: {unitInfo.UsuarioAtribuicao.Nome})</span>
+                )}
               </li>
             ))}
           </ul>
@@ -70,9 +71,7 @@ export function ProcessMetadataSidebar({
         )}
       </div>
       
-      {/* Removed "Tarefas Pendentes" section */}
-      
-      {!processNumber && !isLoadingOpenUnits && !openUnitsInProcess && ( // Simplified initial message
+      {!processNumber && !isLoadingOpenUnits && (!openUnitsInProcess || openUnitsInProcess.length === 0) && (
         <p className="text-sm text-muted-foreground flex-grow pt-6">Carregue um arquivo JSON ou busque um processo para visualizar os detalhes.</p>
       )}
 

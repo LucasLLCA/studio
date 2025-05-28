@@ -25,6 +25,10 @@ export interface Andamento {
   Unidade: Unidade;
   Usuario: Usuario;
   Atributos?: Atributo[]; 
+  isSummaryNode?: boolean;
+  groupedTasksCount?: number;
+  originalTaskIds?: string[];
+  daysOpen?: number;
 }
 
 export interface ProcessoInfo {
@@ -49,11 +53,7 @@ export interface ProcessedAndamento extends Andamento {
   y: number; 
   color?: string; 
   nodeRadius: number; 
-  chronologicalIndex: number; 
-  daysOpen?: number; 
-  isSummaryNode?: boolean;
-  groupedTasksCount?: number;
-  originalTaskIds?: string[];
+  // chronologicalIndex: number; // This was likely redundant with globalSequence or internal sorting
 }
 
 export interface Connection {
@@ -81,16 +81,32 @@ export interface UnidadesFiltroData {
 }
 
 // Types for the /procedimentos/consulta endpoint
-export interface UnidadeAberta {
-  IdUnidade: string;
-  SiglaUnidade: string;
-  DescricaoUnidade: string;
-  // Outros campos que possam vir da API, como NomeUnidade, etc.
+export interface UsuarioAtribuicao {
+  IdUsuario?: string;
+  Sigla?: string;
+  Nome?: string;
+}
+
+export interface UnidadeAberta { // Represents an item in UnidadesProcedimentoAberto array
+  Unidade: {
+    IdUnidade: string;
+    Sigla: string;
+    Descricao: string;
+  };
+  UsuarioAtribuicao: UsuarioAtribuicao;
 }
 
 export interface ConsultaProcessoResponse {
+  IdProcedimento?: string;
+  ProcedimentoFormatado?: string;
+  Especificacao?: string;
+  DataAutuacao?: string;
+  LinkAcesso?: string;
+  TipoProcedimento?: {
+    IdTipoProcedimento: string;
+    Nome: string;
+  };
   UnidadesProcedimentoAberto?: UnidadeAberta[];
-  // Outros campos da resposta da consulta, se houver
 }
 
 export interface ApiError {
