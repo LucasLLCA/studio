@@ -3,7 +3,7 @@
 
 import type { ProcessedFlowData, ProcessedAndamento, UnidadeAberta } from '@/types/process-flow';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AlertTriangle, Clock, ListChecks, Loader2 } from 'lucide-react'; // FileText removed from here
+import { AlertTriangle, Clock, ListChecks, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton'; 
 
 interface ProcessMetadataSidebarProps {
@@ -33,7 +33,7 @@ export function ProcessMetadataSidebar({
   return (
     <aside className="w-80 p-4 border-r bg-card flex-shrink-0 flex flex-col space-y-6 overflow-y-auto">
       <div>
-        <h2 className="text-xl font-semibold mb-1"> {/* Removed flex items-center and FileText icon */}
+        <h2 className="text-xl font-semibold mb-1">
            Metadados do Processo
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -41,20 +41,22 @@ export function ProcessMetadataSidebar({
         </p>
       </div>
 
-      {/* Seção Unidades com Processo Aberto */}
+      {/* Seção Unidades com Processo Aberto - Título Removido */}
       <div>
+        {/* 
         <h3 className="text-lg font-semibold mb-3 text-foreground flex items-center">
           <ListChecks className="mr-2 h-5 w-5 text-primary" />
-          Unidades com Processo Aberto
+          Unidades com Processo Aberto 
         </h3>
+        */}
         {isLoadingOpenUnits && (
-          <div className="space-y-2 pr-2">
+          <div className="space-y-2 pr-2 mt-2"> {/* Adicionado mt-2 para compensar remoção do título */}
             <Skeleton className="h-8 w-full rounded-md" />
             <Skeleton className="h-8 w-full rounded-md" />
           </div>
         )}
         {!isLoadingOpenUnits && openUnitsInProcess && openUnitsInProcess.length > 0 && (
-          <ul className="space-y-1 text-sm text-muted-foreground list-disc list-inside pl-2">
+          <ul className="space-y-1 text-sm text-muted-foreground list-disc list-inside pl-2 mt-2"> {/* Adicionado mt-2 */}
             {openUnitsInProcess.map(unit => (
               <li key={unit.IdUnidade} title={unit.DescricaoUnidade}>
                 {unit.SiglaUnidade}
@@ -63,7 +65,7 @@ export function ProcessMetadataSidebar({
           </ul>
         )}
         {!isLoadingOpenUnits && (!openUnitsInProcess || openUnitsInProcess.length === 0) && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground mt-2"> {/* Adicionado mt-2 */}
             {rawProcessData && processoNumeroInput ? "Nenhuma unidade com este processo em aberto ou informação não disponível." : "Carregue um processo para ver as unidades em aberto."}
           </p>
         )}
