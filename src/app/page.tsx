@@ -2,8 +2,8 @@
 "use client";
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
-import type { ProcessoData, ProcessedFlowData, ProcessedAndamento, UnidadeFiltro, UnidadesFiltroData, UnidadeAberta, ApiError } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, AlertTriangle, ListChecks, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadesFiltroData, UnidadeAberta, ApiError } from '@/types/process-flow';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,12 +23,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess } from './sei-actions';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 export default function Home() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [rawProcessData, setRawProcessData] = useState<ProcessoData | null>(null);
-  const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
+  const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedFlowData['tasks'][0] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -40,6 +49,10 @@ export default function Home() {
   const [loadingMessage, setLoadingMessage] = useState<string>("Processando dados...");
   const [isSummarizedView, setIsSummarizedView] = useState<boolean>(false);
   const [openUnitsInProcess, setOpenUnitsInProcess] = useState<UnidadeAberta[] | null>(null);
+
+  const [processSummary, setProcessSummary] = useState<string | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(false);
+  const [isSummaryDialogOpen, setIsSummaryDialogOpen] = useState<boolean>(false);
 
 
   useEffect(() => {
@@ -124,6 +137,7 @@ export default function Home() {
     setLoadingMessage("Processando arquivo JSON...");
     setRawProcessData(null); 
     setOpenUnitsInProcess(null);
+    setProcessSummary(null);
 
 
     const reader = new FileReader();
@@ -178,8 +192,8 @@ export default function Home() {
     setLoadingMessage("Carregando dados de exemplo...");
     setRawProcessData(null); 
     setOpenUnitsInProcess(null);
+    setProcessSummary(null);
 
-    // Ensure sampleProcessFlowData has a valid Info structure for NumeroProcesso
      const sampleDataWithInfo: ProcessoData = {
       Info: {
         ...sampleProcessFlowData.Info, 
@@ -216,6 +230,7 @@ export default function Home() {
     setIsLoading(true);
     setRawProcessData(null); 
     setOpenUnitsInProcess(null);
+    setProcessSummary(null);
 
 
     try {
@@ -262,7 +277,7 @@ export default function Home() {
         setRawProcessData(null);
       } else if (!('error' in result)) { 
         if (result && result.Andamentos && Array.isArray(result.Andamentos)) {
-          setRawProcessData(result); // This will trigger the useEffect for openUnits
+          setRawProcessData(result); 
           toast({
             title: "Sucesso!",
             description: `Dados do processo (total ${result.Andamentos.length} andamentos) carregados da API.`,
@@ -301,7 +316,58 @@ export default function Home() {
     }
   };
 
-  const handleTaskCardClick = (task: ProcessedAndamento) => {
+  const handleGenerateSummary = async () => {
+    if (!processoNumeroInput) {
+      toast({ title: "Entrada Inválida", description: "Por favor, insira o número do processo para gerar o resumo.", variant: "destructive" });
+      return;
+    }
+    setIsLoadingSummary(true);
+    setProcessSummary(null);
+
+    const formattedProcessNumber = processoNumeroInput.replace(/[./-]/g, "");
+    const summaryApiUrl = `http://127.0.0.1:8000/resumo_completo/${formattedProcessNumber}`;
+
+    try {
+      const response = await fetch(summaryApiUrl, {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: "Erro ao buscar resumo. A API não retornou um JSON válido." }));
+        const errorDetail = errorData?.detail || `Erro ${response.status} - ${response.statusText}`;
+        throw new Error(typeof errorDetail === 'string' ? errorDetail : JSON.stringify(errorDetail));
+      }
+
+      const data = await response.json();
+
+      if (data && data.resumo && data.resumo.resumo_combinado && data.resumo.resumo_combinado.resposta_ia) {
+        setProcessSummary(data.resumo.resumo_combinado.resposta_ia);
+        setIsSummaryDialogOpen(true);
+        toast({
+          title: "Resumo Gerado",
+          description: "O resumo do processo foi carregado com sucesso.",
+        });
+      } else {
+        throw new Error("Formato da resposta do resumo inesperado.");
+      }
+
+    } catch (error) {
+      console.error("Error fetching process summary:", error);
+      toast({
+        title: "Erro ao Gerar Resumo",
+        description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
+
+  const handleTaskCardClick = (task: ProcessedFlowData['tasks'][0]) => {
     setTaskToScrollTo(task);
   };
 
@@ -344,9 +410,9 @@ export default function Home() {
                 className="h-9 text-sm w-48" 
                 value={processoNumeroInput}
                 onChange={(e) => setProcessoNumeroInput(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isLoadingSummary}
               />
-               <Select value={selectedUnidadeFiltro} onValueChange={setSelectedUnidadeFiltro} disabled={isLoading}>
+               <Select value={selectedUnidadeFiltro} onValueChange={setSelectedUnidadeFiltro} disabled={isLoading || isLoadingSummary}>
                 <SelectTrigger className="h-9 text-sm w-[200px]">
                   <SelectValue placeholder="Filtrar por Unidade" />
                 </SelectTrigger>
@@ -362,29 +428,31 @@ export default function Home() {
                 variant="outline" 
                 size="sm" 
                 onClick={handleSearchClick}
-                disabled={isLoading || !processoNumeroInput || !selectedUnidadeFiltro}
+                disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro}
               >
                 {isLoading && loadingMessage.includes("API SEI") ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                 {isLoading && loadingMessage.includes("API SEI") ? "Pesquisando..." : "Pesquisar"}
               </Button>
             </div>
-            <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading}>
+            <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
               <Upload className="mr-2 h-4 w-4" />
               Carregar JSON
             </Button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept=".json"
-              className="hidden"
-            />
+             <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleGenerateSummary}
+              disabled={isLoading || isLoadingSummary || !processoNumeroInput}
+            >
+              {isLoadingSummary ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookText className="mr-2 h-4 w-4" />}
+              Gerar Resumo
+            </Button>
             <div className="flex items-center space-x-2">
               <Switch 
                 id="summarize-graph" 
                 checked={isSummarizedView}
                 onCheckedChange={setIsSummarizedView}
-                disabled={!rawProcessData || isLoading} 
+                disabled={!rawProcessData || isLoading || isLoadingSummary} 
               />
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Versão Resumida</Label>
             </div>
@@ -440,7 +508,7 @@ export default function Home() {
                 clique em "Carregar JSON" para selecionar um arquivo do seu computador, ou carregue os dados de exemplo.
               </p>
               <div className="flex space-x-4">
-                <Button onClick={loadSampleData} variant="secondary" disabled={isLoading}>
+                <Button onClick={loadSampleData} variant="secondary" disabled={isLoading || isLoadingSummary}>
                   Usar Dados de Exemplo
                 </Button>
               </div>
@@ -449,11 +517,32 @@ export default function Home() {
         </div>
       </div>
 
+      {processSummary && (
+        <Dialog open={isSummaryDialogOpen} onOpenChange={setIsSummaryDialogOpen}>
+          <DialogContent className="sm:max-w-[60vw] max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Resumo do Processo: {processoNumeroInput}</DialogTitle>
+              <DialogDescription>
+                Este é um resumo gerado por IA sobre o processo.
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="flex-grow p-1 rounded-md border">
+              <pre className="text-sm whitespace-pre-wrap p-4 break-words">
+                {processSummary}
+              </pre>
+            </ScrollArea>
+            <DialogFooter>
+              <Button onClick={() => setIsSummaryDialogOpen(false)}>Fechar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       <footer className="p-3 border-t border-border text-center text-xs text-muted-foreground">
         © {currentYear !== null ? currentYear : new Date().getFullYear()} Visualizador de Processos. Todos os direitos reservados.
       </footer>
     </main>
   );
 }
-
+ 
     
