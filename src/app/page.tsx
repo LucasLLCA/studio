@@ -495,10 +495,12 @@ export default function Home() {
                 </div>
               )}
               {processSummary && !isLoadingSummary && (
-                <ScrollArea className="h-auto max-h-[300px] p-1 rounded-md border">
-                  <pre className="text-sm whitespace-pre-wrap p-4 break-words font-sans">
-                    {processSummary}
-                  </pre>
+                <ScrollArea className="max-h-[300px] rounded-md border">
+                  <div className="p-4">
+                    <pre className="text-sm whitespace-pre-wrap break-words font-sans">
+                      {processSummary}
+                    </pre>
+                  </div>
                 </ScrollArea>
               )}
               {!processSummary && !isLoadingSummary && (
@@ -571,5 +573,7 @@ export default function Home() {
     </main>
   );
 }
+
+    
 
     
