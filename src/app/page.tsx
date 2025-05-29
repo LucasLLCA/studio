@@ -488,7 +488,7 @@ export default function Home() {
                 Este é um resumo gerado por IA sobre o processo.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col"> {/* Changed to flex flex-col */}
               {isLoadingSummary && (
                 <div className="flex items-center justify-center p-6">
                   <Loader2 className="h-8 w-8 text-primary animate-spin" />
@@ -496,8 +496,8 @@ export default function Home() {
                 </div>
               )}
               {processSummary && !isLoadingSummary && (
-                <ScrollArea className="max-h-[300px]">
-                  <div className="p-4 rounded-md border">
+                <ScrollArea className="max-h-[300px] flex-shrink-0 rounded-md border"> {/* Added flex-shrink-0 */}
+                  <div className="p-4">
                     <pre className="text-sm whitespace-pre-wrap break-words font-sans">
                       {processSummary}
                     </pre>
@@ -574,5 +574,7 @@ export default function Home() {
     </main>
   );
 }
+
+    
 
     
