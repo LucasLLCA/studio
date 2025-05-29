@@ -337,7 +337,8 @@ export default function Home() {
       const data = await response.json();
 
       if (data && data.resumo && data.resumo.resumo_combinado && data.resumo.resumo_combinado.resposta_ia) {
-        setProcessSummary(data.resumo.resumo_combinado.resposta_ia);
+        const cleanedSummary = data.resumo.resumo_combinado.resposta_ia.replace(/[#*]/g, '');
+        setProcessSummary(cleanedSummary);
         toast({
           title: "Resumo Gerado",
           description: "O resumo do processo foi carregado com sucesso.",
@@ -350,7 +351,7 @@ export default function Home() {
       console.error("Error fetching process summary:", error);
       let description = "Ocorreu um erro desconhecido.";
       if (error instanceof Error) {
-        if (error.message === "Failed to fetch") {
+        if (error.message.toLowerCase().includes("failed to fetch")) {
           description = "Falha ao conectar com a API de resumo. Verifique se o serviço local (em http://127.0.0.1:8000) está rodando e se as configurações de CORS estão corretas.";
         } else {
           description = error.message;
@@ -383,6 +384,8 @@ export default function Home() {
     }
   };
 
+  const inputRef = React.createRef<HTMLInputElement>();
+
 
   return (
     <main className="min-h-screen flex flex-col bg-background">
@@ -392,8 +395,8 @@ export default function Home() {
             <Image
               src="/logo-sead.png"
               alt="Logo SEAD Piauí"
-              width={250} 
-              height={100}
+              width={160} 
+              height={60}
               priority
               data-ai-hint="logo government"
             />
@@ -411,6 +414,7 @@ export default function Home() {
                 value={processoNumeroInput}
                 onChange={(e) => setProcessoNumeroInput(e.target.value)}
                 disabled={isLoading || isLoadingSummary}
+                ref={inputRef}
               />
                <Select value={selectedUnidadeFiltro} onValueChange={setSelectedUnidadeFiltro} disabled={isLoading || isLoadingSummary}>
                 <SelectTrigger className="h-9 text-sm w-[200px]">
@@ -438,6 +442,13 @@ export default function Home() {
               <Upload className="mr-2 h-4 w-4" />
               Carregar JSON
             </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              accept="application/json"
+            />
              <Button 
               variant="outline" 
               size="sm" 
@@ -485,7 +496,7 @@ export default function Home() {
               )}
               {processSummary && !isLoadingSummary && (
                 <ScrollArea className="h-auto max-h-[300px] p-1 rounded-md border">
-                  <pre className="text-sm whitespace-pre-wrap p-4 break-words">
+                  <pre className="text-sm whitespace-pre-wrap p-4 break-words font-sans">
                     {processSummary}
                   </pre>
                 </ScrollArea>
@@ -560,8 +571,5 @@ export default function Home() {
     </main>
   );
 }
- 
-    
 
     
-
