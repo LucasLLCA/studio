@@ -57,7 +57,7 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
-      setProcessSummary(null); // Clear summary if new process data is different or null
+      setProcessSummary(null); 
       return null;
     }
     const dataToProcess = {
@@ -348,9 +348,17 @@ export default function Home() {
 
     } catch (error) {
       console.error("Error fetching process summary:", error);
+      let description = "Ocorreu um erro desconhecido.";
+      if (error instanceof Error) {
+        if (error.message === "Failed to fetch") {
+          description = "Falha ao conectar com a API de resumo. Verifique se o serviço local (em http://127.0.0.1:8000) está rodando e se as configurações de CORS estão corretas.";
+        } else {
+          description = error.message;
+        }
+      }
       toast({
         title: "Erro ao Gerar Resumo",
-        description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
+        description: description,
         variant: "destructive",
       });
     } finally {
@@ -556,3 +564,4 @@ export default function Home() {
     
 
     
+
