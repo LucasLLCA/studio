@@ -75,6 +75,7 @@ export default function Home() {
     if (numeroProcessoAtual && selectedUnidadeFiltro) {
       setIsLoadingOpenUnits(true);
       setOpenUnitsInProcess(null); 
+      console.log(`[UI] Fetching open units for: Processo='${numeroProcessoAtual}', Unidade='${selectedUnidadeFiltro}'`);
       fetchOpenUnitsForProcess(numeroProcessoAtual, selectedUnidadeFiltro)
         .then(result => {
           if ('error' in result) {
@@ -495,8 +496,8 @@ export default function Home() {
                 </div>
               )}
               {processSummary && !isLoadingSummary && (
-                <ScrollArea className="max-h-[300px] rounded-md border">
-                  <div className="p-4">
+                <ScrollArea className="max-h-[300px]">
+                  <div className="p-4 rounded-md border">
                     <pre className="text-sm whitespace-pre-wrap break-words font-sans">
                       {processSummary}
                     </pre>
@@ -573,7 +574,5 @@ export default function Home() {
     </main>
   );
 }
-
-    
 
     
