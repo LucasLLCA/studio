@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadesFiltroData, UnidadeAberta, ApiError } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,14 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess } from './sei-actions';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 
@@ -52,7 +45,6 @@ export default function Home() {
 
   const [processSummary, setProcessSummary] = useState<string | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(false);
-  const [isSummaryDialogOpen, setIsSummaryDialogOpen] = useState<boolean>(false);
 
 
   useEffect(() => {
@@ -65,6 +57,7 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
+      setProcessSummary(null); // Clear summary if new process data is different or null
       return null;
     }
     const dataToProcess = {
@@ -345,7 +338,6 @@ export default function Home() {
 
       if (data && data.resumo && data.resumo.resumo_combinado && data.resumo.resumo_combinado.resposta_ia) {
         setProcessSummary(data.resumo.resumo_combinado.resposta_ia);
-        setIsSummaryDialogOpen(true);
         toast({
           title: "Resumo Gerado",
           description: "O resumo do processo foi carregado com sucesso.",
@@ -463,6 +455,43 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      { (isLoadingSummary || processSummary) && (
+        <section className="container mx-auto max-w-full p-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <BookText className="mr-2 h-5 w-5 text-primary" />
+                Resumo do Processo {processoNumeroInput ? `(${processoNumeroInput})` : ''}
+              </CardTitle>
+              <CardDescription>
+                Este é um resumo gerado por IA sobre o processo.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingSummary && (
+                <div className="flex items-center justify-center p-6">
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                  <p className="ml-3 text-muted-foreground">Gerando resumo...</p>
+                </div>
+              )}
+              {processSummary && !isLoadingSummary && (
+                <ScrollArea className="h-auto max-h-[300px] p-1 rounded-md border">
+                  <pre className="text-sm whitespace-pre-wrap p-4 break-words">
+                    {processSummary}
+                  </pre>
+                </ScrollArea>
+              )}
+              {!processSummary && !isLoadingSummary && (
+                <div className="flex items-center justify-center p-6 text-muted-foreground">
+                    <Info className="mr-2 h-5 w-5" />
+                    Nenhum resumo disponível ou gerado. Clique em "Gerar Resumo".
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
       
       <div className="flex flex-1 overflow-hidden">
         <ProcessMetadataSidebar 
@@ -517,27 +546,6 @@ export default function Home() {
         </div>
       </div>
 
-      {processSummary && (
-        <Dialog open={isSummaryDialogOpen} onOpenChange={setIsSummaryDialogOpen}>
-          <DialogContent className="sm:max-w-[60vw] max-h-[80vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Resumo do Processo: {processoNumeroInput}</DialogTitle>
-              <DialogDescription>
-                Este é um resumo gerado por IA sobre o processo.
-              </DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="flex-grow p-1 rounded-md border">
-              <pre className="text-sm whitespace-pre-wrap p-4 break-words">
-                {processSummary}
-              </pre>
-            </ScrollArea>
-            <DialogFooter>
-              <Button onClick={() => setIsSummaryDialogOpen(false)}>Fechar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
       <footer className="p-3 border-t border-border text-center text-xs text-muted-foreground">
         © {currentYear !== null ? currentYear : new Date().getFullYear()} Visualizador de Processos. Todos os direitos reservados.
       </footer>
@@ -545,4 +553,6 @@ export default function Home() {
   );
 }
  
+    
+
     
