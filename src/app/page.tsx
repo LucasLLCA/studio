@@ -2,7 +2,7 @@
 "use client";
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
-import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadesFiltroData, UnidadeAberta, ApiError } from '@/types/process-flow';
+import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadesFiltroData, UnidadeAberta, ProcessedAndamento } from '@/types/process-flow';
 import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 export default function Home() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [rawProcessData, setRawProcessData] = useState<ProcessoData | null>(null);
-  const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedFlowData['tasks'][0] | null>(null);
+  const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -369,7 +369,7 @@ export default function Home() {
   };
 
 
-  const handleTaskCardClick = (task: ProcessedFlowData['tasks'][0]) => {
+  const handleTaskCardClick = (task: ProcessedAndamento) => {
     setTaskToScrollTo(task);
   };
 
@@ -488,7 +488,7 @@ export default function Home() {
                 Este é um resumo gerado por IA sobre o processo.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col"> {/* Changed to flex flex-col */}
+            <CardContent className="flex flex-col">
               {isLoadingSummary && (
                 <div className="flex items-center justify-center p-6">
                   <Loader2 className="h-8 w-8 text-primary animate-spin" />
@@ -496,8 +496,8 @@ export default function Home() {
                 </div>
               )}
               {processSummary && !isLoadingSummary && (
-                <ScrollArea className="max-h-[300px] flex-shrink-0 rounded-md border"> {/* Added flex-shrink-0 */}
-                  <div className="p-4">
+                <ScrollArea className="max-h-[300px] flex-shrink-0 rounded-md border">
+                  <div className="p-4 rounded-md border">
                     <pre className="text-sm whitespace-pre-wrap break-words font-sans">
                       {processSummary}
                     </pre>
@@ -521,6 +521,8 @@ export default function Home() {
           processNumberPlaceholder="Nenhum processo carregado" 
           openUnitsInProcess={openUnitsInProcess}
           isLoadingOpenUnits={isLoadingOpenUnits}
+          processedFlowData={processedFlowData}
+          onTaskCardClick={handleTaskCardClick}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
           {isLoading && !loadingMessage.includes("API SEI") ? ( 
@@ -574,7 +576,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
-
-    
