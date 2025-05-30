@@ -2,7 +2,7 @@
 "use client";
 
 import type { UnidadeAberta, ProcessedAndamento, ProcessedFlowData } from '@/types/process-flow';
-import { ListChecks, Loader2, Briefcase, User, Info, AlertTriangle } from 'lucide-react';
+import { Briefcase, User, Info, AlertTriangle, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton'; 
 import {
   Card,
@@ -19,8 +19,8 @@ interface ProcessMetadataSidebarProps {
   processNumberPlaceholder?: string;
   openUnitsInProcess: UnidadeAberta[] | null;
   isLoadingOpenUnits: boolean;
-  processedFlowData: ProcessedFlowData | null;
-  onTaskCardClick: (task: ProcessedAndamento) => void;
+  processedFlowData: ProcessedFlowData | null; // Still needed for daysOpen correlation
+  onTaskCardClick: (task: ProcessedAndamento) => void; // Still needed for card click
 }
 
 export function ProcessMetadataSidebar({ 
@@ -47,12 +47,18 @@ export function ProcessMetadataSidebar({
   };
   const openUnitsMessage = getOpenUnitsMessage();
 
-  const openTasksFromDiagram: ProcessedAndamento[] = React.useMemo(() => {
+  // Find the corresponding open task from the diagram data for a given unit ID
+  const findOpenTaskForUnit = (unitId: string): ProcessedAndamento | undefined => {
     if (!processedFlowData || !processedFlowData.tasks) {
-      return [];
+      return undefined;
     }
-    return processedFlowData.tasks.filter(task => typeof task.daysOpen === 'number' && task.daysOpen >= 0);
-  }, [processedFlowData]);
+    // Find the latest task in this unit that is marked as an open end
+    const openTasksInUnit = processedFlowData.tasks
+      .filter(task => task.Unidade.IdUnidade === unitId && typeof task.daysOpen === 'number' && task.daysOpen >= 0)
+      .sort((a, b) => b.globalSequence - a.globalSequence); // Sort by globalSequence descending to get latest
+
+    return openTasksInUnit[0]; // Return the latest one, if any
+  };
 
   return (
     <aside className="w-80 p-4 border-r bg-card flex-shrink-0 flex flex-col space-y-6 overflow-y-auto">
@@ -75,32 +81,50 @@ export function ProcessMetadataSidebar({
           </>
         )}
         {!isLoadingOpenUnits && openUnitsInProcess && openUnitsInProcess.length > 0 && (
-          openUnitsInProcess.map(unitInfo => (
-            <Card key={unitInfo.Unidade.IdUnidade} className="shadow-sm">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-base flex items-center">
-                  <Briefcase className="mr-2 h-4 w-4 text-primary" />
-                  {unitInfo.Unidade.Sigla}
-                </CardTitle>
-                <CardDescription className="text-xs pt-1">
-                  {unitInfo.Unidade.Descricao}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-4 pb-3">
-                {unitInfo.UsuarioAtribuicao?.Nome ? (
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <User className="mr-2 h-3 w-3" />
-                    <span>Atribuído a: {unitInfo.UsuarioAtribuicao.Nome}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center text-xs text-muted-foreground/70">
-                    <Info className="mr-2 h-3 w-3" />
-                    <span>Não atribuído a um usuário específico.</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
+          openUnitsInProcess.map(unitInfo => {
+            const openTaskDetails = findOpenTaskForUnit(unitInfo.Unidade.IdUnidade);
+            const cardIsClickable = !!openTaskDetails;
+
+            return (
+              <Card 
+                key={unitInfo.Unidade.IdUnidade} 
+                className={`shadow-sm ${cardIsClickable ? 'hover:shadow-md transition-shadow cursor-pointer' : ''}`}
+                onClick={() => {
+                  if (openTaskDetails) {
+                    onTaskCardClick(openTaskDetails);
+                  }
+                }}
+              >
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <CardTitle className="text-base flex items-center text-destructive">
+                    <AlertTriangle className="mr-2 h-4 w-4" />
+                    {unitInfo.Unidade.Sigla}
+                  </CardTitle>
+                  <CardDescription className="text-xs pt-1">
+                    {unitInfo.Unidade.Descricao}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 pb-3 space-y-2">
+                  {unitInfo.UsuarioAtribuicao?.Nome ? (
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <User className="mr-2 h-3 w-3" />
+                      <span>Atribuído a: {unitInfo.UsuarioAtribuicao.Nome}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-xs text-muted-foreground/70">
+                      <Info className="mr-2 h-3 w-3" />
+                      <span>Não atribuído a um usuário específico.</span>
+                    </div>
+                  )}
+                  {openTaskDetails && typeof openTaskDetails.daysOpen === 'number' && (
+                    <Badge variant="destructive">
+                      Pendente há {openTaskDetails.daysOpen} {openTaskDetails.daysOpen === 1 ? 'dia' : 'dias'} (no fluxograma)
+                    </Badge>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })
         )}
         {!isLoadingOpenUnits && openUnitsMessage && (
           <p className="text-sm text-muted-foreground mt-2 p-2 bg-secondary/50 rounded-md">
@@ -108,39 +132,11 @@ export function ProcessMetadataSidebar({
           </p>
         )}
       </div>
-
-      {/* Tarefas Pendentes (derivado do fluxograma) */}
-      {processedFlowData && openTasksFromDiagram.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-md font-semibold text-foreground mb-2">Tarefas Pendentes (Fluxograma):</h3>
-          {openTasksFromDiagram.map(task => (
-            <Card 
-              key={`${task.IdAndamento}-${task.globalSequence}`} 
-              className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => onTaskCardClick(task)}
-            >
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm flex items-center text-destructive">
-                  <AlertTriangle className="mr-2 h-4 w-4" />
-                  {task.Unidade.Sigla}
-                </CardTitle>
-                <CardDescription className="text-xs pt-1">
-                  {task.Tarefa}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-4 pb-3">
-                <Badge variant="destructive">
-                  Pendente há {task.daysOpen} {task.daysOpen === 1 ? 'dia' : 'dias'}
-                </Badge>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
       
-      {!processNumber && !isLoadingOpenUnits && (!openUnitsInProcess || openUnitsInProcess.length === 0) && (!processedFlowData || openTasksFromDiagram.length === 0) && (
+      {/* This ensures there's a message if nothing else is shown */}
+      {!processNumber && !isLoadingOpenUnits && (!openUnitsInProcess || openUnitsInProcess.length === 0) && (
          <p className="text-sm text-muted-foreground flex-grow pt-6">
-          Busque um processo ou carregue um arquivo JSON para visualizar os detalhes e tarefas pendentes.
+          Busque um processo ou carregue um arquivo JSON para visualizar os detalhes.
          </p>
       )}
     </aside>
