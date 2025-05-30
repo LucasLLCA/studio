@@ -496,7 +496,7 @@ export default function Home() {
                 </div>
               )}
               {processSummary && !isLoadingSummary && (
-                <ScrollArea className="max-h-[300px] flex-shrink-0 rounded-md border">
+                 <ScrollArea className="max-h-[300px] flex-shrink-0 rounded-md border">
                   <div className="p-4 rounded-md border">
                     <pre className="text-sm whitespace-pre-wrap break-words font-sans">
                       {processSummary}

@@ -87,7 +87,7 @@ export function ProcessMetadataSidebar({
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-4 pb-3">
-                {unitInfo.UsuarioAtribuicao.Nome ? (
+                {unitInfo.UsuarioAtribuicao?.Nome ? (
                   <div className="flex items-center text-xs text-muted-foreground">
                     <User className="mr-2 h-3 w-3" />
                     <span>Atribuído a: {unitInfo.UsuarioAtribuicao.Nome}</span>
