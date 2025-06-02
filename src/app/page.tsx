@@ -1,4 +1,3 @@
-
 "use client";
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
@@ -319,7 +318,7 @@ export default function Home() {
     setProcessSummary(null);
 
     const formattedProcessNumber = processoNumeroInput.replace(/[./-]/g, "");
-    const summaryApiUrl = `http://127.0.0.1:8000/resumo_completo/${formattedProcessNumber}`;
+    const summaryApiUrl = `${process.env.NEXT_PUBLIC_SUMMARY_API_URL}/processo/resumo-completo/${formattedProcessNumber}`;
 
     try {
       const response = await fetch(summaryApiUrl, {
