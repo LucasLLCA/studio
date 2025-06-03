@@ -20,7 +20,6 @@ out
 .gitignore
 README.md
 .dockerignore
-Dockerfile
 
 # IDE
 .vscode
