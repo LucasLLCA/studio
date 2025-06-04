@@ -67,11 +67,11 @@ export default function Home() {
         NumeroProcesso: rawProcessData.Info?.NumeroProcesso || processoNumeroInput,
       }
     };
-    return processAndamentos(dataToProcess.Andamentos, dataToProcess.Info?.NumeroProcesso || processoNumeroInput, isSummarizedView);
-  }, [rawProcessData, processoNumeroInput, isSummarizedView]);
+    return processAndamentos(dataToProcess.Andamentos, openUnitsInProcess, dataToProcess.Info?.NumeroProcesso || processoNumeroInput, isSummarizedView);
+  }, [rawProcessData, openUnitsInProcess, processoNumeroInput, isSummarizedView]);
 
   useEffect(() => {
-    const numeroProcessoAtual = rawProcessData?.Info?.NumeroProcesso;
+    const numeroProcessoAtual = rawProcessData?.Info?.NumeroProcesso || processoNumeroInput;
     if (numeroProcessoAtual && selectedUnidadeFiltro) {
       setIsLoadingOpenUnits(true);
       setOpenUnitsInProcess(null); 
@@ -102,7 +102,7 @@ export default function Home() {
     } else {
         setOpenUnitsInProcess(null); 
     }
-  }, [rawProcessData, selectedUnidadeFiltro]);
+  }, [rawProcessData, processoNumeroInput, selectedUnidadeFiltro]);
 
 
   const handleFileUploadClick = () => {
@@ -497,7 +497,7 @@ export default function Home() {
               )}
               {processSummary && !isLoadingSummary && (
                  <ScrollArea className="max-h-[300px] flex-shrink-0 rounded-md border">
-                  <div className="p-4 rounded-md border">
+                  <div className="p-4">
                     <pre className="text-sm whitespace-pre-wrap break-words font-sans">
                       {processSummary}
                     </pre>
@@ -576,3 +576,4 @@ export default function Home() {
     </main>
   );
 }
+

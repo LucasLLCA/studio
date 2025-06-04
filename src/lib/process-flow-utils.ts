@@ -3,7 +3,7 @@ import {
   type Andamento,
   type ProcessedAndamento,
   type Connection,
-  // type ProcessoData, // No longer directly used here, ProcessoData handled by page
+  type UnidadeAberta,
 } from '@/types/process-flow';
 import { differenceInDays } from 'date-fns';
 
@@ -29,7 +29,7 @@ export const SIGNIFICANT_TASK_TYPES: string[] = [
   'GERACAO-PROCEDIMENTO',
   'PROCESSO-REMETIDO-UNIDADE',
   'PROCESSO-RECEBIDO-UNIDADE',
-  'CONCLUSAO-PROCESSO-UNIDADE', // Corrigido o typo de UNidade para UNIDADE
+  'CONCLUSAO-PROCESSO-UNIDADE',
   'CONCLUSAO-AUTOMATICA-UNIDADE',
   'REABERTURA-PROCESSO-UNIDADE',
 ];
@@ -56,8 +56,8 @@ export function formatDisplayDate(date: Date): string {
 
 interface AndamentoInternal extends Andamento {
   parsedDate: Date;
-  originalGlobalSequence: number; // Sequence from the input array, before any sorting/filtering
-  trueChronologicalOrderIndex: number; // Index after sorting by date/ID
+  originalGlobalSequence: number; 
+  trueChronologicalOrderIndex: number; 
   isSummaryNode?: boolean;
   groupedTasksCount?: number;
   originalTaskIds?: string[];
@@ -65,6 +65,7 @@ interface AndamentoInternal extends Andamento {
 
 export function processAndamentos(
   andamentosInput: Andamento[], 
+  openUnitsInProcess: UnidadeAberta[] | null,
   numeroProcesso?: string,
   isSummarized: boolean = false
 ): ProcessedFlowData {
@@ -126,7 +127,6 @@ export function processAndamentos(
             isSummaryNode: true,
             groupedTasksCount: summaryGroup.length,
             originalTaskIds: summaryGroup.map(t => t.IdAndamento),
-            // Retain Atributos from the first task for potential remittal info (though unlikely for 'other actions')
           };
           displayableAndamentos_intermediate.push(summaryNode);
           i = j; 
@@ -163,8 +163,7 @@ export function processAndamentos(
       x: xPos,
       y: yPos,
       nodeRadius: NODE_RADIUS,
-      // Color and daysOpen will be determined after connections and latest task analysis
-    } as ProcessedAndamento; // Cast needed as color/daysOpen are added later
+    } as ProcessedAndamento; 
   });
   
   const connections: Connection[] = [];
@@ -197,39 +196,43 @@ export function processAndamentos(
     }
   }
 
-  // Determine colors and daysOpen
   const latestOriginalTaskDetailsByUnit = new Map<string, AndamentoInternal>();
-  for (const andamento of globallySortedAndamentos) { // Use original sorted list here
+  for (const andamento of globallySortedAndamentos) { 
       latestOriginalTaskDetailsByUnit.set(andamento.Unidade.IdUnidade, andamento);
   }
   const currentDate = new Date();
+  const openUnitIdsFromApi = new Set(
+    openUnitsInProcess?.map(u => u.Unidade.IdUnidade) || []
+  );
 
   processedTasks.forEach(task => {
     let taskColor = SYMBOLIC_TASK_COLORS[task.Tarefa] || DEFAULT_TASK_COLOR;
     let daysOpen: number | undefined = undefined;
 
     const unitOfThisTask = task.Unidade.IdUnidade;
-    const latestOriginalInThisUnit = latestOriginalTaskDetailsByUnit.get(unitOfThisTask);
 
-    if (latestOriginalInThisUnit) {
-      let isEffectivelyTheLatestActionInUnit = false;
-      if (task.isSummaryNode && task.originalTaskIds) {
-        // If this summary node contains the actual latest original task for this unit
-        isEffectivelyTheLatestActionInUnit = task.originalTaskIds.includes(latestOriginalInThisUnit.IdAndamento);
-      } else {
-        // If this non-summary node *is* the latest original task for this unit
-        isEffectivelyTheLatestActionInUnit = task.IdAndamento === latestOriginalInThisUnit.IdAndamento;
-      }
+    if (openUnitIdsFromApi.has(unitOfThisTask)) {
+      const latestOriginalInThisUnit = latestOriginalTaskDetailsByUnit.get(unitOfThisTask);
 
-      if (isEffectivelyTheLatestActionInUnit) {
-        if (latestOriginalInThisUnit.Tarefa !== 'CONCLUSAO-PROCESSO-UNIDADE' &&
-            latestOriginalInThisUnit.Tarefa !== 'CONCLUSAO-AUTOMATICA-UNIDADE' &&
-            latestOriginalInThisUnit.Tarefa !== 'PROCESSO-REMETIDO-UNIDADE') {
-          taskColor = OPEN_END_NODE_COLOR;
-          daysOpen = differenceInDays(currentDate, latestOriginalInThisUnit.parsedDate);
+      if (latestOriginalInThisUnit) {
+        let isEffectivelyTheLatestActionInUnit = false;
+        if (task.isSummaryNode && task.originalTaskIds) {
+          isEffectivelyTheLatestActionInUnit = task.originalTaskIds.includes(latestOriginalInThisUnit.IdAndamento);
+        } else {
+          isEffectivelyTheLatestActionInUnit = task.IdAndamento === latestOriginalInThisUnit.IdAndamento;
+        }
+
+        if (isEffectivelyTheLatestActionInUnit) {
+          if (latestOriginalInThisUnit.Tarefa !== 'CONCLUSAO-PROCESSO-UNIDADE' &&
+              latestOriginalInThisUnit.Tarefa !== 'CONCLUSAO-AUTOMATICA-UNIDADE' &&
+              latestOriginalInThisUnit.Tarefa !== 'PROCESSO-REMETIDO-UNIDADE') {
+            taskColor = OPEN_END_NODE_COLOR;
+            daysOpen = differenceInDays(currentDate, latestOriginalInThisUnit.parsedDate);
+          }
         }
       }
     }
+    
     task.color = taskColor;
     task.daysOpen = daysOpen;
   });
