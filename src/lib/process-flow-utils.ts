@@ -29,7 +29,7 @@ export const SIGNIFICANT_TASK_TYPES: string[] = [
   'GERACAO-PROCEDIMENTO',
   'PROCESSO-REMETIDO-UNIDADE',
   'PROCESSO-RECEBIDO-UNIDADE',
-  'CONCLUSAO-PROCESSO-UNidade',
+  'CONCLUSAO-PROCESSO-UNIDADE', // Corrigido o typo de UNidade para UNIDADE
   'CONCLUSAO-AUTOMATICA-UNIDADE',
   'REABERTURA-PROCESSO-UNIDADE',
 ];
@@ -246,3 +246,4 @@ export function processAndamentos(
     processNumber: numeroProcesso,
   };
 }
+
