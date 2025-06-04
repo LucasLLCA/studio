@@ -22,7 +22,7 @@ WORKDIR /app
 
 # Definir variável de ambiente para produção
 ENV NODE_ENV=production
-ENV NEXT_PUBLIC_SUMMARY_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_SUMMARY_API_URL=http://api.sei.agentes.sead.pi.gov.br/
 
 # Copiar arquivos necessários do estágio de build
 COPY --from=builder /app/next.config.ts ./
