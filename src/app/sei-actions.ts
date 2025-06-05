@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { ProcessoData, Andamento, ProcessoInfo, ConsultaProcessoResponse, UnidadeAberta, ApiError } from '@/types/process-flow';
+import type { ProcessoData, ConsultaProcessoResponse, UnidadeAberta, ApiError, ProcessSummaryResponse } from '@/types/process-flow';
 
 const SEI_API_BASE_URL = process.env.NEXT_PUBLIC_SEI_API_BASE_URL;
 const SEI_API_USER = process.env.SEI_API_USER;
@@ -19,7 +19,7 @@ interface AuthTokenResponse {
 async function getAuthToken(): Promise<string | ApiError> {
   if (!SEI_API_BASE_URL || !SEI_API_USER || !SEI_API_PASSWORD || !SEI_API_ORGAO) {
     console.error("[SEI API Auth] SEI API environment variables are not set.");
-    return { error: "Configuração do servidor incompleta para acessar a API.", status: 500 };
+    return { error: "Configuração do servidor incompleta para acessar a API SEI.", status: 500 };
   }
 
   try {
@@ -44,19 +44,19 @@ async function getAuthToken(): Promise<string | ApiError> {
         errorDetails = await response.text();
       }
       console.error(`[SEI API Auth] Authentication failed: ${response.status}`, errorDetails);
-      return { error: `Falha na autenticação: ${response.status}`, details: errorDetails, status: response.status };
+      return { error: `Falha na autenticação com a API SEI: ${response.status}`, details: errorDetails, status: response.status };
     }
 
     const data = await response.json() as AuthTokenResponse;
     if (!data.Token) {
       console.error("[SEI API Auth] Token not found in authentication response:", data);
-      return { error: "Token não encontrado na resposta da autenticação.", details: data, status: 500 };
+      return { error: "Token não encontrado na resposta da autenticação da API SEI.", details: data, status: 500 };
     }
     console.log(`[SEI API Auth] Token de autenticação obtido (início): ${data.Token.substring(0, 20)}...`);
     return data.Token;
   } catch (error) {
     console.error("[SEI API Auth] Error fetching auth token:", error);
-    return { error: "Erro ao conectar com o serviço de autenticação.", details: error instanceof Error ? error.message : String(error), status: 500 };
+    return { error: "Erro ao conectar com o serviço de autenticação da API SEI.", details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
 
@@ -91,7 +91,7 @@ async function fetchAndamentosApiCall(
         errorDetails = await response.text();
       }
       console.error(`[SEI API Andamentos] Falha ao buscar dados do processo (URL: ${url}, Status: ${response.status})`, errorDetails);
-      return { error: `Falha ao buscar dados do processo (pagina ${pagina}, quantidade ${quantidade}): ${response.status}`, details: errorDetails, status: response.status };
+      return { error: `Falha ao buscar dados do processo na API SEI (pagina ${pagina}, quantidade ${quantidade}): ${response.status}`, details: errorDetails, status: response.status };
     }
 
     const data = await response.json();
@@ -103,22 +103,20 @@ async function fetchAndamentosApiCall(
          console.warn(`[SEI API Andamentos] 'Andamentos' não é um array na resposta para ${protocoloProcedimento}, mas quantidade=${quantidade} > 0. Tratando como lista vazia. Resposta:`, data);
         data.Andamentos = []; 
       } else if (data.Andamentos === undefined && quantidade === 0) {
-        // For count requests (quantidade=0), Andamentos might be legitimately undefined
-        // but Info should exist.
-        data.Andamentos = []; // Ensure it's an empty array for consistency if caller expects it.
+        data.Andamentos = []; 
       }
       return data as ProcessoData;
     } else {
-      console.error(`[SEI API Andamentos] Estrutura de dados inválida recebida da API (pagina ${pagina}, quantidade ${quantidade}), mesmo com status OK:`, data);
+      console.error(`[SEI API Andamentos] Estrutura de dados inválida recebida da API SEI (pagina ${pagina}, quantidade ${quantidade}), mesmo com status OK:`, data);
       return { 
-        error: "Formato de dados inesperado recebido da API de andamentos.", 
+        error: "Formato de dados inesperado recebido da API de andamentos SEI.", 
         details: data, 
         status: response.status === 200 ? 500 : response.status 
       };
     }
   } catch (error) {
     console.error(`[SEI API Andamentos] Erro ao buscar dados do processo (pagina ${pagina}, quantidade ${quantidade}):`, error);
-    return { error: `Erro ao conectar com o serviço de dados do processo (pagina ${pagina}, quantidade ${quantidade}).`, details: error instanceof Error ? error.message : String(error), status: 500 };
+    return { error: `Erro ao conectar com o serviço de dados do processo da API SEI (pagina ${pagina}, quantidade ${quantidade}).`, details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
 
@@ -128,7 +126,7 @@ export async function fetchProcessDataFromSEI(
 ): Promise<ProcessoData | ApiError> {
   if (!SEI_API_BASE_URL) {
     console.error("[SEI API Andamentos] SEI API Base URL environment variable is not set.");
-    return { error: "Configuração do servidor incompleta para acessar a API.", status: 500 };
+    return { error: "Configuração do servidor incompleta para acessar a API SEI.", status: 500 };
   }
   if (!protocoloProcedimento || !unidadeId) {
     return { error: "Número do processo e unidade são obrigatórios para buscar andamentos.", status: 400 };
@@ -152,11 +150,11 @@ export async function fetchProcessDataFromSEI(
 
   if (typeof totalItens !== 'number' || totalItens < 0) {
     console.error("[SEI API Andamentos] TotalItens não é um número válido ou está ausente na resposta da contagem:", countResponse.Info);
-    return { error: "Não foi possível obter a contagem total de andamentos da API.", details: countResponse.Info, status: 500 };
+    return { error: "Não foi possível obter a contagem total de andamentos da API SEI.", details: countResponse.Info, status: 500 };
   }
   
   if (totalItens === 0) {
-    console.log(`[SEI API Andamentos] Processo ${protocoloProcedimento} não possui andamentos registrados na unidade ${unidadeId}.`);
+    console.log(`[SEI API Andamentos] Processo ${protocoloProcedimento} não possui andamentos registrados na unidade ${unidadeId} (API SEI).`);
     return {
       Info: {
         ...countResponse.Info,
@@ -198,10 +196,10 @@ export async function fetchOpenUnitsForProcess(
 ): Promise<UnidadeAberta[] | ApiError> {
   if (!SEI_API_BASE_URL) {
     console.error("[SEI API Consulta] SEI API Base URL environment variable is not set.");
-    return { error: "Configuração do servidor incompleta para acessar a API.", status: 500 };
+    return { error: "Configuração do servidor incompleta para acessar a API SEI.", status: 500 };
   }
   if (!protocoloProcedimento || !unidadeOrigemConsulta) {
-    return { error: "Número do processo e unidade de origem da consulta são obrigatórios.", status: 400 };
+    return { error: "Número do processo e unidade de origem da consulta são obrigatórios para unidades abertas.", status: 400 };
   }
 
   const tokenResult = await getAuthToken();
@@ -210,9 +208,8 @@ export async function fetchOpenUnitsForProcess(
   }
   const token = tokenResult;
 
-  // Let URLSearchParams handle the encoding of protocoloProcedimento
   const queryParams = new URLSearchParams({
-    protocolo_procedimento: protocoloProcedimento, // Pass raw value
+    protocolo_procedimento: protocoloProcedimento,
     sinal_unidades_procedimento_aberto: 'S',
     sinal_completo: 'N',
     sinal_assuntos: 'N',
@@ -248,7 +245,7 @@ export async function fetchOpenUnitsForProcess(
         errorDetails = await response.text();
       }
       console.error(`[SEI API Consulta] Falha ao buscar unidades abertas (URL: ${url}, Status: ${response.status})`, errorDetails);
-      return { error: `Falha ao buscar unidades com processo aberto: ${response.status}`, details: errorDetails, status: response.status };
+      return { error: `Falha ao buscar unidades com processo aberto na API SEI: ${response.status}`, details: errorDetails, status: response.status };
     }
 
     const data = await response.json() as ConsultaProcessoResponse;
@@ -258,11 +255,90 @@ export async function fetchOpenUnitsForProcess(
     } else if (data && !data.UnidadesProcedimentoAberto) {
       return [];
     } else {
-      console.error("[SEI API Consulta] Estrutura de dados inválida recebida da API de consulta:", data);
-      return { error: "Formato de dados inesperado da API de consulta.", details: data, status: 500 };
+      console.error("[SEI API Consulta] Estrutura de dados inválida recebida da API de consulta SEI:", data);
+      return { error: "Formato de dados inesperado da API de consulta SEI.", details: data, status: 500 };
     }
   } catch (error) {
     console.error("[SEI API Consulta] Erro ao buscar unidades abertas:", error);
-    return { error: "Erro ao conectar com o serviço de consulta de processo.", details: error instanceof Error ? error.message : String(error), status: 500 };
+    return { error: "Erro ao conectar com o serviço de consulta de processo da API SEI.", details: error instanceof Error ? error.message : String(error), status: 500 };
+  }
+}
+
+export async function fetchProcessSummary(
+  protocoloProcedimento: string
+): Promise<ProcessSummaryResponse | ApiError> {
+  if (!protocoloProcedimento) {
+    return { error: "Número do processo é obrigatório para buscar o resumo.", status: 400 };
+  }
+
+  const formattedProcessNumber = protocoloProcedimento.replace(/[.\/-]/g, "");
+  // A URL da API de resumo deve vir de uma variável de ambiente para flexibilidade
+  const summaryApiUrl = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL 
+    ? `${process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL}/resumo_completo/${formattedProcessNumber}`
+    : `http://127.0.0.1:8000/resumo_completo/${formattedProcessNumber}`; // Fallback para desenvolvimento
+
+  if (!process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL) {
+    console.warn("[Summary API] NEXT_PUBLIC_SUMMARY_API_BASE_URL não está definida. Usando fallback http://127.0.0.1:8000");
+  }
+  
+  console.log(`[Summary API] Buscando resumo de: ${summaryApiUrl}`);
+
+  try {
+    const response = await fetch(summaryApiUrl, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+      },
+      cache: 'no-store', 
+    });
+
+    if (!response.ok) {
+      let errorDetails;
+      let userFriendlyError = `Erro ${response.status} ao buscar resumo do processo.`;
+      try {
+        errorDetails = await response.json();
+        if (errorDetails && typeof errorDetails.detail === 'string') {
+          userFriendlyError = errorDetails.detail;
+        }
+      } catch (e) {
+        errorDetails = await response.text().catch(() => `Resposta não é JSON nem texto.`);
+        if (typeof errorDetails === 'string' && errorDetails.length > 0 && errorDetails.length < 200) {
+           userFriendlyError = errorDetails; // Use a resposta textual se for curta e informativa
+        }
+      }
+      
+      if (response.status === 404) {
+        userFriendlyError = `Resumo não encontrado para o processo ${protocoloProcedimento}. Verifique o número ou se há um resumo disponível.`;
+      } else if (response.status === 500) {
+        userFriendlyError = `Erro interno no servidor da API de resumo ao processar ${protocoloProcedimento}.`;
+      }
+      
+      console.error(`[Summary API] Falha ao buscar resumo (URL: ${summaryApiUrl}, Status: ${response.status})`, errorDetails);
+      return { 
+        error: userFriendlyError, 
+        details: errorDetails, 
+        status: response.status 
+      };
+    }
+
+    const data = await response.json();
+
+    if (data && data.resumo && data.resumo.resumo_combinado && typeof data.resumo.resumo_combinado.resposta_ia === 'string') {
+      const summaryText = data.resumo.resumo_combinado.resposta_ia;
+      console.log(`[Summary API] Resumo obtido para ${protocoloProcedimento}. Tamanho: ${summaryText.length}`);
+      return { summary: summaryText };
+    } else {
+      console.error("[Summary API] Formato da resposta do resumo inesperado:", data);
+      return { error: "Formato da resposta do resumo inesperado da API.", details: data, status: 500 };
+    }
+  } catch (error) {
+    console.error("[Summary API] Erro na requisição de resumo:", error);
+    let errorMessage = "Falha na requisição para a API de resumo.";
+    if (error instanceof TypeError && error.message.toLowerCase().includes("failed to fetch")) {
+        errorMessage = "Não foi possível conectar à API de resumo. Verifique se o serviço está rodando e acessível no endereço configurado, e se as configurações de CORS da API de resumo permitem esta origem.";
+    } else if (error instanceof Error) {
+        errorMessage = error.message;
+    }
+    return { error: errorMessage, details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }

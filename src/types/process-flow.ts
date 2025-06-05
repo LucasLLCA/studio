@@ -53,7 +53,6 @@ export interface ProcessedAndamento extends Andamento {
   y: number; 
   color?: string; 
   nodeRadius: number; 
-  // chronologicalIndex: number; // This was likely redundant with globalSequence or internal sorting
 }
 
 export interface Connection {
@@ -80,14 +79,13 @@ export interface UnidadesFiltroData {
   Unidades: UnidadeFiltro[];
 }
 
-// Types for the /procedimentos/consulta endpoint
 export interface UsuarioAtribuicao {
   IdUsuario?: string;
   Sigla?: string;
   Nome?: string;
 }
 
-export interface UnidadeAberta { // Represents an item in UnidadesProcedimentoAberto array
+export interface UnidadeAberta { 
   Unidade: {
     IdUnidade: string;
     Sigla: string;
@@ -109,8 +107,13 @@ export interface ConsultaProcessoResponse {
   UnidadesProcedimentoAberto?: UnidadeAberta[];
 }
 
+export interface ProcessSummaryResponse {
+  summary: string;
+}
+
 export interface ApiError {
   error: string;
   details?: any;
   status?: number;
 }
+

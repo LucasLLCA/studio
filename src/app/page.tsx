@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess } from './sei-actions';
+import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary } from './sei-actions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -318,51 +318,39 @@ export default function Home() {
     setIsLoadingSummary(true);
     setProcessSummary(null);
 
-    const formattedProcessNumber = processoNumeroInput.replace(/[./-]/g, "");
-    const summaryApiUrl = `http://127.0.0.1:8000/resumo_completo/${formattedProcessNumber}`;
-
     try {
-      const response = await fetch(summaryApiUrl, {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-        },
-      });
+      const result = await fetchProcessSummary(processoNumeroInput);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: "Erro ao buscar resumo. A API não retornou um JSON válido." }));
-        const errorDetail = errorData?.detail || `Erro ${response.status} - ${response.statusText}`;
-        throw new Error(typeof errorDetail === 'string' ? errorDetail : JSON.stringify(errorDetail));
-      }
-
-      const data = await response.json();
-
-      if (data && data.resumo && data.resumo.resumo_combinado && data.resumo.resumo_combinado.resposta_ia) {
-        const cleanedSummary = data.resumo.resumo_combinado.resposta_ia.replace(/[#*]/g, '');
+      if ('error' in result) {
+        let description = result.error;
+        // Apenas anexa detalhes se forem uma string curta e informativa
+        if (result.details && typeof result.details === 'string' && result.details.length > 0 && result.details.length < 150 && result.details !== '{}') {
+            description += ` Detalhes: ${result.details}`;
+        }
+        toast({
+          title: "Erro ao Gerar Resumo",
+          description: description,
+          variant: "destructive",
+          duration: 9000, 
+        });
+        setProcessSummary(null);
+      } else {
+        const cleanedSummary = result.summary.replace(/[#*]/g, '');
         setProcessSummary(cleanedSummary);
         toast({
           title: "Resumo Gerado",
           description: "O resumo do processo foi carregado com sucesso.",
         });
-      } else {
-        throw new Error("Formato da resposta do resumo inesperado.");
       }
-
-    } catch (error) {
-      console.error("Error fetching process summary:", error);
-      let description = "Ocorreu um erro desconhecido.";
-      if (error instanceof Error) {
-        if (error.message.toLowerCase().includes("failed to fetch")) {
-          description = "Falha ao conectar com a API de resumo. Verifique se o serviço local (em http://127.0.0.1:8000) está rodando e se as configurações de CORS estão corretas.";
-        } else {
-          description = error.message;
-        }
-      }
+    } catch (error) { 
+      console.error("[UI] Erro ao chamar a action fetchProcessSummary:", error);
       toast({
-        title: "Erro ao Gerar Resumo",
-        description: description,
+        title: "Erro na Aplicação",
+        description: "Ocorreu um erro inesperado ao tentar gerar o resumo do processo.",
         variant: "destructive",
+        duration: 7000,
       });
+      setProcessSummary(null);
     } finally {
       setIsLoadingSummary(false);
     }
@@ -496,8 +484,8 @@ export default function Home() {
                 </div>
               )}
               {processSummary && !isLoadingSummary && (
-                 <ScrollArea className="max-h-[300px] flex-shrink-0 rounded-md border">
-                  <div className="p-4">
+                 <ScrollArea className="max-h-[300px] flex-shrink-0">
+                  <div className="p-4 rounded-md border">
                     <pre className="text-sm whitespace-pre-wrap break-words font-sans">
                       {processSummary}
                     </pre>
