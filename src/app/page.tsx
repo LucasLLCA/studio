@@ -318,7 +318,7 @@ export default function Home() {
     setProcessSummary(null);
 
     const formattedProcessNumber = processoNumeroInput.replace(/[./-]/g, "");
-    const summaryApiUrl = `${process.env.NEXT_PUBLIC_SUMMARY_API_URL}/processo/resumo-completo/${formattedProcessNumber}`;
+    const summaryApiUrl = `${process.env.NEXT_PUBLIC_SUMMARY_API_URL}/proceso/resumo-completo/${formattedProcessNumber}`;
 
     try {
       const response = await fetch(summaryApiUrl, {
@@ -352,7 +352,7 @@ export default function Home() {
       let description = "Ocorreu um erro desconhecido.";
       if (error instanceof Error) {
         if (error.message.toLowerCase().includes("failed to fetch")) {
-          description = "Falha ao conectar com a API de resumo. Verifique se o serviço local (em http://127.0.0.1:8000) está rodando e se as configurações de CORS estão corretas.";
+          description = "Falha ao conectar com a API de resumo. Verifique se o serviço local (em https://api.sei.agentes.sead.pi.gov.br) está rodando e se as configurações de CORS estão corretas.";
         } else {
           description = error.message;
         }
