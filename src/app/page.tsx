@@ -14,7 +14,6 @@ import Image from 'next/image';
 import { sampleProcessFlowData } from '@/data/sample-process-data';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
 import { processAndamentos } from '@/lib/process-flow-utils';
-// import unidadesData from '@/../unidades_filtradas.json'; // Removed static import
 import {
   Select,
   SelectContent,
@@ -82,11 +81,6 @@ export default function Home() {
 
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
-    // Removed static unit loading:
-    // const data = unidadesData as UnidadesFiltroData;
-    // if (data && data.Unidades) {
-    //   setUnidadesFiltroList(data.Unidades);
-    // }
   }, []);
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
@@ -286,7 +280,7 @@ export default function Home() {
         } else if (result.status === 401) {
           errorTitle = "Falha na Autenticação com a API SEI (401)";
           errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais estão corretas e tente fazer login novamente.`;
-          handleLogout(); // Force logout on auth failure
+          handleLogout(); 
         } else if (result.status === 500) {
             errorTitle = "Erro Interno no Servidor da API SEI (500)";
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
@@ -370,7 +364,9 @@ export default function Home() {
 
       if ('error' in result) {
         let description = result.error;
-        if (result.details && typeof result.details === 'string' && result.details.length > 0 && result.details.length < 150 && result.details !== '{}') {
+         if (result.error.toLowerCase().includes("failed to fetch") || result.error.toLowerCase().includes("load failed")) {
+            description = `Não foi possível conectar à API de resumo. Verifique se o serviço (em http://127.0.0.1:8000 ou na URL configurada) está rodando e se as configurações de CORS permitem esta origem. Detalhes: ${result.details || result.error}`;
+        } else if (result.details && typeof result.details === 'string' && result.details.length > 0 && result.details.length < 150 && result.details !== '{}') {
             description += ` Detalhes: ${result.details}`;
         }
         toast({
@@ -390,9 +386,15 @@ export default function Home() {
       }
     } catch (error) { 
       console.error("[UI] Erro ao chamar a action fetchProcessSummary:", error);
+      let description = "Ocorreu um erro inesperado ao tentar gerar o resumo do processo.";
+      if (error instanceof Error && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
+         description = `Não foi possível conectar à API de resumo. Verifique se o serviço (em http://127.0.0.1:8000 ou na URL configurada) está rodando e se as configurações de CORS permitem esta origem. Detalhes: ${error.message}`;
+      } else if (error instanceof Error) {
+        description = error.message;
+      }
       toast({
         title: "Erro na Aplicação",
-        description: "Ocorreu um erro inesperado ao tentar gerar o resumo do processo.",
+        description: description,
         variant: "destructive",
         duration: 7000,
       });
@@ -407,11 +409,21 @@ export default function Home() {
     setLoginError(null);
     try {
       const response = await loginToSEI(data);
-      if (response.success && response.token && response.unidades) {
+      if (response.success && response.token) {
         setLoginCredentials(data);
         setIsAuthenticated(true);
-        setUnidadesFiltroList(response.unidades);
-        setSelectedUnidadeFiltro(undefined); // Reset selected unit
+        if (response.unidades && response.unidades.length > 0) {
+          setUnidadesFiltroList(response.unidades);
+        } else {
+          setUnidadesFiltroList([]);
+           toast({
+            title: "Login Bem-sucedido",
+            description: "Nenhuma unidade de acesso foi retornada para seleção. Verifique suas permissões ou a configuração da API.",
+            variant: "default",
+            duration: 7000,
+          });
+        }
+        setSelectedUnidadeFiltro(undefined); 
         setIsLoginDialogOpen(false);
         methods.reset();
         toast({ title: "Login bem-sucedido!" });
@@ -494,7 +506,7 @@ export default function Home() {
                   disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
                 >
                 <SelectTrigger className="h-9 text-sm w-[200px]">
-                  <SelectValue placeholder={isAuthenticated ? "Filtrar por Unidade" : "Faça login para unidades"} />
+                  <SelectValue placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Filtrar por Unidade" : "Nenhuma unidade disponível") : "Faça login para unidades"} />
                 </SelectTrigger>
                 <SelectContent>
                   {unidadesFiltroList.map((unidade) => (

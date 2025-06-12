@@ -21,7 +21,7 @@ async function getAuthToken(credentials: LoginCredentials): Promise<string | Api
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'accept': 'application/json', // Added accept header
+        'accept': 'application/json',
       },
       body: JSON.stringify({
         Usuario: credentials.usuario,
@@ -66,12 +66,13 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
     return { success: false, error: "Credenciais de login incompletas.", status: 400 };
   }
 
+  console.log(`[SEI Login Action] Attempting login for user: ${credentials.usuario}, orgao: ${credentials.orgao}`);
   try {
     const response = await fetch(`${SEI_API_BASE_URL}/orgaos/usuarios/login`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'accept': 'application/json', // Added accept header
+        'accept': 'application/json',
       },
       body: JSON.stringify({
         Usuario: credentials.usuario,
@@ -94,9 +95,13 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
     }
 
     const data = await response.json() as SEILoginApiResponse;
+    console.log("[SEI Login Action] Raw login API response data:", JSON.stringify(data, null, 2));
+
     if (!data.Token) {
+      console.error("[SEI Login Action] Token not returned by login API, even though response was ok. Data:", data);
       return { success: false, error: "Token não retornado pela API de login.", details: data, status: 500 };
     }
+    console.log("[SEI Login Action] Login successful, token received.");
 
     const unidades: UnidadeFiltro[] = data.UnidadesAcesso?.map(ua => ({
       Id: ua.IdUnidade,
@@ -104,8 +109,10 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
       Descricao: ua.Descricao,
     })) || [];
 
-    if (unidades.length === 0) {
-        console.warn("[SEI Login Action] Login successful, but no UnidadesAcesso returned by the API or the array was empty.");
+    if (!data.UnidadesAcesso || unidades.length === 0) {
+        console.warn("[SEI Login Action] Login successful, but no UnidadesAcesso returned by the API or the array was empty. UnidadesAcesso:", data.UnidadesAcesso);
+    } else {
+        console.log(`[SEI Login Action] Mapped ${unidades.length} unidades de acesso.`);
     }
 
     return { success: true, token: data.Token, unidades };
@@ -140,7 +147,7 @@ async function fetchAndamentosApiCall(
       method: 'GET',
       headers: {
         'token': token,
-        'accept': 'application/json', // Content-Type removed for GET
+        'accept': 'application/json',
       },
       cache: 'no-store',
     });
@@ -295,7 +302,7 @@ export async function fetchOpenUnitsForProcess(
       method: 'GET',
       headers: {
         'token': token,
-        'accept': 'application/json', // Content-Type removed for GET
+        'accept': 'application/json',
       },
       cache: 'no-store',
     });
@@ -350,7 +357,7 @@ export async function fetchProcessSummary(
     const response = await fetch(summaryApiUrl, {
       method: 'GET',
       headers: {
-        'accept': 'application/json', // Content-Type not needed for GET
+        'accept': 'application/json',
       },
       cache: 'no-store', 
     });
@@ -374,6 +381,8 @@ export async function fetchProcessSummary(
         userFriendlyError = `Resumo não encontrado para o processo ${protocoloProcedimento}. Verifique o número ou se há um resumo disponível.`;
       } else if (response.status === 500) {
         userFriendlyError = `Erro interno no servidor da API de resumo ao processar ${protocoloProcedimento}.`;
+      } else if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
+        userFriendlyError = `Não foi possível conectar à API de resumo em ${summaryApiUrl}. Verifique se o serviço está rodando e acessível, e se as configurações de CORS permitem esta origem.`;
       }
       
       console.error(`[Summary API] Falha ao buscar resumo (URL: ${summaryApiUrl}, Status: ${response.status})`, errorDetails);
@@ -397,12 +406,11 @@ export async function fetchProcessSummary(
   } catch (error) {
     console.error("[Summary API] Erro na requisição de resumo:", error);
     let errorMessage = "Falha na requisição para a API de resumo.";
-    if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
-        errorMessage = "Não foi possível conectar à API de resumo. Verifique se o serviço está rodando e acessível no endereço configurado, e se as configurações de CORS da API de resumo permitem esta origem.";
+     if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
+        errorMessage = `Não foi possível conectar à API de resumo em ${summaryApiUrl}. Verifique se o serviço está rodando e acessível, e se as configurações de CORS da API de resumo permitem esta origem.`;
     } else if (error instanceof Error) {
         errorMessage = error.message;
     }
     return { error: errorMessage, details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
-
