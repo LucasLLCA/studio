@@ -2,8 +2,8 @@
 "use client";
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
-import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadesFiltroData, UnidadeAberta, ProcessedAndamento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info } from 'lucide-react';
+import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials } from '@/types/process-flow';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import Image from 'next/image';
 import { sampleProcessFlowData } from '@/data/sample-process-data';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
 import { processAndamentos } from '@/lib/process-flow-utils';
-import unidadesData from '@/../unidades_filtradas.json';
+// import unidadesData from '@/../unidades_filtradas.json'; // Removed static import
 import {
   Select,
   SelectContent,
@@ -22,9 +22,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary } from './sei-actions';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, loginToSEI } from './sei-actions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+const loginSchema = z.object({
+  usuario: z.string().min(1, "Usuário é obrigatório."),
+  senha: z.string().min(1, "Senha é obrigatória."),
+  orgao: z.string().min(1, "Orgão é obrigatório."),
+});
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 
 export default function Home() {
@@ -46,13 +66,27 @@ export default function Home() {
   const [processSummary, setProcessSummary] = useState<string | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(false);
 
+  // Login state
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginCredentials, setLoginCredentials] = useState<LoginCredentials | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const methods = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { usuario: "", senha: "", orgao: "" },
+  });
+  const { register, handleSubmit, formState: { errors } } = methods;
+
 
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
-    const data = unidadesData as UnidadesFiltroData;
-    if (data && data.Unidades) {
-      setUnidadesFiltroList(data.Unidades);
-    }
+    // Removed static unit loading:
+    // const data = unidadesData as UnidadesFiltroData;
+    // if (data && data.Unidades) {
+    //   setUnidadesFiltroList(data.Unidades);
+    // }
   }, []);
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
@@ -72,11 +106,11 @@ export default function Home() {
 
   useEffect(() => {
     const numeroProcessoAtual = rawProcessData?.Info?.NumeroProcesso || processoNumeroInput;
-    if (numeroProcessoAtual && selectedUnidadeFiltro) {
+    if (numeroProcessoAtual && selectedUnidadeFiltro && isAuthenticated && loginCredentials) {
       setIsLoadingOpenUnits(true);
       setOpenUnitsInProcess(null); 
       console.log(`[UI] Fetching open units for: Processo='${numeroProcessoAtual}', Unidade='${selectedUnidadeFiltro}'`);
-      fetchOpenUnitsForProcess(numeroProcessoAtual, selectedUnidadeFiltro)
+      fetchOpenUnitsForProcess(loginCredentials, numeroProcessoAtual, selectedUnidadeFiltro)
         .then(result => {
           if ('error' in result) {
             console.error(
@@ -85,6 +119,10 @@ export default function Home() {
               `Params used: processo="${numeroProcessoAtual}", unidade="${selectedUnidadeFiltro}"`
             );
             setOpenUnitsInProcess([]); 
+            if (result.status === 401) {
+                 toast({ title: "Sessão Expirada ou Inválida", description: "Por favor, faça login novamente.", variant: "destructive" });
+                 handleLogout();
+            }
           } else {
             setOpenUnitsInProcess(result);
           }
@@ -102,7 +140,7 @@ export default function Home() {
     } else {
         setOpenUnitsInProcess(null); 
     }
-  }, [rawProcessData, processoNumeroInput, selectedUnidadeFiltro]);
+  }, [rawProcessData, processoNumeroInput, selectedUnidadeFiltro, isAuthenticated, loginCredentials, toast]);
 
 
   const handleFileUploadClick = () => {
@@ -210,6 +248,10 @@ export default function Home() {
   };
 
   const handleSearchClick = async () => {
+    if (!isAuthenticated || !loginCredentials) {
+      toast({ title: "Não Autenticado", description: "Por favor, faça login para pesquisar.", variant: "destructive" });
+      return;
+    }
     if (!processoNumeroInput) {
       toast({ title: "Entrada Inválida", description: "Por favor, insira o número do processo.", variant: "destructive" });
       return;
@@ -228,7 +270,7 @@ export default function Home() {
 
 
     try {
-      const result = await fetchProcessDataFromSEI(processoNumeroInput, selectedUnidadeFiltro);
+      const result = await fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro);
       console.log("[UI] Resultado da API SEI para andamentos:", result);
       
       if ('error' in result && typeof result.error === 'string') { 
@@ -237,13 +279,14 @@ export default function Home() {
 
         if (result.status === 422) {
           errorTitle = "Erro de Validação dos Dados (422)";
-          errorDescription = `A API não pôde processar os dados fornecidos. Verifique se o 'Número do Processo' (ex: 00002.001000/2024-92) e a 'Unidade' selecionada estão corretos e são válidos para esta consulta.`;
+          errorDescription = `A API não pôde processar os dados fornecidos. Verifique se o 'Número do Processo' (ex: 00002.001000/2024-92) e a 'Unidade' selecionada são corretos e são válidos para esta consulta.`;
         } else if (result.status === 404) {
           errorTitle = "Processo Não Encontrado (404)";
           errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro} para o número ${processoNumeroInput}, ou o processo não possui andamentos registrados nessa unidade. Verifique os dados e tente novamente.`;
         } else if (result.status === 401) {
           errorTitle = "Falha na Autenticação com a API SEI (401)";
-          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais configuradas no servidor da aplicação (.env.local) estão corretas e ativas.`;
+          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais estão corretas e tente fazer login novamente.`;
+          handleLogout(); // Force logout on auth failure
         } else if (result.status === 500) {
             errorTitle = "Erro Interno no Servidor da API SEI (500)";
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
@@ -315,6 +358,10 @@ export default function Home() {
       toast({ title: "Entrada Inválida", description: "Por favor, insira o número do processo para gerar o resumo.", variant: "destructive" });
       return;
     }
+     if (!isAuthenticated) {
+      toast({ title: "Não Autenticado", description: "Por favor, faça login para gerar o resumo.", variant: "destructive" });
+      return;
+    }
     setIsLoadingSummary(true);
     setProcessSummary(null);
 
@@ -323,7 +370,6 @@ export default function Home() {
 
       if ('error' in result) {
         let description = result.error;
-        // Apenas anexa detalhes se forem uma string curta e informativa
         if (result.details && typeof result.details === 'string' && result.details.length > 0 && result.details.length < 150 && result.details !== '{}') {
             description += ` Detalhes: ${result.details}`;
         }
@@ -354,6 +400,43 @@ export default function Home() {
     } finally {
       setIsLoadingSummary(false);
     }
+  };
+
+  const onLoginSubmit: SubmitHandler<LoginFormValues> = async (data) => {
+    setIsLoggingIn(true);
+    setLoginError(null);
+    try {
+      const response = await loginToSEI(data);
+      if (response.success && response.token && response.unidades) {
+        setLoginCredentials(data);
+        setIsAuthenticated(true);
+        setUnidadesFiltroList(response.unidades);
+        setSelectedUnidadeFiltro(undefined); // Reset selected unit
+        setIsLoginDialogOpen(false);
+        methods.reset();
+        toast({ title: "Login bem-sucedido!" });
+      } else {
+        setLoginError(response.error || "Falha no login. Verifique suas credenciais.");
+        toast({ title: "Erro de Login", description: response.error || "Falha no login.", variant: "destructive" });
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Erro desconhecido durante o login.";
+      setLoginError(errorMsg);
+      toast({ title: "Erro de Login", description: errorMsg, variant: "destructive" });
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setLoginCredentials(null);
+    setUnidadesFiltroList([]);
+    setSelectedUnidadeFiltro(undefined);
+    setRawProcessData(null);
+    setOpenUnitsInProcess(null);
+    setProcessSummary(null);
+    toast({ title: "Logout realizado." });
   };
 
 
@@ -402,12 +485,16 @@ export default function Home() {
                 className="h-9 text-sm w-48" 
                 value={processoNumeroInput}
                 onChange={(e) => setProcessoNumeroInput(e.target.value)}
-                disabled={isLoading || isLoadingSummary}
+                disabled={isLoading || isLoadingSummary || !isAuthenticated}
                 ref={inputRef}
               />
-               <Select value={selectedUnidadeFiltro} onValueChange={setSelectedUnidadeFiltro} disabled={isLoading || isLoadingSummary}>
+               <Select 
+                  value={selectedUnidadeFiltro} 
+                  onValueChange={setSelectedUnidadeFiltro} 
+                  disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
+                >
                 <SelectTrigger className="h-9 text-sm w-[200px]">
-                  <SelectValue placeholder="Filtrar por Unidade" />
+                  <SelectValue placeholder={isAuthenticated ? "Filtrar por Unidade" : "Faça login para unidades"} />
                 </SelectTrigger>
                 <SelectContent>
                   {unidadesFiltroList.map((unidade) => (
@@ -421,7 +508,7 @@ export default function Home() {
                 variant="outline" 
                 size="sm" 
                 onClick={handleSearchClick}
-                disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro}
+                disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro || !isAuthenticated}
               >
                 {isLoading && loadingMessage.includes("API SEI") ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                 {isLoading && loadingMessage.includes("API SEI") ? "Pesquisando..." : "Pesquisar"}
@@ -442,7 +529,7 @@ export default function Home() {
               variant="outline" 
               size="sm" 
               onClick={handleGenerateSummary}
-              disabled={isLoading || isLoadingSummary || !processoNumeroInput}
+              disabled={isLoading || isLoadingSummary || !processoNumeroInput || !isAuthenticated}
             >
               {isLoadingSummary ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookText className="mr-2 h-4 w-4" />}
               Gerar Resumo
@@ -456,6 +543,17 @@ export default function Home() {
               />
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Versão Resumida</Label>
             </div>
+            {isAuthenticated ? (
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setIsLoginDialogOpen(true)}>
+                <LogIn className="mr-2 h-4 w-4" />
+                Login
+              </Button>
+            )}
             <div className="flex items-center space-x-1 text-sm text-muted-foreground">
               <Sparkles className="h-4 w-4 text-accent" />
               <span>IA potencializada pelo SoberaniA</span>
@@ -463,6 +561,70 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Login SEI</DialogTitle>
+            <DialogDescription>
+              Forneça suas credenciais para acessar a API SEI.
+            </DialogDescription>
+          </DialogHeader>
+          <FormProvider {...methods}>
+            <form onSubmit={handleSubmit(onLoginSubmit)} className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="usuario" className="text-right">
+                  Usuário
+                </Label>
+                <Input
+                  id="usuario"
+                  {...register("usuario")}
+                  className="col-span-3"
+                  disabled={isLoggingIn}
+                />
+                {errors.usuario && <p className="col-span-4 text-destructive text-xs text-right">{errors.usuario.message}</p>}
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="senha" className="text-right">
+                  Senha
+                </Label>
+                <Input
+                  id="senha"
+                  type="password"
+                  {...register("senha")}
+                  className="col-span-3"
+                  disabled={isLoggingIn}
+                />
+                {errors.senha && <p className="col-span-4 text-destructive text-xs text-right">{errors.senha.message}</p>}
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="orgao" className="text-right">
+                  Orgão
+                </Label>
+                <Input
+                  id="orgao"
+                  {...register("orgao")}
+                  className="col-span-3"
+                  disabled={isLoggingIn}
+                />
+                {errors.orgao && <p className="col-span-4 text-destructive text-xs text-right">{errors.orgao.message}</p>}
+              </div>
+              {loginError && <p className="text-destructive text-sm text-center col-span-4">{loginError}</p>}
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline" disabled={isLoggingIn}>
+                    Cancelar
+                  </Button>
+                </DialogClose>
+                <Button type="submit" disabled={isLoggingIn}>
+                  {isLoggingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Entrar
+                </Button>
+              </DialogFooter>
+            </form>
+          </FormProvider>
+        </DialogContent>
+      </Dialog>
 
       { (isLoadingSummary || processSummary) && (
         <section className="container mx-auto max-w-full p-4">
@@ -485,7 +647,7 @@ export default function Home() {
               )}
               {processSummary && !isLoadingSummary && (
                  <ScrollArea className="max-h-[300px] flex-shrink-0">
-                  <div className="p-4 rounded-md border">
+                   <div className="p-4 rounded-md border">
                     <pre className="text-sm whitespace-pre-wrap break-words font-sans">
                       {processSummary}
                     </pre>
@@ -543,15 +705,25 @@ export default function Home() {
           ) : (
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <FileJson className="h-20 w-20 text-muted-foreground/50 mb-6" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">Nenhum processo carregado</h2>
+              <h2 className="text-xl font-semibold text-foreground mb-2">
+                {isAuthenticated ? "Nenhum processo carregado" : "Autenticação Necessária"}
+              </h2>
               <p className="text-muted-foreground mb-6 max-w-md">
-                Para iniciar, insira o número do processo, selecione a unidade e clique em "Pesquisar",
-                clique em "Carregar JSON" para selecionar um arquivo do seu computador, ou carregue os dados de exemplo.
+                {isAuthenticated 
+                  ? 'Para iniciar, insira o número do processo, selecione a unidade e clique em "Pesquisar", clique em "Carregar JSON" para selecionar um arquivo do seu computador, ou carregue os dados de exemplo.'
+                  : "Por favor, faça login para pesquisar processos ou carregar dados da API SEI."
+                }
               </p>
               <div className="flex space-x-4">
                 <Button onClick={loadSampleData} variant="secondary" disabled={isLoading || isLoadingSummary}>
                   Usar Dados de Exemplo
                 </Button>
+                 {!isAuthenticated && (
+                  <Button onClick={() => setIsLoginDialogOpen(true)} variant="default">
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Login SEI
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -560,8 +732,10 @@ export default function Home() {
 
       <footer className="p-3 border-t border-border text-center text-xs text-muted-foreground">
         © {currentYear !== null ? currentYear : new Date().getFullYear()} Visualizador de Processos. Todos os direitos reservados.
+        <p className="text-xs text-muted-foreground/80 mt-1">
+          Nota: Para fins de prototipagem, as credenciais de login são armazenadas temporariamente no estado do cliente. Em produção, utilize métodos de autenticação mais seguros.
+        </p>
       </footer>
     </main>
   );
 }
-

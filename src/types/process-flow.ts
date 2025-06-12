@@ -70,14 +70,15 @@ export interface ProcessedFlowData {
 }
 
 export interface UnidadeFiltro {
-  Id: string;
+  Id: string; // Corresponds to IdUnidade from API
   Sigla: string;
   Descricao: string;
 }
 
-export interface UnidadesFiltroData {
-  Unidades: UnidadeFiltro[];
-}
+// This type is no longer used as unidades_filtradas.json is removed
+// export interface UnidadesFiltroData {
+//   Unidades: UnidadeFiltro[];
+// }
 
 export interface UsuarioAtribuicao {
   IdUsuario?: string;
@@ -94,6 +95,7 @@ export interface UnidadeAberta {
   UsuarioAtribuicao: UsuarioAtribuicao;
 }
 
+// Response from /procedimentos/consulta
 export interface ConsultaProcessoResponse {
   IdProcedimento?: string;
   ProcedimentoFormatado?: string;
@@ -117,3 +119,37 @@ export interface ApiError {
   status?: number;
 }
 
+// For SEI Login
+export interface LoginCredentials {
+  usuario: string;
+  senha: string;
+  orgao: string;
+}
+
+// Expected raw response from SEI /orgaos/usuarios/login
+export interface SEILoginApiResponse {
+  Token: string;
+  Login?: { 
+    IdLogin?: string;
+    Nome?: string; // Assuming Nome might be available
+  };
+  // This is an assumption based on the requirement to load units from login.
+  // The actual SEI API might have a different structure or require a separate call.
+  UnidadesAcesso?: Array<{
+    IdUnidade: string;
+    Sigla: string;
+    Descricao: string;
+  }>;
+  // For error messages directly from SEI API on failed login
+  Message?: string; 
+}
+
+// What the loginToSEI server action returns to the client
+export interface ClientLoginResponse {
+  success: boolean;
+  token?: string;
+  unidades?: UnidadeFiltro[]; // Uses UnidadeFiltro for consistency with Select
+  error?: string;
+  status?: number;
+  details?: any; // To pass through any additional error details from SEI API
+}
