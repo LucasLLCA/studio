@@ -4,7 +4,6 @@
 import type { ProcessoData, ApiError, ProcessSummaryResponse, LoginCredentials, ClientLoginResponse, UnidadeFiltro, SEILoginApiResponse, UnidadeAberta } from '@/types/process-flow';
 
 const SEI_API_BASE_URL = process.env.NEXT_PUBLIC_SEI_API_BASE_URL;
-// SEI_API_USER, SEI_API_PASSWORD, SEI_API_ORGAO are no longer read from .env here
 
 // This function now requires credentials to be passed in.
 async function getAuthToken(credentials: LoginCredentials): Promise<string | ApiError> {
@@ -22,6 +21,7 @@ async function getAuthToken(credentials: LoginCredentials): Promise<string | Api
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'accept': 'application/json', // Added accept header
       },
       body: JSON.stringify({
         Usuario: credentials.usuario,
@@ -39,14 +39,12 @@ async function getAuthToken(credentials: LoginCredentials): Promise<string | Api
         errorDetails = await response.text();
       }
       console.error(`[SEI API Auth] Authentication failed with provided credentials: ${response.status}`, errorDetails);
-      // Try to provide a more specific error message if possible
-      if (response.status === 401 && errorDetails && typeof errorDetails.Message === 'string') {
-        return { error: `Falha na autenticação: ${errorDetails.Message}`, details: errorDetails, status: response.status };
+      if (response.status === 401 && errorDetails && typeof (errorDetails as any).Message === 'string') {
+        return { error: `Falha na autenticação: ${(errorDetails as any).Message}`, details: errorDetails, status: response.status };
       }
       return { error: `Falha na autenticação com a API SEI: ${response.status}`, details: errorDetails, status: response.status };
     }
 
-    // Assuming the response structure might include Token and UnidadesAcesso
     const data = await response.json() as SEILoginApiResponse; 
     if (!data.Token) {
       console.error("[SEI API Auth] Token not found in authentication response:", data);
@@ -71,7 +69,10 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
   try {
     const response = await fetch(`${SEI_API_BASE_URL}/orgaos/usuarios/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'accept': 'application/json', // Added accept header
+      },
       body: JSON.stringify({
         Usuario: credentials.usuario,
         Senha: credentials.senha,
@@ -97,7 +98,6 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
       return { success: false, error: "Token não retornado pela API de login.", details: data, status: 500 };
     }
 
-    // Transform UnidadesAcesso to UnidadeFiltro format if present
     const unidades: UnidadeFiltro[] = data.UnidadesAcesso?.map(ua => ({
       Id: ua.IdUnidade,
       Sigla: ua.Sigla,
@@ -106,7 +106,6 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
 
     if (unidades.length === 0) {
         console.warn("[SEI Login Action] Login successful, but no UnidadesAcesso returned by the API or the array was empty.");
-        // It's a successful login, but the user might not have units. This is not necessarily an error state for login itself.
     }
 
     return { success: true, token: data.Token, unidades };
@@ -141,8 +140,7 @@ async function fetchAndamentosApiCall(
       method: 'GET',
       headers: {
         'token': token,
-        'Content-Type': 'application/json',
-        'accept': 'application/json',
+        'accept': 'application/json', // Content-Type removed for GET
       },
       cache: 'no-store',
     });
@@ -185,7 +183,7 @@ async function fetchAndamentosApiCall(
 }
 
 export async function fetchProcessDataFromSEI(
-  credentials: LoginCredentials, // Added credentials
+  credentials: LoginCredentials, 
   protocoloProcedimento: string,
   unidadeId: string
 ): Promise<ProcessoData | ApiError> {
@@ -200,7 +198,6 @@ export async function fetchProcessDataFromSEI(
     return { error: "Número do processo e unidade são obrigatórios para buscar andamentos.", status: 400 };
   }
 
-  // Token will be fetched inside fetchAndamentosApiCall using credentials
   console.log(`[SEI API Andamentos] Etapa 1: Buscando contagem total de itens para o processo ${protocoloProcedimento}`);
   const countResponse = await fetchAndamentosApiCall(credentials, protocoloProcedimento, unidadeId, 1, 0);
   
@@ -254,7 +251,7 @@ export async function fetchProcessDataFromSEI(
 }
 
 export async function fetchOpenUnitsForProcess(
-  credentials: LoginCredentials, // Added credentials
+  credentials: LoginCredentials, 
   protocoloProcedimento: string,
   unidadeOrigemConsulta: string
 ): Promise<UnidadeAberta[] | ApiError> {
@@ -298,8 +295,7 @@ export async function fetchOpenUnitsForProcess(
       method: 'GET',
       headers: {
         'token': token,
-        'Content-Type': 'application/json',
-        'accept': 'application/json',
+        'accept': 'application/json', // Content-Type removed for GET
       },
       cache: 'no-store',
     });
@@ -315,14 +311,12 @@ export async function fetchOpenUnitsForProcess(
       return { error: `Falha ao buscar unidades com processo aberto na API SEI: ${response.status}`, details: errorDetails, status: response.status };
     }
 
-    // The original ConsultaProcessoResponse type already matches the expected structure.
     const data = await response.json() as { UnidadesProcedimentoAberto?: UnidadeAberta[] };
 
 
     if (data && data.UnidadesProcedimentoAberto) {
       return data.UnidadesProcedimentoAberto;
     } else if (data && !data.UnidadesProcedimentoAberto) {
-      // This means the API call was successful but no units have the process open.
       return []; 
     } else {
       console.error("[SEI API Consulta] Estrutura de dados inválida recebida da API de consulta SEI:", data);
@@ -356,7 +350,7 @@ export async function fetchProcessSummary(
     const response = await fetch(summaryApiUrl, {
       method: 'GET',
       headers: {
-        'accept': 'application/json',
+        'accept': 'application/json', // Content-Type not needed for GET
       },
       cache: 'no-store', 
     });
@@ -366,8 +360,8 @@ export async function fetchProcessSummary(
       let userFriendlyError = `Erro ${response.status} ao buscar resumo do processo.`;
       try {
         errorDetails = await response.json();
-        if (errorDetails && typeof errorDetails.detail === 'string') {
-          userFriendlyError = errorDetails.detail;
+        if (errorDetails && typeof (errorDetails as any).detail === 'string') {
+          userFriendlyError = (errorDetails as any).detail;
         }
       } catch (e) {
         errorDetails = await response.text().catch(() => `Resposta não é JSON nem texto.`);
@@ -403,7 +397,7 @@ export async function fetchProcessSummary(
   } catch (error) {
     console.error("[Summary API] Erro na requisição de resumo:", error);
     let errorMessage = "Falha na requisição para a API de resumo.";
-    if (error instanceof TypeError && error.message.toLowerCase().includes("failed to fetch")) {
+    if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
         errorMessage = "Não foi possível conectar à API de resumo. Verifique se o serviço está rodando e acessível no endereço configurado, e se as configurações de CORS da API de resumo permitem esta origem.";
     } else if (error instanceof Error) {
         errorMessage = error.message;
