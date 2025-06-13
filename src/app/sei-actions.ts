@@ -340,7 +340,7 @@ export async function fetchOpenUnitsForProcess(
 export async function fetchProcessSummary(
   credentials: LoginCredentials,
   protocoloProcedimento: string,
-  unidadeId: string // Added unidadeId as per request, will be used in query params
+  unidadeId: string
 ): Promise<ProcessSummaryResponse | ApiError> {
   if (!protocoloProcedimento) {
     return { error: "Número do processo é obrigatório para buscar o resumo.", status: 400 };
@@ -361,21 +361,23 @@ export async function fetchProcessSummary(
 
   const formattedProcessNumber = protocoloProcedimento.replace(/[.\/-]/g, "");
   const summaryApiBaseUrl = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
-  const summaryApiUrl = `${summaryApiBaseUrl}/resumo_completo/${formattedProcessNumber}?unidade_id=${encodeURIComponent(unidadeId)}`;
+  
+  // Construct the URL as per the example: http://127.0.0.1:8000/processo/resumo-completo/{numero_formatado}?token=TOKEN_VALUE&id_unidade=UNIT_ID
+  const summaryApiUrl = `${summaryApiBaseUrl}/processo/resumo-completo/${formattedProcessNumber}?token=${encodeURIComponent(token)}&id_unidade=${encodeURIComponent(unidadeId)}`;
 
 
   if (!process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL) {
     console.warn("[Summary API] NEXT_PUBLIC_SUMMARY_API_BASE_URL não está definida. Usando fallback http://127.0.0.1:8000");
   }
 
-  console.log(`[Summary API] Buscando resumo de: ${summaryApiUrl} com token e unidadeId`);
+  console.log(`[Summary API] Buscando resumo de: ${summaryApiUrl}`);
 
   try {
     const response = await fetch(summaryApiUrl, {
       method: 'GET',
       headers: {
         'accept': 'application/json',
-        'token': token, // Added token to header
+        // Token is now in the URL query parameters, not in headers
       },
       cache: 'no-store',
     });
@@ -396,7 +398,7 @@ export async function fetchProcessSummary(
       }
 
       if (response.status === 401) {
-         userFriendlyError = `Não autorizado a buscar resumo. Verifique o token. (API Resumo)`;
+         userFriendlyError = `Não autorizado a buscar resumo. Verifique o token e id_unidade. (API Resumo)`;
       } else if (response.status === 404) {
         userFriendlyError = `Resumo não encontrado para o processo ${protocoloProcedimento} na unidade ${unidadeId}. Verifique os dados ou se há um resumo disponível.`;
       } else if (response.status === 500) {
