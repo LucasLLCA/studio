@@ -85,7 +85,7 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
-      setProcessSummary(null); 
+      setProcessSummary(null);
       return null;
     }
     const dataToProcess = {
@@ -102,7 +102,7 @@ export default function Home() {
     const numeroProcessoAtual = rawProcessData?.Info?.NumeroProcesso || processoNumeroInput;
     if (numeroProcessoAtual && selectedUnidadeFiltro && isAuthenticated && loginCredentials) {
       setIsLoadingOpenUnits(true);
-      setOpenUnitsInProcess(null); 
+      setOpenUnitsInProcess(null);
       console.log(`[UI] Fetching open units for: Processo='${numeroProcessoAtual}', Unidade='${selectedUnidadeFiltro}'`);
       fetchOpenUnitsForProcess(loginCredentials, numeroProcessoAtual, selectedUnidadeFiltro)
         .then(result => {
@@ -112,7 +112,7 @@ export default function Home() {
               `Details: ${typeof result.details === 'string' ? result.details : JSON.stringify(result.details)}`,
               `Params used: processo="${numeroProcessoAtual}", unidade="${selectedUnidadeFiltro}"`
             );
-            setOpenUnitsInProcess([]); 
+            setOpenUnitsInProcess([]);
             if (result.status === 401) {
                  toast({ title: "Sessão Expirada ou Inválida", description: "Por favor, faça login novamente.", variant: "destructive" });
                  handleLogout();
@@ -132,7 +132,7 @@ export default function Home() {
           setIsLoadingOpenUnits(false);
         });
     } else {
-        setOpenUnitsInProcess(null); 
+        setOpenUnitsInProcess(null);
     }
   }, [rawProcessData, processoNumeroInput, selectedUnidadeFiltro, isAuthenticated, loginCredentials, toast]);
 
@@ -161,7 +161,7 @@ export default function Home() {
 
     setIsLoading(true);
     setLoadingMessage("Processando arquivo JSON...");
-    setRawProcessData(null); 
+    setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
 
@@ -174,7 +174,7 @@ export default function Home() {
           const jsonData = JSON.parse(text);
           if (jsonData && jsonData.Andamentos && Array.isArray(jsonData.Andamentos) && jsonData.Info) {
             setRawProcessData(jsonData as ProcessoData);
-            setProcessoNumeroInput(jsonData.Info?.NumeroProcesso || processoNumeroInput || ""); 
+            setProcessoNumeroInput(jsonData.Info?.NumeroProcesso || processoNumeroInput || "");
             toast({
               title: "Sucesso!",
               description: `Arquivo JSON "${file.name}" carregado e processado.`,
@@ -212,17 +212,17 @@ export default function Home() {
     };
     reader.readAsText(file);
   };
-  
+
   const loadSampleData = () => {
     setIsLoading(true);
     setLoadingMessage("Carregando dados de exemplo...");
-    setRawProcessData(null); 
+    setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
 
      const sampleDataWithInfo: ProcessoData = {
       Info: {
-        ...sampleProcessFlowData.Info, 
+        ...sampleProcessFlowData.Info,
         Pagina: sampleProcessFlowData.Info?.Pagina || 1,
         TotalPaginas: sampleProcessFlowData.Info?.TotalPaginas || 1,
         QuantidadeItens: sampleProcessFlowData.Andamentos.length,
@@ -258,7 +258,7 @@ export default function Home() {
     console.log(`[UI] Iniciando busca SEI com: Processo='${processoNumeroInput}', Unidade='${selectedUnidadeFiltro}'`);
     setLoadingMessage("Buscando dados do processo na API SEI...");
     setIsLoading(true);
-    setRawProcessData(null); 
+    setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
 
@@ -266,8 +266,8 @@ export default function Home() {
     try {
       const result = await fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro);
       console.log("[UI] Resultado da API SEI para andamentos:", result);
-      
-      if ('error' in result && typeof result.error === 'string') { 
+
+      if ('error' in result && typeof result.error === 'string') {
         let errorTitle = "Erro ao buscar dados do processo";
         let errorDescription = result.error;
 
@@ -280,25 +280,25 @@ export default function Home() {
         } else if (result.status === 401) {
           errorTitle = "Falha na Autenticação com a API SEI (401)";
           errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais estão corretas e tente fazer login novamente.`;
-          handleLogout(); 
+          handleLogout();
         } else if (result.status === 500) {
             errorTitle = "Erro Interno no Servidor da API SEI (500)";
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
-        } else if (result.status) { 
+        } else if (result.status) {
              errorDescription = `Erro ${result.status}: ${result.error || 'Desconhecido'}`;
         }
-        
+
         if (result.details) {
             try {
                 const detailsString = typeof result.details === 'string' ? result.details : JSON.stringify(result.details);
-                if (detailsString && detailsString !== '{}' && detailsString.length < 250) { 
+                if (detailsString && detailsString !== '{}' && detailsString.length < 250) {
                     errorDescription += ` Detalhes: ${detailsString}`;
                 } else if (detailsString.length >= 250) {
                     errorDescription += ` Detalhes da API muito longos para exibição.`;
                 }
             } catch (e) { /* erro ao formatar detalhes */ }
         }
-        
+
         toast({
           title: errorTitle,
           description: errorDescription,
@@ -306,9 +306,9 @@ export default function Home() {
           duration: 9000,
         });
         setRawProcessData(null);
-      } else if (!('error' in result)) { 
+      } else if (!('error' in result)) {
         if (result && result.Andamentos && Array.isArray(result.Andamentos)) {
-          setRawProcessData(result); 
+          setRawProcessData(result);
           toast({
             title: "Sucesso!",
             description: `Dados do processo (total ${result.Andamentos.length} andamentos) carregados da API.`,
@@ -323,12 +323,12 @@ export default function Home() {
           });
           setRawProcessData(null);
         }
-      } else { 
+      } else {
         console.error("[UI] Resposta inesperada da API SEI:", result);
         toast({ title: "Erro Desconhecido", description: "A API retornou uma resposta inesperada.", variant: "destructive" });
         setRawProcessData(null);
       }
-    } catch (error) { 
+    } catch (error) {
       console.error("[UI] Erro inesperado ao buscar dados do processo:", error);
       let errorMessage = "Ocorreu um erro inesperado ao tentar buscar os dados.";
       if (error instanceof Error) {
@@ -342,7 +342,7 @@ export default function Home() {
       });
       setRawProcessData(null);
     } finally {
-      setLoadingMessage("Processando dados..."); 
+      setLoadingMessage("Processando dados...");
       setIsLoading(false);
     }
   };
@@ -373,7 +373,7 @@ export default function Home() {
           title: "Erro ao Gerar Resumo",
           description: description,
           variant: "destructive",
-          duration: 9000, 
+          duration: 9000,
         });
         setProcessSummary(null);
       } else {
@@ -384,7 +384,7 @@ export default function Home() {
           description: "O resumo do processo foi carregado com sucesso.",
         });
       }
-    } catch (error) { 
+    } catch (error) {
       console.error("[UI] Erro ao chamar a action fetchProcessSummary:", error);
       let description = "Ocorreu um erro inesperado ao tentar gerar o resumo do processo.";
       if (error instanceof Error && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
@@ -407,26 +407,37 @@ export default function Home() {
   const onLoginSubmit: SubmitHandler<LoginFormValues> = async (data) => {
     setIsLoggingIn(true);
     setLoginError(null);
+    console.log("[UI] onLoginSubmit - Iniciando login com dados:", data);
     try {
       const response = await loginToSEI(data);
+      console.log("[UI] onLoginSubmit - Resposta da action loginToSEI:", response);
+
       if (response.success && response.token) {
         setLoginCredentials(data);
         setIsAuthenticated(true);
-        if (response.unidades && response.unidades.length > 0) {
-          setUnidadesFiltroList(response.unidades);
+        
+        const unidadesRecebidas = response.unidades || [];
+        console.log("[UI] onLoginSubmit - Unidades recebidas da action:", unidadesRecebidas);
+        setUnidadesFiltroList(unidadesRecebidas);
+        console.log("[UI] onLoginSubmit - Estado unidadesFiltroList definido com:", unidadesRecebidas);
+
+
+        if (unidadesRecebidas.length > 0) {
+          toast({
+            title: "Login bem-sucedido!",
+            description: `${unidadesRecebidas.length} unidades carregadas.`,
+          });
         } else {
-          setUnidadesFiltroList([]);
-           toast({
+          toast({
             title: "Login Bem-sucedido",
             description: "Nenhuma unidade de acesso foi retornada para seleção. Verifique suas permissões ou a configuração da API.",
             variant: "default",
             duration: 7000,
           });
         }
-        setSelectedUnidadeFiltro(undefined); 
+        setSelectedUnidadeFiltro(undefined);
         setIsLoginDialogOpen(false);
         methods.reset();
-        toast({ title: "Login bem-sucedido!" });
       } else {
         setLoginError(response.error || "Falha no login. Verifique suas credenciais.");
         toast({ title: "Erro de Login", description: response.error || "Falha no login.", variant: "destructive" });
@@ -435,6 +446,7 @@ export default function Home() {
       const errorMsg = err instanceof Error ? err.message : "Erro desconhecido durante o login.";
       setLoginError(errorMsg);
       toast({ title: "Erro de Login", description: errorMsg, variant: "destructive" });
+      console.error("[UI] onLoginSubmit - Erro no catch:", err);
     } finally {
       setIsLoggingIn(false);
     }
@@ -479,7 +491,7 @@ export default function Home() {
             <Image
               src="/logo-sead.png"
               alt="Logo SEAD Piauí"
-              width={160} 
+              width={160}
               height={60}
               priority
               data-ai-hint="logo government"
@@ -491,18 +503,18 @@ export default function Home() {
           </div>
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
-              <Input 
-                type="text" 
-                placeholder="Número do Processo..." 
-                className="h-9 text-sm w-48" 
+              <Input
+                type="text"
+                placeholder="Número do Processo..."
+                className="h-9 text-sm w-48"
                 value={processoNumeroInput}
                 onChange={(e) => setProcessoNumeroInput(e.target.value)}
                 disabled={isLoading || isLoadingSummary || !isAuthenticated}
                 ref={inputRef}
               />
-               <Select 
-                  value={selectedUnidadeFiltro} 
-                  onValueChange={setSelectedUnidadeFiltro} 
+               <Select
+                  value={selectedUnidadeFiltro}
+                  onValueChange={setSelectedUnidadeFiltro}
                   disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
                 >
                 <SelectTrigger className="h-9 text-sm w-[200px]">
@@ -516,9 +528,9 @@ export default function Home() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleSearchClick}
                 disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro || !isAuthenticated}
               >
@@ -537,9 +549,9 @@ export default function Home() {
               className="hidden"
               accept="application/json"
             />
-             <Button 
-              variant="outline" 
-              size="sm" 
+             <Button
+              variant="outline"
+              size="sm"
               onClick={handleGenerateSummary}
               disabled={isLoading || isLoadingSummary || !processoNumeroInput || !isAuthenticated}
             >
@@ -547,11 +559,11 @@ export default function Home() {
               Gerar Resumo
             </Button>
             <div className="flex items-center space-x-2">
-              <Switch 
-                id="summarize-graph" 
+              <Switch
+                id="summarize-graph"
                 checked={isSummarizedView}
                 onCheckedChange={setIsSummarizedView}
-                disabled={!rawProcessData || isLoading || isLoadingSummary} 
+                disabled={!rawProcessData || isLoading || isLoadingSummary}
               />
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Versão Resumida</Label>
             </div>
@@ -658,7 +670,7 @@ export default function Home() {
                 </div>
               )}
               {processSummary && !isLoadingSummary && (
-                 <ScrollArea className="max-h-[300px] flex-shrink-0">
+                 <ScrollArea className="max-h-[300px]">
                    <div className="p-4 rounded-md border">
                     <pre className="text-sm whitespace-pre-wrap break-words font-sans">
                       {processSummary}
@@ -676,18 +688,18 @@ export default function Home() {
           </Card>
         </section>
       )}
-      
+
       <div className="flex flex-1 overflow-hidden">
-        <ProcessMetadataSidebar 
+        <ProcessMetadataSidebar
           processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
-          processNumberPlaceholder="Nenhum processo carregado" 
+          processNumberPlaceholder="Nenhum processo carregado"
           openUnitsInProcess={openUnitsInProcess}
           isLoadingOpenUnits={isLoadingOpenUnits}
           processedFlowData={processedFlowData}
           onTaskCardClick={handleTaskCardClick}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isLoading && !loadingMessage.includes("API SEI") ? ( 
+          {isLoading && !loadingMessage.includes("API SEI") ? (
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">
@@ -698,13 +710,13 @@ export default function Home() {
               </p>
             </div>
           ) : processedFlowData ? (
-            <ProcessFlowClient 
-              processedFlowData={processedFlowData} 
+            <ProcessFlowClient
+              processedFlowData={processedFlowData}
               taskToScrollTo={taskToScrollTo}
               onScrollToFirstTask={handleScrollToFirstTask}
               onScrollToLastTask={handleScrollToLastTask}
             />
-          ) : isLoading && loadingMessage.includes("API SEI") ? ( 
+          ) : isLoading && loadingMessage.includes("API SEI") ? (
              <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">
@@ -721,7 +733,7 @@ export default function Home() {
                 {isAuthenticated ? "Nenhum processo carregado" : "Autenticação Necessária"}
               </h2>
               <p className="text-muted-foreground mb-6 max-w-md">
-                {isAuthenticated 
+                {isAuthenticated
                   ? 'Para iniciar, insira o número do processo, selecione a unidade e clique em "Pesquisar", clique em "Carregar JSON" para selecionar um arquivo do seu computador, ou carregue os dados de exemplo.'
                   : "Por favor, faça login para pesquisar processos ou carregar dados da API SEI."
                 }
@@ -751,3 +763,5 @@ export default function Home() {
     </main>
   );
 }
+
+    

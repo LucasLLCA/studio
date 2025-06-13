@@ -28,7 +28,7 @@ async function getAuthToken(credentials: LoginCredentials): Promise<string | Api
         Senha: credentials.senha,
         Orgao: credentials.orgao,
       }),
-      cache: 'no-store', 
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -45,7 +45,7 @@ async function getAuthToken(credentials: LoginCredentials): Promise<string | Api
       return { error: `Falha na autenticação com a API SEI: ${response.status}`, details: errorDetails, status: response.status };
     }
 
-    const data = await response.json() as SEILoginApiResponse; 
+    const data = await response.json() as SEILoginApiResponse;
     if (!data.Token) {
       console.error("[SEI API Auth] Token not found in authentication response:", data);
       return { error: "Token não encontrado na resposta da autenticação da API SEI.", details: data, status: 500 };
@@ -70,7 +70,7 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
   try {
     const response = await fetch(`${SEI_API_BASE_URL}/orgaos/usuarios/login`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         'accept': 'application/json',
       },
@@ -102,15 +102,17 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
       return { success: false, error: "Token não retornado pela API de login.", details: data, status: 500 };
     }
     console.log("[SEI Login Action] Login successful, token received.");
+    
+    console.log("[SEI Login Action] Attempting to access data.Unidades. Value:", data.Unidades);
 
-    const unidades: UnidadeFiltro[] = data.UnidadesAcesso?.map(ua => ({
-      Id: ua.IdUnidade,
+    const unidades: UnidadeFiltro[] = (data.Unidades || []).map(ua => ({
+      Id: ua.Id,
       Sigla: ua.Sigla,
       Descricao: ua.Descricao,
-    })) || [];
+    }));
 
-    if (!data.UnidadesAcesso || unidades.length === 0) {
-        console.warn("[SEI Login Action] Login successful, but no UnidadesAcesso returned by the API or the array was empty. UnidadesAcesso:", data.UnidadesAcesso);
+    if (!data.Unidades || unidades.length === 0) {
+        console.warn("[SEI Login Action] Login successful, but no Unidades returned by the API or the array was empty. Raw data.Unidades (after potential undefined):", data.Unidades, "Mapped unidades count:", unidades.length);
     } else {
         console.log(`[SEI Login Action] Mapped ${unidades.length} unidades de acesso.`);
     }
@@ -133,15 +135,15 @@ async function fetchAndamentosApiCall(
 ): Promise<ProcessoData | ApiError> {
   const tokenResult = await getAuthToken(credentials);
   if (typeof tokenResult !== 'string') {
-    return tokenResult; 
+    return tokenResult;
   }
   const token = tokenResult;
 
   const encodedProtocolo = encodeURIComponent(protocoloProcedimento);
   const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/andamentos?protocolo_procedimento=${encodedProtocolo}&sinal_atributos=S&pagina=${pagina}&quantidade=${quantidade}`;
-  
+
   console.log(`[SEI API Andamentos] Tentando buscar URL: ${url}`);
-  
+
   try {
     const response = await fetch(url, {
       method: 'GET',
@@ -164,23 +166,23 @@ async function fetchAndamentosApiCall(
     }
 
     const data = await response.json();
-    if (data && data.Info && (data.Andamentos !== undefined || (quantidade === 0 && data.Andamentos === undefined))) { 
+    if (data && data.Info && (data.Andamentos !== undefined || (quantidade === 0 && data.Andamentos === undefined))) {
       if (!data.Info.NumeroProcesso && protocoloProcedimento) {
         data.Info.NumeroProcesso = protocoloProcedimento;
       }
       if (quantidade > 0 && !Array.isArray(data.Andamentos)) {
          console.warn(`[SEI API Andamentos] 'Andamentos' não é um array na resposta para ${protocoloProcedimento}, mas quantidade=${quantidade} > 0. Tratando como lista vazia. Resposta:`, data);
-        data.Andamentos = []; 
+        data.Andamentos = [];
       } else if (data.Andamentos === undefined && quantidade === 0) {
-        data.Andamentos = []; 
+        data.Andamentos = [];
       }
       return data as ProcessoData;
     } else {
       console.error(`[SEI API Andamentos] Estrutura de dados inválida recebida da API SEI (pagina ${pagina}, quantidade ${quantidade}), mesmo com status OK:`, data);
-      return { 
-        error: "Formato de dados inesperado recebido da API de andamentos SEI.", 
-        details: data, 
-        status: response.status === 200 ? 500 : response.status 
+      return {
+        error: "Formato de dados inesperado recebido da API de andamentos SEI.",
+        details: data,
+        status: response.status === 200 ? 500 : response.status
       };
     }
   } catch (error) {
@@ -190,7 +192,7 @@ async function fetchAndamentosApiCall(
 }
 
 export async function fetchProcessDataFromSEI(
-  credentials: LoginCredentials, 
+  credentials: LoginCredentials,
   protocoloProcedimento: string,
   unidadeId: string
 ): Promise<ProcessoData | ApiError> {
@@ -207,7 +209,7 @@ export async function fetchProcessDataFromSEI(
 
   console.log(`[SEI API Andamentos] Etapa 1: Buscando contagem total de itens para o processo ${protocoloProcedimento}`);
   const countResponse = await fetchAndamentosApiCall(credentials, protocoloProcedimento, unidadeId, 1, 0);
-  
+
   if ('error' in countResponse) {
     console.error("[SEI API Andamentos] Erro ao buscar contagem de itens:", countResponse);
     return countResponse;
@@ -219,7 +221,7 @@ export async function fetchProcessDataFromSEI(
     console.error("[SEI API Andamentos] TotalItens não é um número válido ou está ausente na resposta da contagem:", countResponse.Info);
     return { error: "Não foi possível obter a contagem total de andamentos da API SEI.", details: countResponse.Info, status: 500 };
   }
-  
+
   if (totalItens === 0) {
     console.log(`[SEI API Andamentos] Processo ${protocoloProcedimento} não possui andamentos registrados na unidade ${unidadeId} (API SEI).`);
     return {
@@ -242,13 +244,13 @@ export async function fetchProcessDataFromSEI(
      console.error("[SEI API Andamentos] Erro ao buscar todos os andamentos:", allItemsResponse);
     return allItemsResponse;
   }
-  
+
   const finalProcessoData: ProcessoData = {
     Info: {
-      Pagina: 1, 
-      TotalPaginas: 1, 
+      Pagina: 1,
+      TotalPaginas: 1,
       QuantidadeItens: allItemsResponse.Andamentos?.length || 0,
-      TotalItens: totalItens, 
+      TotalItens: totalItens,
       NumeroProcesso: allItemsResponse.Info?.NumeroProcesso || protocoloProcedimento,
     },
     Andamentos: allItemsResponse.Andamentos || [],
@@ -258,7 +260,7 @@ export async function fetchProcessDataFromSEI(
 }
 
 export async function fetchOpenUnitsForProcess(
-  credentials: LoginCredentials, 
+  credentials: LoginCredentials,
   protocoloProcedimento: string,
   unidadeOrigemConsulta: string
 ): Promise<UnidadeAberta[] | ApiError> {
@@ -275,7 +277,7 @@ export async function fetchOpenUnitsForProcess(
 
   const tokenResult = await getAuthToken(credentials);
   if (typeof tokenResult !== 'string') {
-    return tokenResult; 
+    return tokenResult;
   }
   const token = tokenResult;
 
@@ -292,7 +294,7 @@ export async function fetchOpenUnitsForProcess(
     sinal_procedimentos_relacionados: 'N',
     sinal_procedimentos_anexados: 'N',
   }).toString();
-  
+
   const url = `${SEI_API_BASE_URL}/unidades/${unidadeOrigemConsulta}/procedimentos/consulta?${queryParams}`;
 
   console.log(`[SEI API Consulta] Tentando buscar URL para unidades abertas: ${url}`);
@@ -324,7 +326,7 @@ export async function fetchOpenUnitsForProcess(
     if (data && data.UnidadesProcedimentoAberto) {
       return data.UnidadesProcedimentoAberto;
     } else if (data && !data.UnidadesProcedimentoAberto) {
-      return []; 
+      return [];
     } else {
       console.error("[SEI API Consulta] Estrutura de dados inválida recebida da API de consulta SEI:", data);
       return { error: "Formato de dados inesperado da API de consulta SEI.", details: data, status: 500 };
@@ -343,14 +345,14 @@ export async function fetchProcessSummary(
   }
 
   const formattedProcessNumber = protocoloProcedimento.replace(/[.\/-]/g, "");
-  const summaryApiUrl = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL 
+  const summaryApiUrl = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL
     ? `${process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL}/resumo_completo/${formattedProcessNumber}`
-    : `http://127.0.0.1:8000/resumo_completo/${formattedProcessNumber}`; 
+    : `http://127.0.0.1:8000/resumo_completo/${formattedProcessNumber}`;
 
   if (!process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL) {
     console.warn("[Summary API] NEXT_PUBLIC_SUMMARY_API_BASE_URL não está definida. Usando fallback http://127.0.0.1:8000");
   }
-  
+
   console.log(`[Summary API] Buscando resumo de: ${summaryApiUrl}`);
 
   try {
@@ -359,7 +361,7 @@ export async function fetchProcessSummary(
       headers: {
         'accept': 'application/json',
       },
-      cache: 'no-store', 
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -373,10 +375,10 @@ export async function fetchProcessSummary(
       } catch (e) {
         errorDetails = await response.text().catch(() => `Resposta não é JSON nem texto.`);
         if (typeof errorDetails === 'string' && errorDetails.length > 0 && errorDetails.length < 200) {
-           userFriendlyError = errorDetails; 
+           userFriendlyError = errorDetails;
         }
       }
-      
+
       if (response.status === 404) {
         userFriendlyError = `Resumo não encontrado para o processo ${protocoloProcedimento}. Verifique o número ou se há um resumo disponível.`;
       } else if (response.status === 500) {
@@ -384,12 +386,12 @@ export async function fetchProcessSummary(
       } else if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
         userFriendlyError = `Não foi possível conectar à API de resumo em ${summaryApiUrl}. Verifique se o serviço está rodando e acessível, e se as configurações de CORS permitem esta origem.`;
       }
-      
+
       console.error(`[Summary API] Falha ao buscar resumo (URL: ${summaryApiUrl}, Status: ${response.status})`, errorDetails);
-      return { 
-        error: userFriendlyError, 
-        details: errorDetails, 
-        status: response.status 
+      return {
+        error: userFriendlyError,
+        details: errorDetails,
+        status: response.status
       };
     }
 
@@ -414,3 +416,5 @@ export async function fetchProcessSummary(
     return { error: errorMessage, details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
+
+    
