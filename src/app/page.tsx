@@ -85,7 +85,7 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
-      setProcessSummary(null);
+      // setProcessSummary(null); // Summary is now handled independently
       return null;
     }
     const dataToProcess = {
@@ -256,41 +256,44 @@ export default function Home() {
     }
 
     console.log(`[UI] Iniciando busca SEI com: Processo='${processoNumeroInput}', Unidade='${selectedUnidadeFiltro}'`);
-    setLoadingMessage("Buscando dados do processo na API SEI...");
+    setLoadingMessage("Buscando dados do processo e resumo...");
     setIsLoading(true);
+    setIsLoadingSummary(true); // Start loading summary as well
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
 
-
     try {
-      const result = await fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro);
-      console.log("[UI] Resultado da API SEI para andamentos:", result);
+      const [processDataResult, summaryResult] = await Promise.all([
+        fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro),
+        fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+      ]);
 
-      if ('error' in result && typeof result.error === 'string') {
+      // Handle Process Data Result
+      if ('error' in processDataResult && typeof processDataResult.error === 'string') {
+        // ... (error handling for processDataResult as before)
         let errorTitle = "Erro ao buscar dados do processo";
-        let errorDescription = result.error;
+        let errorDescription = processDataResult.error;
 
-        if (result.status === 422) {
+        if (processDataResult.status === 422) {
           errorTitle = "Erro de Validação dos Dados (422)";
           errorDescription = `A API não pôde processar os dados fornecidos. Verifique se o 'Número do Processo' (ex: 00002.001000/2024-92) e a 'Unidade' selecionada são corretos e são válidos para esta consulta.`;
-        } else if (result.status === 404) {
+        } else if (processDataResult.status === 404) {
           errorTitle = "Processo Não Encontrado (404)";
           errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro} para o número ${processoNumeroInput}, ou o processo não possui andamentos registrados nessa unidade. Verifique os dados e tente novamente.`;
-        } else if (result.status === 401) {
+        } else if (processDataResult.status === 401) {
           errorTitle = "Falha na Autenticação com a API SEI (401)";
           errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais estão corretas e tente fazer login novamente.`;
-          handleLogout();
-        } else if (result.status === 500) {
+          handleLogout(); // Log out user on auth failure
+        } else if (processDataResult.status === 500) {
             errorTitle = "Erro Interno no Servidor da API SEI (500)";
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
-        } else if (result.status) {
-             errorDescription = `Erro ${result.status}: ${result.error || 'Desconhecido'}`;
+        } else if (processDataResult.status) {
+             errorDescription = `Erro ${processDataResult.status}: ${processDataResult.error || 'Desconhecido'}`;
         }
-
-        if (result.details) {
+        if (processDataResult.details) {
             try {
-                const detailsString = typeof result.details === 'string' ? result.details : JSON.stringify(result.details);
+                const detailsString = typeof processDataResult.details === 'string' ? processDataResult.details : JSON.stringify(processDataResult.details);
                 if (detailsString && detailsString !== '{}' && detailsString.length < 250) {
                     errorDescription += ` Detalhes: ${detailsString}`;
                 } else if (detailsString.length >= 250) {
@@ -298,111 +301,53 @@ export default function Home() {
                 }
             } catch (e) { /* erro ao formatar detalhes */ }
         }
-
-        toast({
-          title: errorTitle,
-          description: errorDescription,
-          variant: "destructive",
-          duration: 9000,
-        });
+        toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
         setRawProcessData(null);
-      } else if (!('error' in result)) {
-        if (result && result.Andamentos && Array.isArray(result.Andamentos)) {
-          setRawProcessData(result);
-          toast({
-            title: "Sucesso!",
-            description: `Dados do processo (total ${result.Andamentos.length} andamentos) carregados da API.`,
-          });
-        } else {
-          console.error("[UI] Resposta da API SEI bem-sucedida, mas 'Andamentos' está ausente ou não é um array:", result);
-          toast({
-            title: "Dados Incompletos da API",
-            description: "A API retornou uma resposta, mas não contém os andamentos do processo esperados. Pode não haver andamentos para este processo nesta unidade.",
-            variant: "destructive",
-            duration: 7000,
-          });
-          setRawProcessData(null);
-        }
+      } else if (!('error' in processDataResult) && processDataResult.Andamentos && Array.isArray(processDataResult.Andamentos)) {
+        setRawProcessData(processDataResult);
+        toast({ title: "Dados do Processo Carregados", description: `Total ${processDataResult.Andamentos.length} andamentos carregados da API.` });
+      } else if (!('error' in processDataResult)) {
+        console.error("[UI] Resposta da API SEI (andamentos) bem-sucedida, mas 'Andamentos' está ausente ou não é um array:", processDataResult);
+        toast({ title: "Dados Incompletos (Andamentos)", description: "A API retornou uma resposta, mas não contém os andamentos esperados.", variant: "destructive", duration: 7000 });
+        setRawProcessData(null);
       } else {
-        console.error("[UI] Resposta inesperada da API SEI:", result);
-        toast({ title: "Erro Desconhecido", description: "A API retornou uma resposta inesperada.", variant: "destructive" });
+        console.error("[UI] Resposta inesperada da API SEI (andamentos):", processDataResult);
+        toast({ title: "Erro Desconhecido (Andamentos)", description: "A API retornou uma resposta inesperada ao buscar andamentos.", variant: "destructive" });
         setRawProcessData(null);
       }
+
+      // Handle Summary Result
+      if ('error' in summaryResult) {
+        let description = summaryResult.error;
+        if (summaryResult.error.toLowerCase().includes("failed to fetch") || summaryResult.error.toLowerCase().includes("load failed")) {
+           description = `Não foi possível conectar à API de resumo. Verifique o serviço e CORS. Detalhes: ${summaryResult.details || summaryResult.error}`;
+        } else if (summaryResult.details && typeof summaryResult.details === 'string' && summaryResult.details.length > 0 && summaryResult.details.length < 150 && summaryResult.details !== '{}') {
+           description += ` Detalhes: ${summaryResult.details}`;
+        }
+        toast({ title: "Erro ao Gerar Resumo", description: description, variant: "destructive", duration: 9000 });
+        setProcessSummary(null);
+      } else {
+        const cleanedSummary = summaryResult.summary.replace(/[#*]/g, '');
+        setProcessSummary(cleanedSummary);
+        toast({ title: "Resumo Gerado", description: "O resumo do processo foi carregado com sucesso." });
+      }
+
     } catch (error) {
-      console.error("[UI] Erro inesperado ao buscar dados do processo:", error);
-      let errorMessage = "Ocorreu um erro inesperado ao tentar buscar os dados.";
+      console.error("[UI] Erro inesperado ao buscar dados do processo e/ou resumo:", error);
+      let errorMessage = "Ocorreu um erro inesperado ao tentar buscar os dados e/ou resumo.";
       if (error instanceof Error) {
         errorMessage += ` Detalhes: ${error.message}`;
       }
-      toast({
-        title: "Erro Inesperado na Aplicação",
-        description: errorMessage,
-        variant: "destructive",
-        duration: 7000,
-      });
+      toast({ title: "Erro Inesperado na Aplicação", description: errorMessage, variant: "destructive", duration: 7000 });
       setRawProcessData(null);
-    } finally {
-      setLoadingMessage("Processando dados...");
-      setIsLoading(false);
-    }
-  };
-
-  const handleGenerateSummary = async () => {
-    if (!processoNumeroInput) {
-      toast({ title: "Entrada Inválida", description: "Por favor, insira o número do processo para gerar o resumo.", variant: "destructive" });
-      return;
-    }
-     if (!isAuthenticated) {
-      toast({ title: "Não Autenticado", description: "Por favor, faça login para gerar o resumo.", variant: "destructive" });
-      return;
-    }
-    setIsLoadingSummary(true);
-    setProcessSummary(null);
-
-    try {
-      const result = await fetchProcessSummary(processoNumeroInput);
-
-      if ('error' in result) {
-        let description = result.error;
-         if (result.error.toLowerCase().includes("failed to fetch") || result.error.toLowerCase().includes("load failed")) {
-            description = `Não foi possível conectar à API de resumo. Verifique se o serviço (em http://127.0.0.1:8000 ou na URL configurada) está rodando e se as configurações de CORS permitem esta origem. Detalhes: ${result.details || result.error}`;
-        } else if (result.details && typeof result.details === 'string' && result.details.length > 0 && result.details.length < 150 && result.details !== '{}') {
-            description += ` Detalhes: ${result.details}`;
-        }
-        toast({
-          title: "Erro ao Gerar Resumo",
-          description: description,
-          variant: "destructive",
-          duration: 9000,
-        });
-        setProcessSummary(null);
-      } else {
-        const cleanedSummary = result.summary.replace(/[#*]/g, '');
-        setProcessSummary(cleanedSummary);
-        toast({
-          title: "Resumo Gerado",
-          description: "O resumo do processo foi carregado com sucesso.",
-        });
-      }
-    } catch (error) {
-      console.error("[UI] Erro ao chamar a action fetchProcessSummary:", error);
-      let description = "Ocorreu um erro inesperado ao tentar gerar o resumo do processo.";
-      if (error instanceof Error && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
-         description = `Não foi possível conectar à API de resumo. Verifique se o serviço (em http://127.0.0.1:8000 ou na URL configurada) está rodando e se as configurações de CORS permitem esta origem. Detalhes: ${error.message}`;
-      } else if (error instanceof Error) {
-        description = error.message;
-      }
-      toast({
-        title: "Erro na Aplicação",
-        description: description,
-        variant: "destructive",
-        duration: 7000,
-      });
       setProcessSummary(null);
     } finally {
+      setLoadingMessage("Processando dados..."); // Reset message
+      setIsLoading(false);
       setIsLoadingSummary(false);
     }
   };
+
 
   const onLoginSubmit: SubmitHandler<LoginFormValues> = async (data) => {
     setIsLoggingIn(true);
@@ -435,7 +380,7 @@ export default function Home() {
             duration: 7000,
           });
         }
-        setSelectedUnidadeFiltro(undefined);
+        setSelectedUnidadeFiltro(undefined); // Reset selected unit on new login
         setIsLoginDialogOpen(false);
         methods.reset();
       } else {
@@ -534,8 +479,8 @@ export default function Home() {
                 onClick={handleSearchClick}
                 disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro || !isAuthenticated}
               >
-                {isLoading && loadingMessage.includes("API SEI") ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                {isLoading && loadingMessage.includes("API SEI") ? "Pesquisando..." : "Pesquisar"}
+                {(isLoading || isLoadingSummary) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                {(isLoading || isLoadingSummary) ? "Pesquisando..." : "Pesquisar"}
               </Button>
             </div>
             <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
@@ -549,15 +494,6 @@ export default function Home() {
               className="hidden"
               accept="application/json"
             />
-             <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerateSummary}
-              disabled={isLoading || isLoadingSummary || !processoNumeroInput || !isAuthenticated}
-            >
-              {isLoadingSummary ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookText className="mr-2 h-4 w-4" />}
-              Gerar Resumo
-            </Button>
             <div className="flex items-center space-x-2">
               <Switch
                 id="summarize-graph"
@@ -662,16 +598,16 @@ export default function Home() {
                 Este é um resumo gerado por IA sobre o processo.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col">
-              {isLoadingSummary && (
+            <CardContent className="flex flex-col flex-shrink-0"> {/* Added flex-shrink-0 */}
+              {isLoadingSummary && !processSummary && ( // Show loader only if summary isn't yet available
                 <div className="flex items-center justify-center p-6">
                   <Loader2 className="h-8 w-8 text-primary animate-spin" />
                   <p className="ml-3 text-muted-foreground">Gerando resumo...</p>
                 </div>
               )}
-              {processSummary && !isLoadingSummary && (
-                 <ScrollArea className="max-h-[300px]">
-                   <div className="p-4 rounded-md border">
+              {processSummary && ( // Show summary if available, even if still loading other things
+                 <ScrollArea className="max-h-[300px] rounded-md border flex-shrink-0"> {/* Added flex-shrink-0 */}
+                   <div className="p-4">
                     <pre className="text-sm whitespace-pre-wrap break-words font-sans">
                       {processSummary}
                     </pre>
@@ -681,7 +617,7 @@ export default function Home() {
               {!processSummary && !isLoadingSummary && (
                 <div className="flex items-center justify-center p-6 text-muted-foreground">
                     <Info className="mr-2 h-5 w-5" />
-                    Nenhum resumo disponível ou gerado. Clique em "Gerar Resumo".
+                    Nenhum resumo disponível. Clique em "Pesquisar" para gerar.
                 </div>
               )}
             </CardContent>
@@ -699,7 +635,7 @@ export default function Home() {
           onTaskCardClick={handleTaskCardClick}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isLoading && !loadingMessage.includes("API SEI") ? (
+          {isLoading && !loadingMessage.includes("API SEI") && !loadingMessage.includes("resumo") ? ( // Adjusted loading condition
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">
@@ -716,14 +652,14 @@ export default function Home() {
               onScrollToFirstTask={handleScrollToFirstTask}
               onScrollToLastTask={handleScrollToLastTask}
             />
-          ) : isLoading && loadingMessage.includes("API SEI") ? (
+          ) : isLoading || isLoadingSummary ? ( // Simplified loading condition for API calls
              <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">
                 {loadingMessage}
               </h2>
               <p className="text-muted-foreground max-w-md">
-                Por favor, aguarde. A consulta à API SEI pode levar alguns instantes, especialmente para processos com muitos andamentos.
+                Por favor, aguarde. A consulta à API SEI e/ou API de resumo pode levar alguns instantes.
               </p>
             </div>
           ) : (

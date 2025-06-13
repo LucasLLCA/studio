@@ -338,28 +338,44 @@ export async function fetchOpenUnitsForProcess(
 }
 
 export async function fetchProcessSummary(
-  protocoloProcedimento: string
+  credentials: LoginCredentials,
+  protocoloProcedimento: string,
+  unidadeId: string // Added unidadeId as per request, will be used in query params
 ): Promise<ProcessSummaryResponse | ApiError> {
   if (!protocoloProcedimento) {
     return { error: "Número do processo é obrigatório para buscar o resumo.", status: 400 };
   }
+  if (!unidadeId) {
+    return { error: "ID da Unidade é obrigatório para buscar o resumo.", status: 400 };
+  }
+  if (!credentials) {
+    return { error: "Credenciais de autenticação são obrigatórias para buscar o resumo.", status: 401 };
+  }
+
+  const tokenResult = await getAuthToken(credentials);
+  if (typeof tokenResult !== 'string') {
+    console.error("[Summary API] Falha ao obter token para API de resumo:", tokenResult.error);
+    return { error: `Falha ao autenticar para buscar resumo: ${tokenResult.error}`, status: tokenResult.status || 401, details: tokenResult.details };
+  }
+  const token = tokenResult;
 
   const formattedProcessNumber = protocoloProcedimento.replace(/[.\/-]/g, "");
-  const summaryApiUrl = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL
-    ? `${process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL}/resumo_completo/${formattedProcessNumber}`
-    : `http://127.0.0.1:8000/resumo_completo/${formattedProcessNumber}`;
+  const summaryApiBaseUrl = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
+  const summaryApiUrl = `${summaryApiBaseUrl}/resumo_completo/${formattedProcessNumber}?unidade_id=${encodeURIComponent(unidadeId)}`;
+
 
   if (!process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL) {
     console.warn("[Summary API] NEXT_PUBLIC_SUMMARY_API_BASE_URL não está definida. Usando fallback http://127.0.0.1:8000");
   }
 
-  console.log(`[Summary API] Buscando resumo de: ${summaryApiUrl}`);
+  console.log(`[Summary API] Buscando resumo de: ${summaryApiUrl} com token e unidadeId`);
 
   try {
     const response = await fetch(summaryApiUrl, {
       method: 'GET',
       headers: {
         'accept': 'application/json',
+        'token': token, // Added token to header
       },
       cache: 'no-store',
     });
@@ -379,8 +395,10 @@ export async function fetchProcessSummary(
         }
       }
 
-      if (response.status === 404) {
-        userFriendlyError = `Resumo não encontrado para o processo ${protocoloProcedimento}. Verifique o número ou se há um resumo disponível.`;
+      if (response.status === 401) {
+         userFriendlyError = `Não autorizado a buscar resumo. Verifique o token. (API Resumo)`;
+      } else if (response.status === 404) {
+        userFriendlyError = `Resumo não encontrado para o processo ${protocoloProcedimento} na unidade ${unidadeId}. Verifique os dados ou se há um resumo disponível.`;
       } else if (response.status === 500) {
         userFriendlyError = `Erro interno no servidor da API de resumo ao processar ${protocoloProcedimento}.`;
       } else if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
