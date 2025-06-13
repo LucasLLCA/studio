@@ -9,7 +9,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { VERTICAL_LANE_SPACING, INITIAL_X_OFFSET } from '@/lib/process-flow-utils'; 
+import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils'; 
 
 interface ProcessFlowDiagramProps {
   tasks: ProcessedAndamento[];
@@ -45,7 +45,24 @@ export function ProcessFlowDiagram({
   useEffect(() => {
     if (taskToScrollTo && viewportRef.current) {
       const viewport = viewportRef.current;
-      const targetScrollLeft = taskToScrollTo.x - (viewport.offsetWidth / 2) + (LANE_LABEL_AREA_WIDTH / 2) - (INITIAL_X_OFFSET /2) ;
+      
+      // taskToScrollTo.x and taskToScrollTo.y are the center coordinates of the task within the SVG canvas.
+      // The SVG canvas is positioned to the right of the LANE_LABEL_AREA_WIDTH.
+      // We want to calculate scrollLeft and scrollTop for the viewport such that the task's center aligns with the viewport's center.
+      
+      // Horizontal centering:
+      // The task's absolute horizontal position from the start of the scrollable container (div[data-diagram-root]) is:
+      // LANE_LABEL_AREA_WIDTH + taskToScrollTo.x
+      // We want this absolute position to be at the center of the viewport, which is:
+      // targetScrollLeft + (viewport.offsetWidth / 2)
+      // So, LANE_LABEL_AREA_WIDTH + taskToScrollTo.x = targetScrollLeft + (viewport.offsetWidth / 2)
+      // targetScrollLeft = LANE_LABEL_AREA_WIDTH + taskToScrollTo.x - (viewport.offsetWidth / 2)
+      const targetScrollLeft = LANE_LABEL_AREA_WIDTH + taskToScrollTo.x - (viewport.offsetWidth / 2);
+
+      // Vertical centering:
+      // taskToScrollTo.y is the task's center. Viewport center is targetScrollTop + (viewport.offsetHeight / 2)
+      // So, taskToScrollTo.y = targetScrollTop + (viewport.offsetHeight / 2)
+      // targetScrollTop = taskToScrollTo.y - (viewport.offsetHeight / 2)
       const targetScrollTop = taskToScrollTo.y - (viewport.offsetHeight / 2);
 
       viewport.scrollTo({
@@ -54,7 +71,7 @@ export function ProcessFlowDiagram({
         behavior: 'smooth',
       });
     }
-  }, [taskToScrollTo, LANE_LABEL_AREA_WIDTH]);
+  }, [taskToScrollTo]); // LANE_LABEL_AREA_WIDTH is a constant, so not strictly needed as a dependency
 
 
   const handleTaskClick = (task: ProcessedAndamento) => {
@@ -279,3 +296,4 @@ export function ProcessFlowDiagram({
     </div>
   );
 }
+
