@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { ProcessedAndamento, Connection } from '@/types/process-flow';
+import type { ProcessedAndamento, Connection, LoginCredentials } from '@/types/process-flow';
 import { TaskNode } from './TaskNode';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import { ProcessFlowLegend } from './ProcessFlowLegend';
@@ -20,6 +20,8 @@ interface ProcessFlowDiagramProps {
   taskToScrollTo?: ProcessedAndamento | null;
   onScrollToFirstTask: () => void;
   onScrollToLastTask: () => void;
+  loginCredentials: LoginCredentials | null;
+  isAuthenticated: boolean;
 }
 
 export function ProcessFlowDiagram({ 
@@ -30,7 +32,9 @@ export function ProcessFlowDiagram({
   laneMap,
   taskToScrollTo,
   onScrollToFirstTask,
-  onScrollToLastTask
+  onScrollToLastTask,
+  loginCredentials,
+  isAuthenticated,
 }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,24 +49,7 @@ export function ProcessFlowDiagram({
   useEffect(() => {
     if (taskToScrollTo && viewportRef.current) {
       const viewport = viewportRef.current;
-      
-      // taskToScrollTo.x and taskToScrollTo.y are the center coordinates of the task within the SVG canvas.
-      // The SVG canvas is positioned to the right of the LANE_LABEL_AREA_WIDTH.
-      // We want to calculate scrollLeft and scrollTop for the viewport such that the task's center aligns with the viewport's center.
-      
-      // Horizontal centering:
-      // The task's absolute horizontal position from the start of the scrollable container (div[data-diagram-root]) is:
-      // LANE_LABEL_AREA_WIDTH + taskToScrollTo.x
-      // We want this absolute position to be at the center of the viewport, which is:
-      // targetScrollLeft + (viewport.offsetWidth / 2)
-      // So, LANE_LABEL_AREA_WIDTH + taskToScrollTo.x = targetScrollLeft + (viewport.offsetWidth / 2)
-      // targetScrollLeft = LANE_LABEL_AREA_WIDTH + taskToScrollTo.x - (viewport.offsetWidth / 2)
       const targetScrollLeft = LANE_LABEL_AREA_WIDTH + taskToScrollTo.x - (viewport.offsetWidth / 2);
-
-      // Vertical centering:
-      // taskToScrollTo.y is the task's center. Viewport center is targetScrollTop + (viewport.offsetHeight / 2)
-      // So, taskToScrollTo.y = targetScrollTop + (viewport.offsetHeight / 2)
-      // targetScrollTop = taskToScrollTo.y - (viewport.offsetHeight / 2)
       const targetScrollTop = taskToScrollTo.y - (viewport.offsetHeight / 2);
 
       viewport.scrollTo({
@@ -71,7 +58,7 @@ export function ProcessFlowDiagram({
         behavior: 'smooth',
       });
     }
-  }, [taskToScrollTo]); // LANE_LABEL_AREA_WIDTH is a constant, so not strictly needed as a dependency
+  }, [taskToScrollTo, LANE_LABEL_AREA_WIDTH]);
 
 
   const handleTaskClick = (task: ProcessedAndamento) => {
@@ -196,7 +183,7 @@ export function ProcessFlowDiagram({
         </Button>
       </div>
       <ScrollArea
-        className="w-full rounded-md border flex-grow bg-card shadow-inner overflow-hidden mt-2" // Reduced mt-4 to mt-2
+        className="w-full rounded-md border flex-grow bg-card shadow-inner overflow-hidden mt-2"
         viewportRef={viewportRef}
       >
         <div
@@ -292,9 +279,13 @@ export function ProcessFlowDiagram({
         task={selectedTask}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
+        loginCredentials={loginCredentials}
+        isAuthenticated={isAuthenticated}
       />
     </div>
   );
 }
 
 
+
+```

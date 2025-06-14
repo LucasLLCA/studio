@@ -85,7 +85,6 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
-      // setProcessSummary(null); // Summary is now handled independently
       return null;
     }
     const dataToProcess = {
@@ -258,7 +257,7 @@ export default function Home() {
     console.log(`[UI] Iniciando busca SEI com: Processo='${processoNumeroInput}', Unidade='${selectedUnidadeFiltro}'`);
     setLoadingMessage("Buscando dados do processo e resumo...");
     setIsLoading(true);
-    setIsLoadingSummary(true); // Start loading summary as well
+    setIsLoadingSummary(true); 
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
@@ -271,7 +270,6 @@ export default function Home() {
 
       // Handle Process Data Result
       if ('error' in processDataResult && typeof processDataResult.error === 'string') {
-        // ... (error handling for processDataResult as before)
         let errorTitle = "Erro ao buscar dados do processo";
         let errorDescription = processDataResult.error;
 
@@ -284,7 +282,7 @@ export default function Home() {
         } else if (processDataResult.status === 401) {
           errorTitle = "Falha na Autenticação com a API SEI (401)";
           errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais estão corretas e tente fazer login novamente.`;
-          handleLogout(); // Log out user on auth failure
+          handleLogout(); 
         } else if (processDataResult.status === 500) {
             errorTitle = "Erro Interno no Servidor da API SEI (500)";
             errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
@@ -324,12 +322,12 @@ export default function Home() {
         } else if (summaryResult.details && typeof summaryResult.details === 'string' && summaryResult.details.length > 0 && summaryResult.details.length < 150 && summaryResult.details !== '{}') {
            description += ` Detalhes: ${summaryResult.details}`;
         }
-        toast({ title: "Erro ao Gerar Resumo", description: description, variant: "destructive", duration: 9000 });
+        toast({ title: "Erro ao Gerar Resumo do Processo", description: description, variant: "destructive", duration: 9000 });
         setProcessSummary(null);
       } else {
         const cleanedSummary = summaryResult.summary.replace(/[#*]/g, '');
         setProcessSummary(cleanedSummary);
-        toast({ title: "Resumo Gerado", description: "O resumo do processo foi carregado com sucesso." });
+        toast({ title: "Resumo do Processo Gerado", description: "O resumo do processo foi carregado com sucesso." });
       }
 
     } catch (error) {
@@ -342,7 +340,7 @@ export default function Home() {
       setRawProcessData(null);
       setProcessSummary(null);
     } finally {
-      setLoadingMessage("Processando dados..."); // Reset message
+      setLoadingMessage("Processando dados..."); 
       setIsLoading(false);
       setIsLoadingSummary(false);
     }
@@ -380,7 +378,7 @@ export default function Home() {
             duration: 7000,
           });
         }
-        setSelectedUnidadeFiltro(undefined); // Reset selected unit on new login
+        setSelectedUnidadeFiltro(undefined); 
         setIsLoginDialogOpen(false);
         methods.reset();
       } else {
@@ -598,15 +596,15 @@ export default function Home() {
                 Este é um resumo gerado por IA sobre o processo.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col flex-shrink-0"> {/* Added flex-shrink-0 */}
-              {isLoadingSummary && !processSummary && ( // Show loader only if summary isn't yet available
+            <CardContent className="flex flex-col flex-shrink-0"> 
+              {isLoadingSummary && !processSummary && ( 
                 <div className="flex items-center justify-center p-6">
                   <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                  <p className="ml-3 text-muted-foreground">Gerando resumo...</p>
+                  <p className="ml-3 text-muted-foreground">Gerando resumo do processo...</p>
                 </div>
               )}
-              {processSummary && ( // Show summary if available, even if still loading other things
-                 <ScrollArea className="max-h-[300px] rounded-md border flex-shrink-0"> {/* Added flex-shrink-0 */}
+              {processSummary && ( 
+                 <ScrollArea className="max-h-[300px] rounded-md border flex-shrink-0"> 
                    <div className="p-4">
                     <pre className="text-sm whitespace-pre-wrap break-words font-sans">
                       {processSummary}
@@ -617,7 +615,7 @@ export default function Home() {
               {!processSummary && !isLoadingSummary && (
                 <div className="flex items-center justify-center p-6 text-muted-foreground">
                     <Info className="mr-2 h-5 w-5" />
-                    Nenhum resumo disponível. Clique em "Pesquisar" para gerar.
+                    Nenhum resumo de processo disponível. Clique em "Pesquisar" para gerar.
                 </div>
               )}
             </CardContent>
@@ -635,7 +633,7 @@ export default function Home() {
           onTaskCardClick={handleTaskCardClick}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isLoading && !loadingMessage.includes("API SEI") && !loadingMessage.includes("resumo") ? ( // Adjusted loading condition
+          {isLoading && !loadingMessage.includes("API SEI") && !loadingMessage.includes("resumo") ? ( 
             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">
@@ -651,8 +649,10 @@ export default function Home() {
               taskToScrollTo={taskToScrollTo}
               onScrollToFirstTask={handleScrollToFirstTask}
               onScrollToLastTask={handleScrollToLastTask}
+              loginCredentials={loginCredentials}
+              isAuthenticated={isAuthenticated}
             />
-          ) : isLoading || isLoadingSummary ? ( // Simplified loading condition for API calls
+          ) : isLoading || isLoadingSummary ? ( 
              <div className="flex flex-col items-center justify-center h-full p-10 text-center">
               <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
               <h2 className="text-xl font-semibold text-foreground mb-2">
@@ -699,5 +699,3 @@ export default function Home() {
     </main>
   );
 }
-
-    

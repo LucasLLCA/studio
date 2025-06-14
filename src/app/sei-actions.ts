@@ -4,6 +4,7 @@
 import type { ProcessoData, ApiError, ProcessSummaryResponse, LoginCredentials, ClientLoginResponse, UnidadeFiltro, SEILoginApiResponse, UnidadeAberta } from '@/types/process-flow';
 
 const SEI_API_BASE_URL = process.env.NEXT_PUBLIC_SEI_API_BASE_URL;
+const SUMMARY_API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
 
 // This function now requires credentials to be passed in.
 async function getAuthToken(credentials: LoginCredentials): Promise<string | ApiError> {
@@ -81,21 +82,27 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
       }),
       cache: 'no-store',
     });
+    
+    console.log("[SEI Login Action] Login API response status:", response.status);
+    const responseText = await response.text(); 
+    // console.log("[SEI Login Action] Login API response text:", responseText); // Can be very verbose
 
     if (!response.ok) {
       let errorDetails;
       try {
-        errorDetails = await response.json();
+        errorDetails = JSON.parse(responseText);
       } catch (e) {
-        errorDetails = await response.text();
+        errorDetails = responseText;
       }
       console.error(`[SEI Login Action] Login failed: ${response.status}`, errorDetails);
       const errorMessage = (errorDetails as any)?.Message || `Falha no login. Status: ${response.status}`;
       return { success: false, error: errorMessage, details: errorDetails, status: response.status };
     }
 
-    const data = await response.json() as SEILoginApiResponse;
-    console.log("[SEI Login Action] Raw login API response data:", JSON.stringify(data, null, 2));
+    const data = JSON.parse(responseText) as SEILoginApiResponse;
+    console.log("[SEI Login Action] Raw login API response data (parsed):", JSON.stringify(data, null, 2));
+    console.log("[SEI Login Action] Attempting to access data.Unidades. Value:", data.Unidades);
+
 
     if (!data.Token) {
       console.error("[SEI Login Action] Token not returned by login API, even though response was ok. Data:", data);
@@ -103,7 +110,6 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
     }
     console.log("[SEI Login Action] Login successful, token received.");
     
-    console.log("[SEI Login Action] Attempting to access data.Unidades. Value:", data.Unidades);
 
     const unidades: UnidadeFiltro[] = (data.Unidades || []).map(ua => ({
       Id: ua.Id,
@@ -354,30 +360,25 @@ export async function fetchProcessSummary(
 
   const tokenResult = await getAuthToken(credentials);
   if (typeof tokenResult !== 'string') {
-    console.error("[Summary API] Falha ao obter token para API de resumo:", tokenResult.error);
-    return { error: `Falha ao autenticar para buscar resumo: ${tokenResult.error}`, status: tokenResult.status || 401, details: tokenResult.details };
+    console.error("[Summary API - Process] Falha ao obter token para API de resumo do processo:", tokenResult.error);
+    return { error: `Falha ao autenticar para buscar resumo do processo: ${tokenResult.error}`, status: tokenResult.status || 401, details: tokenResult.details };
   }
   const token = tokenResult;
 
   const formattedProcessNumber = protocoloProcedimento.replace(/[.\/-]/g, "");
-  const summaryApiBaseUrl = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
   
-  // Construct the URL as per the example: http://127.0.0.1:8000/processo/resumo-completo/{numero_formatado}?token=TOKEN_VALUE&id_unidade=UNIT_ID
-  const summaryApiUrl = `${summaryApiBaseUrl}/processo/resumo-completo/${formattedProcessNumber}?token=${encodeURIComponent(token)}&id_unidade=${encodeURIComponent(unidadeId)}`;
-
+  const summaryApiUrl = `${SUMMARY_API_BASE_URL}/processo/resumo-completo/${formattedProcessNumber}?token=${encodeURIComponent(token)}&id_unidade=${encodeURIComponent(unidadeId)}`;
 
   if (!process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL) {
-    console.warn("[Summary API] NEXT_PUBLIC_SUMMARY_API_BASE_URL não está definida. Usando fallback http://127.0.0.1:8000");
+    console.warn("[Summary API - Process] NEXT_PUBLIC_SUMMARY_API_BASE_URL não está definida. Usando fallback.");
   }
-
-  console.log(`[Summary API] Buscando resumo de: ${summaryApiUrl}`);
+  console.log(`[Summary API - Process] Buscando resumo de processo: ${summaryApiUrl}`);
 
   try {
     const response = await fetch(summaryApiUrl, {
       method: 'GET',
       headers: {
         'accept': 'application/json',
-        // Token is now in the URL query parameters, not in headers
       },
       cache: 'no-store',
     });
@@ -389,25 +390,26 @@ export async function fetchProcessSummary(
         errorDetails = await response.json();
         if (errorDetails && typeof (errorDetails as any).detail === 'string') {
           userFriendlyError = (errorDetails as any).detail;
+        } else if (errorDetails && typeof (errorDetails as any).message === 'string') { 
+          userFriendlyError = (errorDetails as any).message;
         }
       } catch (e) {
-        errorDetails = await response.text().catch(() => `Resposta não é JSON nem texto.`);
-        if (typeof errorDetails === 'string' && errorDetails.length > 0 && errorDetails.length < 200) {
-           userFriendlyError = errorDetails;
+        const textError = await response.text().catch(() => `Resposta não é JSON nem texto.`);
+        errorDetails = textError;
+        if (typeof textError === 'string' && textError.length > 0 && textError.length < 200) {
+           userFriendlyError = textError;
         }
       }
 
       if (response.status === 401) {
-         userFriendlyError = `Não autorizado a buscar resumo. Verifique o token e id_unidade. (API Resumo)`;
+         userFriendlyError = `Não autorizado a buscar resumo do processo. Verifique o token e id_unidade. (API Resumo)`;
       } else if (response.status === 404) {
         userFriendlyError = `Resumo não encontrado para o processo ${protocoloProcedimento} na unidade ${unidadeId}. Verifique os dados ou se há um resumo disponível.`;
       } else if (response.status === 500) {
         userFriendlyError = `Erro interno no servidor da API de resumo ao processar ${protocoloProcedimento}.`;
-      } else if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
-        userFriendlyError = `Não foi possível conectar à API de resumo em ${summaryApiUrl}. Verifique se o serviço está rodando e acessível, e se as configurações de CORS permitem esta origem.`;
       }
 
-      console.error(`[Summary API] Falha ao buscar resumo (URL: ${summaryApiUrl}, Status: ${response.status})`, errorDetails);
+      console.error(`[Summary API - Process] Falha ao buscar resumo (URL: ${summaryApiUrl}, Status: ${response.status})`, errorDetails);
       return {
         error: userFriendlyError,
         details: errorDetails,
@@ -419,17 +421,17 @@ export async function fetchProcessSummary(
 
     if (data && data.resumo && data.resumo.resumo_combinado && typeof data.resumo.resumo_combinado.resposta_ia === 'string') {
       const summaryText = data.resumo.resumo_combinado.resposta_ia;
-      console.log(`[Summary API] Resumo obtido para ${protocoloProcedimento}. Tamanho: ${summaryText.length}`);
+      console.log(`[Summary API - Process] Resumo do processo obtido para ${protocoloProcedimento}. Tamanho: ${summaryText.length}`);
       return { summary: summaryText };
     } else {
-      console.error("[Summary API] Formato da resposta do resumo inesperado:", data);
-      return { error: "Formato da resposta do resumo inesperado da API.", details: data, status: 500 };
+      console.error("[Summary API - Process] Formato da resposta do resumo do processo inesperado:", data);
+      return { error: "Formato da resposta do resumo do processo inesperado da API.", details: data, status: 500 };
     }
   } catch (error) {
-    console.error("[Summary API] Erro na requisição de resumo:", error);
-    let errorMessage = "Falha na requisição para a API de resumo.";
+    console.error("[Summary API - Process] Erro na requisição de resumo do processo:", error);
+    let errorMessage = "Falha na requisição para a API de resumo do processo.";
      if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
-        errorMessage = `Não foi possível conectar à API de resumo em ${summaryApiUrl}. Verifique se o serviço está rodando e acessível, e se as configurações de CORS da API de resumo permitem esta origem.`;
+        errorMessage = `Não foi possível conectar à API de resumo em ${SUMMARY_API_BASE_URL}. Verifique se o serviço está rodando e acessível, e se as configurações de CORS da API de resumo permitem esta origem.`;
     } else if (error instanceof Error) {
         errorMessage = error.message;
     }
@@ -437,4 +439,102 @@ export async function fetchProcessSummary(
   }
 }
 
+
+export async function fetchDocumentSummary(
+  credentials: LoginCredentials,
+  documentoFormatado: string, // This is the 8-9 digit document number
+  unidadeId: string
+): Promise<ProcessSummaryResponse | ApiError> {
+  if (!documentoFormatado) {
+    return { error: "Número do documento é obrigatório para buscar o resumo.", status: 400 };
+  }
+  if (!unidadeId) {
+    return { error: "ID da Unidade é obrigatório para buscar o resumo do documento.", status: 400 };
+  }
+  if (!credentials) {
+    return { error: "Credenciais de autenticação são obrigatórias para buscar o resumo do documento.", status: 401 };
+  }
+
+  const tokenResult = await getAuthToken(credentials);
+  if (typeof tokenResult !== 'string') {
+    console.error("[Summary API - Document] Falha ao obter token para API de resumo do documento:", tokenResult.error);
+    return { error: `Falha ao autenticar para buscar resumo do documento: ${tokenResult.error}`, status: tokenResult.status || 401, details: tokenResult.details };
+  }
+  const token = tokenResult;
+  
+  const summaryApiUrl = `${SUMMARY_API_BASE_URL}/processo/resumo-documento/${documentoFormatado}?token=${encodeURIComponent(token)}&id_unidade=${encodeURIComponent(unidadeId)}`;
+
+  if (!process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL) {
+    console.warn("[Summary API - Document] NEXT_PUBLIC_SUMMARY_API_BASE_URL não está definida. Usando fallback.");
+  }
+  console.log(`[Summary API - Document] Buscando resumo de documento: ${summaryApiUrl}`);
+
+  try {
+    const response = await fetch(summaryApiUrl, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      let errorDetails;
+      let userFriendlyError = `Erro ${response.status} ao buscar resumo do documento ${documentoFormatado}.`;
+      try {
+        errorDetails = await response.json();
+         if (errorDetails && typeof (errorDetails as any).detail === 'string') {
+          userFriendlyError = (errorDetails as any).detail;
+        } else if (errorDetails && typeof (errorDetails as any).message === 'string') {
+          userFriendlyError = (errorDetails as any).message;
+        }
+      } catch (e) {
+        const textError = await response.text().catch(() => `Resposta não é JSON nem texto.`);
+        errorDetails = textError;
+        if (typeof textError === 'string' && textError.length > 0 && textError.length < 200) {
+           userFriendlyError = textError;
+        }
+      }
+
+      if (response.status === 401) {
+         userFriendlyError = `Não autorizado a buscar resumo do documento. Verifique o token e id_unidade. (API Resumo)`;
+      } else if (response.status === 404) {
+        userFriendlyError = `Resumo não encontrado para o documento ${documentoFormatado} na unidade ${unidadeId}.`;
+      } else if (response.status === 500) {
+        userFriendlyError = `Erro interno no servidor da API de resumo ao processar documento ${documentoFormatado}.`;
+      }
+      
+      console.error(`[Summary API - Document] Falha ao buscar resumo (URL: ${summaryApiUrl}, Status: ${response.status})`, errorDetails);
+      return {
+        error: userFriendlyError,
+        details: errorDetails,
+        status: response.status
+      };
+    }
+
+    const data = await response.json();
+
+    // Path to summary is data.resumo.resumo.resposta_ia
+    if (data && data.resumo && data.resumo.resumo && typeof data.resumo.resumo.resposta_ia === 'string') {
+      const summaryText = data.resumo.resumo.resposta_ia;
+      console.log(`[Summary API - Document] Resumo do documento ${documentoFormatado} obtido. Tamanho: ${summaryText.length}`);
+      return { summary: summaryText };
+    } else {
+      console.error("[Summary API - Document] Formato da resposta do resumo do documento inesperado:", data);
+      return { error: "Formato da resposta do resumo do documento inesperado da API.", details: data, status: 500 };
+    }
+  } catch (error) {
+    console.error("[Summary API - Document] Erro na requisição de resumo do documento:", error);
+    let errorMessage = "Falha na requisição para a API de resumo do documento.";
+     if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
+        errorMessage = `Não foi possível conectar à API de resumo em ${SUMMARY_API_BASE_URL}. Verifique se o serviço está rodando e acessível, e se as configurações de CORS da API de resumo permitem esta origem.`;
+    } else if (error instanceof Error) {
+        errorMessage = error.message;
+    }
+    return { error: errorMessage, details: error instanceof Error ? error.message : String(error), status: 500 };
+  }
+}
+    
+    
+    
     
