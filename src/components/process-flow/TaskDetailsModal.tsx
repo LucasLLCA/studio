@@ -107,7 +107,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold text-primary flex items-center">
-             {task.isSummaryNode ? <Layers className="mr-2 h-6 w-6" /> : <FileText className="mr-2 h-6 w-6" />} 
+             {task.isSummaryNode ? <Layers className="mr-2 h-6 w-6" /> : <FileText className="mr-2 h-6 w-6" />}
              {task.isSummaryNode ? `Resumo de ${task.groupedTasksCount} Ações` : `Detalhes da Tarefa #${task.globalSequence}`}
           </DialogTitle>
           <DialogDescription>
@@ -149,7 +149,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
                 <p className="text-sm text-muted-foreground break-words whitespace-pre-wrap">{cleanDescription}</p>
               </div>
             </div>
-            
+
             <div className="flex items-start space-x-3">
               <CalendarClock className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
               <div>
@@ -193,8 +193,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
                     <FileSearch className="h-5 w-5 mr-2 text-accent" />
                     Resumo do Documento ({extractedDocumentNumber})
                   </h3>
-                  <Button 
-                    onClick={handleFetchDocumentSummary} 
+                  <Button
+                    onClick={handleFetchDocumentSummary}
                     disabled={isLoadingDocumentSummary || !loginCredentials}
                     variant="outline"
                     size="sm"
@@ -235,5 +235,3 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
     </Dialog>
   );
 }
-
-```
