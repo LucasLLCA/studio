@@ -8,8 +8,16 @@ import { ProcessFlowLegend } from './ProcessFlowLegend';
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, HelpCircle } from 'lucide-react';
 import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils'; 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
 
 interface ProcessFlowDiagramProps {
   tasks: ProcessedAndamento[];
@@ -37,7 +45,9 @@ export function ProcessFlowDiagram({
   isAuthenticated,
 }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
+
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -63,11 +73,11 @@ export function ProcessFlowDiagram({
 
   const handleTaskClick = (task: ProcessedAndamento) => {
     setSelectedTask(task);
-    setIsModalOpen(true);
+    setIsDetailsModalOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
+  const handleCloseDetailsModal = () => {
+    setIsDetailsModalOpen(false);
     setSelectedTask(null);
   };
 
@@ -159,7 +169,6 @@ export function ProcessFlowDiagram({
 
   return (
     <div className="p-4 md:p-6 lg:p-8 h-full flex flex-col flex-grow">
-      <ProcessFlowLegend />
       <div className="flex justify-end space-x-2 my-2">
         <Button 
           onClick={onScrollToFirstTask} 
@@ -181,6 +190,24 @@ export function ProcessFlowDiagram({
           <ChevronsRight className="mr-2 h-4 w-4" />
           Fim
         </Button>
+        <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
+          <DialogTrigger asChild>
+            <Button 
+              variant="outline" 
+              size="sm"
+              aria-label="Mostrar legenda de cores"
+            >
+              <HelpCircle className="mr-2 h-4 w-4" />
+              Legenda
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Legenda de Cores dos Nós</DialogTitle>
+            </DialogHeader>
+            <ProcessFlowLegend />
+          </DialogContent>
+        </Dialog>
       </div>
       <ScrollArea
         className="w-full rounded-md border flex-grow bg-card shadow-inner overflow-hidden mt-2"
@@ -277,8 +304,8 @@ export function ProcessFlowDiagram({
 
       <TaskDetailsModal
         task={selectedTask}
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
+        isOpen={isDetailsModalOpen}
+        onClose={handleCloseDetailsModal}
         loginCredentials={loginCredentials}
         isAuthenticated={isAuthenticated}
       />
