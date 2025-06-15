@@ -37,8 +37,8 @@ export function ProcessMetadataSidebar({
 
   const getOpenUnitsMessage = () => {
     if (isLoadingOpenUnits) return null; 
-    if (!processNumber && !openUnitsInProcess) return "Carregue ou pesquise um processo para ver as unidades em aberto."; // Adjusted message
-    if (openUnitsInProcess && openUnitsInProcess.length === 0 && processNumber) { // only show if processNumber is also present
+    if (!processNumber && !openUnitsInProcess) return "Carregue ou pesquise um processo para ver as unidades em aberto.";
+    if (openUnitsInProcess && openUnitsInProcess.length === 0 && processNumber) { 
       return "Nenhuma unidade com este processo em aberto (conforme API SEI).";
     }
     if (!openUnitsInProcess && processNumber) { 
@@ -59,13 +59,8 @@ export function ProcessMetadataSidebar({
     return openTasksInUnit[0]; 
   };
 
-  // Renders content directly, assuming AccordionItem/AccordionContent provide chrome
   return (
     <div className="w-full"> 
-      {/* Title and process number are now part of AccordionTrigger in page.tsx */}
-      {/* So, no explicit title here needed unless specific to this content block */}
-      
-      <ScrollArea className="max-h-[300px] lg:max-h-[400px] pr-1"> {/* Max height for scrollability within accordion */}
         <div className="space-y-3">
           {isLoadingOpenUnits && (
             <>
@@ -125,7 +120,6 @@ export function ProcessMetadataSidebar({
             </p>
           )}
         </div>
-      </ScrollArea>
       
       {!isLoadingOpenUnits && (!openUnitsInProcess || openUnitsInProcess.length === 0) && !openUnitsMessage && (
          <p className="text-sm text-muted-foreground text-center py-4">
@@ -135,3 +129,4 @@ export function ProcessMetadataSidebar({
     </div>
   );
 }
+

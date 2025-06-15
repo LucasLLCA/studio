@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials, Andamento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, HelpCircle } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import Image from 'next/image';
 import { sampleProcessFlowData } from '@/data/sample-process-data';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
 import { processAndamentos, parseCustomDateString, formatDisplayDate } from '@/lib/process-flow-utils';
+import { ProcessFlowLegend } from '@/components/process-flow/ProcessFlowLegend';
 import {
   Select,
   SelectContent,
@@ -29,6 +30,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -44,6 +46,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { differenceInCalendarDays, formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Sidebar, SidebarContent, SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
 
 const loginSchema = z.object({
@@ -88,6 +91,7 @@ export default function Home() {
 
   const [apiSearchPerformed, setApiSearchPerformed] = useState<boolean>(false);
   const [processCreationInfo, setProcessCreationInfo] = useState<ProcessCreationInfo | null>(null);
+  const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
 
 
   const methods = useForm<LoginFormValues>({
@@ -103,7 +107,7 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
-      setApiSearchPerformed(false); // Reset if raw data becomes null (e.g. logout)
+      // setApiSearchPerformed(false); // Intentionally commented out to persist creation info display
       return null;
     }
     const dataToProcess = {
@@ -124,7 +128,7 @@ export default function Home() {
 
       let generationEvent: Andamento | undefined = sortedAndamentos.find(a => a.Tarefa === 'GERACAO-PROCEDIMENTO');
       if (!generationEvent && sortedAndamentos.length > 0) {
-        generationEvent = sortedAndamentos[0]; // Fallback to the very first event
+        generationEvent = sortedAndamentos[0]; 
       }
 
       if (generationEvent) {
@@ -190,7 +194,7 @@ export default function Home() {
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
-    setApiSearchPerformed(false);
+    setApiSearchPerformed(false); // Reset API search flag for JSON uploads
     setProcessCreationInfo(null);
 
     const reader = new FileReader();
@@ -229,7 +233,7 @@ export default function Home() {
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
-    setApiSearchPerformed(false);
+    setApiSearchPerformed(false); // Reset API search flag for sample data
     setProcessCreationInfo(null);
 
      const sampleDataWithInfo: ProcessoData = {
@@ -256,14 +260,14 @@ export default function Home() {
       return;
     }
 
+    setApiSearchPerformed(true); // Set API search flag
     setLoadingMessage("Buscando dados do processo e resumo...");
     setIsLoading(true);
     setIsLoadingSummary(true);
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
-    setApiSearchPerformed(true); // Mark that API search was initiated
-    setProcessCreationInfo(null);
+    // setProcessCreationInfo(null); // Creation info will be set by useEffect after rawProcessData is fetched
 
 
     try {
@@ -281,14 +285,12 @@ export default function Home() {
         else if (processDataResult.status === 500) { errorTitle = "Erro Interno no Servidor SEI (500)"; errorDescription = `Tente novamente mais tarde.`;}
         toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
         setRawProcessData(null);
-        setApiSearchPerformed(false);
       } else if (!('error' in processDataResult) && processDataResult.Andamentos && Array.isArray(processDataResult.Andamentos)) {
         setRawProcessData(processDataResult);
         toast({ title: "Dados do Processo Carregados", description: `Total ${processDataResult.Andamentos.length} andamentos carregados.` });
       } else {
         toast({ title: "Erro Desconhecido (Andamentos)", description: "Resposta inesperada ao buscar andamentos.", variant: "destructive" });
         setRawProcessData(null);
-        setApiSearchPerformed(false);
       }
 
       if ('error' in summaryResult) {
@@ -301,7 +303,7 @@ export default function Home() {
 
     } catch (error) {
       toast({ title: "Erro Inesperado", description: error instanceof Error ? error.message : "Erro ao buscar dados.", variant: "destructive", duration: 7000 });
-      setRawProcessData(null); setProcessSummary(null); setApiSearchPerformed(false);
+      setRawProcessData(null); setProcessSummary(null);
     } finally {
       setLoadingMessage("Processando dados..."); setIsLoading(false); setIsLoadingSummary(false);
     }
@@ -345,204 +347,223 @@ export default function Home() {
 
   const accordionDefaultValues = useMemo(() => {
     const values = [];
-    if (processCreationInfo) values.push("details");
-    if (processSummary) values.push("summary");
-    if (openUnitsInProcess && openUnitsInProcess.length > 0) values.push("open-units");
+    if (rawProcessData && apiSearchPerformed) { // Only consider for API search results
+        if (processCreationInfo) values.push("creation-details");
+        if (isLoadingSummary || processSummary) values.push("process-summary");
+    }
+    if (rawProcessData && (openUnitsInProcess || isLoadingOpenUnits)) { // This applies to any data load
+        values.push("open-units");
+    }
     return values;
-  }, [processCreationInfo, processSummary, openUnitsInProcess]);
+  }, [rawProcessData, apiSearchPerformed, processCreationInfo, isLoadingSummary, processSummary, openUnitsInProcess, isLoadingOpenUnits]);
 
 
   return (
-    <main className="min-h-screen flex flex-col bg-background">
-      <header className="p-2 border-b border-border shadow-sm sticky top-0 z-40 bg-background">
-        <div className="container mx-auto flex items-center justify-start max-w-full space-x-4">
-          <Image src="/logo-sead.png" alt="Logo SEAD Piauí" width={120} height={45} priority data-ai-hint="logo government" />
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold" style={{ color: '#107527' }}>Visualizador de Processos</h1>
-            <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Beta</span>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Control Bar */}
-      <div className="p-3 border-b border-border shadow-sm sticky top-[61px] z-30 bg-card">
-        <div className="container mx-auto flex flex-wrap items-center justify-between gap-3 max-w-full">
-          {/* Left side: Filters and Actions */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="text"
-              placeholder="Número do Processo..."
-              className="h-9 text-sm w-44"
-              value={processoNumeroInput}
-              onChange={(e) => setProcessoNumeroInput(e.target.value)}
-              disabled={isLoading || isLoadingSummary || !isAuthenticated}
-              ref={inputRef}
-            />
-            <Select
-              value={selectedUnidadeFiltro}
-              onValueChange={setSelectedUnidadeFiltro}
-              disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
-            >
-              <SelectTrigger className="h-9 text-sm w-[180px]">
-                <SelectValue placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Filtrar Unidade" : "Nenhuma unidade") : "Login para unidades"} />
-              </SelectTrigger>
-              <SelectContent>
-                {unidadesFiltroList.map((unidade) => (
-                  <SelectItem key={unidade.Id} value={unidade.Id}>{unidade.Sigla} ({unidade.Descricao.substring(0,20)}...)</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" size="sm" onClick={handleSearchClick} disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro || !isAuthenticated}>
-              {(isLoading || isLoadingSummary) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />} Pesquisar
-            </Button>
-            <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
-              <Upload className="mr-2 h-4 w-4" /> JSON
-            </Button>
-            <div className="flex items-center space-x-2">
-              <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading || isLoadingSummary} />
-              <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
-            </div>
-          </div>
-
-          {/* Right side: Login and AI attribution */}
-          <div className="flex items-center gap-2">
-             {isAuthenticated ? (
-              <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
-            ) : (
-              <Button variant="default" size="sm" onClick={() => setIsLoginDialogOpen(true)}> <LogIn className="mr-2 h-4 w-4" /> Login </Button>
-            )}
-            <div className="hidden md:flex items-center space-x-1 text-xs text-muted-foreground">
-              <Sparkles className="h-4 w-4 text-accent" />
-              <span>IA por SoberaniA</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Area (Scrollable) */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 container mx-auto max-w-full">
-        {/* Conditional Accordion for Metadata */}
-        {apiSearchPerformed && rawProcessData && (
-          <Accordion type="multiple" className="w-full" defaultValue={accordionDefaultValues}>
-            {processCreationInfo && (
-              <AccordionItem value="details">
-                <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                  Detalhes do Processo
-                </AccordionTrigger>
-                <AccordionContent className="pt-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center">
-                        <FileText className="mr-2 h-5 w-5 text-primary" /> Informações de Criação
-                      </CardTitle>
-                      <CardDescription>Número: {rawProcessData.Info?.NumeroProcesso || processoNumeroInput}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Unidade Criadora: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
-                      <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário Criador: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
-                      <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data de Criação: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
-                      <div className="flex items-center"><CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />Tempo Desde Criação: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
-                    </CardContent>
-                  </Card>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-
-            {(isLoadingSummary || processSummary) && (
-              <AccordionItem value="summary">
-                <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                  Resumo IA do Processo
-                </AccordionTrigger>
-                <AccordionContent className="pt-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center">
-                        <BookText className="mr-2 h-5 w-5 text-primary" /> Entendimento Automatizado
-                      </CardTitle>
-                      <CardDescription>Este é um resumo gerado por IA sobre o processo.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col flex-shrink-0">
-                      {isLoadingSummary && !processSummary && (
-                        <div className="flex items-center justify-center p-6"><Loader2 className="h-8 w-8 text-primary animate-spin" /><p className="ml-3 text-muted-foreground">Gerando resumo...</p></div>
-                      )}
-                      {processSummary && (
-                        <ScrollArea className="max-h-[200px] rounded-md border flex-shrink-0"><div className="p-4"><pre className="text-sm whitespace-pre-wrap break-words font-sans">{processSummary}</pre></div></ScrollArea>
-                      )}
-                      {!processSummary && !isLoadingSummary && (
-                        <div className="flex items-center justify-center p-6 text-muted-foreground"><Info className="mr-2 h-5 w-5" />Nenhum resumo disponível.</div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-            
-            {/* "Unidades em Aberto" as an Accordion Item */}
-            {rawProcessData && (openUnitsInProcess || isLoadingOpenUnits) && (
-                 <AccordionItem value="open-units">
-                    <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                        Unidades com Processo Aberto
-                    </AccordionTrigger>
-                    <AccordionContent className="pt-2">
-                        <ProcessMetadataSidebar
-                            processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
-                            processNumberPlaceholder="Nenhum processo carregado"
-                            openUnitsInProcess={openUnitsInProcess}
-                            isLoadingOpenUnits={isLoadingOpenUnits}
-                            processedFlowData={processedFlowData}
-                            onTaskCardClick={handleTaskCardClick}
-                        />
-                    </AccordionContent>
-                 </AccordionItem>
-            )}
-          </Accordion>
-        )}
-
-        {/* Process Flow Diagram Area */}
-        <div className="flex-1 flex flex-col overflow-hidden min-h-[500px]">
-          {isLoading && !loadingMessage.includes("API SEI") && !loadingMessage.includes("resumo") ? (
-            <div className="flex flex-col items-center justify-center h-full p-10 text-center">
-              <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
-              <p className="text-muted-foreground max-w-md">Por favor, aguarde. Os dados estão sendo preparados.</p>
-            </div>
-          ) : processedFlowData ? (
-            <ProcessFlowClient
-              processedFlowData={processedFlowData}
-              taskToScrollTo={taskToScrollTo}
-              onScrollToFirstTask={handleScrollToFirstTask}
-              onScrollToLastTask={handleScrollToLastTask}
-              loginCredentials={loginCredentials}
-              isAuthenticated={isAuthenticated}
-            />
-          ) : isLoading || isLoadingSummary ? (
-             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
-              <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
-              <p className="text-muted-foreground max-w-md">Aguarde, consulta à API SEI e/ou resumo em andamento.</p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full p-10 text-center">
-              <FileJson className="h-24 w-24 text-muted-foreground/40 mb-8" />
-              <h2 className="text-2xl font-semibold text-foreground mb-3">
-                {isAuthenticated ? "Nenhum processo carregado" : "Autenticação Necessária"}
-              </h2>
-              <p className="text-muted-foreground mb-8 max-w-md">
-                {isAuthenticated
-                  ? 'Para iniciar, insira o número do processo, selecione a unidade e clique em "Pesquisar", ou carregue um arquivo JSON/dados de exemplo.'
-                  : "Por favor, faça login para pesquisar processos ou carregar dados da API SEI."
-                }
-              </p>
-              <div className="flex space-x-4">
-                <Button onClick={loadSampleData} variant="secondary" disabled={isLoading || isLoadingSummary}>Usar Dados de Exemplo</Button>
-                {!isAuthenticated && (
-                  <Button onClick={() => setIsLoginDialogOpen(true)} variant="default"><LogIn className="mr-2 h-4 w-4" />Login SEI</Button>
-                )}
+    <>
+      <SidebarProvider style={{ "--sidebar-width": "20rem" }}>
+        <main className="min-h-screen flex flex-col bg-background">
+          <header className="p-2 border-b border-border shadow-sm sticky top-0 z-40 bg-background">
+            <div className="container mx-auto flex items-center justify-start max-w-full space-x-2">
+              <Image src="/logo-sead.png" alt="Logo SEAD Piauí" width={120} height={45} priority data-ai-hint="logo government" />
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-semibold" style={{ color: '#107527' }}>Visualizador de Processos</h1>
+                <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Beta</span>
               </div>
             </div>
-          )}
-        </div>
-      </div> {/* End of Main Scrollable Content Area */}
+          </header>
+
+          {/* Main Control Bar - Sticky */}
+          <div className="p-3 border-b border-border shadow-sm sticky top-[61px] z-30 bg-card">
+            <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
+              <div className="flex flex-wrap items-center gap-2">
+                <SidebarTrigger className="mr-1 md:hidden"> 
+                   <Menu className="h-5 w-5" />
+                </SidebarTrigger>
+                <Input
+                  type="text"
+                  placeholder="Número do Processo..."
+                  className="h-9 text-sm w-40 sm:w-44"
+                  value={processoNumeroInput}
+                  onChange={(e) => setProcessoNumeroInput(e.target.value)}
+                  disabled={isLoading || isLoadingSummary || !isAuthenticated}
+                  ref={inputRef}
+                />
+                <Select
+                  value={selectedUnidadeFiltro}
+                  onValueChange={setSelectedUnidadeFiltro}
+                  disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
+                >
+                  <SelectTrigger className="h-9 text-sm w-[150px] sm:w-[180px]">
+                    <SelectValue placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Filtrar Unidade" : "Nenhuma unidade") : "Login para unidades"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unidadesFiltroList.map((unidade) => (
+                      <SelectItem key={unidade.Id} value={unidade.Id}>{unidade.Sigla} ({unidade.Descricao.substring(0,20)}...)</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" onClick={handleSearchClick} disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro || !isAuthenticated}>
+                  {(isLoading || isLoadingSummary) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />} Pesquisar
+                </Button>
+                <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
+                  <Upload className="mr-2 h-4 w-4" /> JSON
+                </Button>
+                <div className="flex items-center space-x-2">
+                  <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading || isLoadingSummary} />
+                  <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                 <SidebarTrigger className="hidden md:flex"> {/* Persistent trigger for desktop */}
+                   <Menu className="h-5 w-5" />
+                </SidebarTrigger>
+                {isAuthenticated ? (
+                  <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
+                ) : (
+                  <Button variant="default" size="sm" onClick={() => setIsLoginDialogOpen(true)}> <LogIn className="mr-2 h-4 w-4" /> Login </Button>
+                )}
+                <div className="hidden md:flex items-center space-x-1 text-xs text-muted-foreground">
+                  <Sparkles className="h-4 w-4 text-accent" />
+                  <span>IA por SoberaniA</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Content Area with conditional cards and then SidebarProvider for two-column layout */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-6 container mx-auto max-w-full">
+            {apiSearchPerformed && processCreationInfo && rawProcessData && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg flex items-center">
+                        <FileText className="mr-2 h-5 w-5 text-primary" /> Informações de Criação
+                        </CardTitle>
+                        <CardDescription>Número: {rawProcessData.Info?.NumeroProcesso || processoNumeroInput}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm pt-4"> {/* Added pt-4 for consistency */}
+                        <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Unidade Criadora: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
+                        <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário Criador: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
+                        <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data de Criação: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
+                        <div className="flex items-center"><CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />Tempo Desde Criação: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {apiSearchPerformed && (isLoadingSummary || processSummary) && rawProcessData && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg flex items-center">
+                        <BookText className="mr-2 h-5 w-5 text-primary" /> Entendimento Automatizado (IA)
+                        </CardTitle>
+                        <CardDescription>Este é um resumo gerado por IA sobre o processo.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col flex-shrink-0">
+                        {isLoadingSummary && !processSummary && (
+                        <div className="flex items-center justify-center p-6"><Loader2 className="h-8 w-8 text-primary animate-spin" /><p className="ml-3 text-muted-foreground">Gerando resumo...</p></div>
+                        )}
+                        {processSummary && (
+                        <ScrollArea className="max-h-[200px] rounded-md border flex-shrink-0"><div className="p-4"><pre className="text-sm whitespace-pre-wrap break-words font-sans">{processSummary}</pre></div></ScrollArea>
+                        )}
+                        {!processSummary && !isLoadingSummary && apiSearchPerformed && (
+                        <div className="flex items-center justify-center p-6 text-muted-foreground"><Info className="mr-2 h-5 w-5" />Nenhum resumo disponível.</div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Wrapper for sidebar and inset to make them appear as columns */}
+            <div className="flex flex-1 overflow-hidden"> 
+              <Sidebar side="left" className="border-r">
+                  <SidebarContent className="p-0">
+                    <ScrollArea className="h-full">
+                      <Accordion type="multiple" defaultValue={accordionDefaultValues} className="w-full p-4">
+                        {rawProcessData && (openUnitsInProcess || isLoadingOpenUnits) && (
+                          <AccordionItem value="open-units">
+                            <AccordionTrigger className="text-base font-semibold hover:no-underline">
+                                Unidades com Processo Aberto
+                            </AccordionTrigger>
+                            <AccordionContent className="pt-2">
+                                <ProcessMetadataSidebar
+                                    processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
+                                    processNumberPlaceholder="Nenhum processo carregado"
+                                    openUnitsInProcess={openUnitsInProcess}
+                                    isLoadingOpenUnits={isLoadingOpenUnits}
+                                    processedFlowData={processedFlowData}
+                                    onTaskCardClick={handleTaskCardClick}
+                                />
+                            </AccordionContent>
+                          </AccordionItem>
+                        )}
+                      </Accordion>
+                    </ScrollArea>
+                  </SidebarContent>
+              </Sidebar>
+              
+              <SidebarInset className="flex-1 flex flex-col overflow-y-auto p-0 md:p-4">
+                {isLoading && !loadingMessage.includes("API SEI") && !loadingMessage.includes("resumo") ? (
+                  <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+                    <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
+                    <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
+                    <p className="text-muted-foreground max-w-md">Por favor, aguarde. Os dados estão sendo preparados.</p>
+                  </div>
+                ) : processedFlowData ? (
+                  <ProcessFlowClient
+                    processedFlowData={processedFlowData}
+                    taskToScrollTo={taskToScrollTo}
+                    onScrollToFirstTask={handleScrollToFirstTask}
+                    onScrollToLastTask={handleScrollToLastTask}
+                    loginCredentials={loginCredentials}
+                    isAuthenticated={isAuthenticated}
+                  />
+                ) : isLoading || isLoadingSummary ? (
+                  <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+                    <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
+                    <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
+                    <p className="text-muted-foreground max-w-md">Aguarde, consulta à API SEI e/ou resumo em andamento.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+                    <FileJson className="h-32 w-32 text-muted-foreground/30 mb-8" />
+                    <h2 className="text-3xl font-semibold text-foreground mb-4">
+                      {isAuthenticated ? "Nenhum processo carregado" : "Autenticação Necessária"}
+                    </h2>
+                    <p className="text-muted-foreground mb-8 max-w-md text-center">
+                      {isAuthenticated
+                        ? 'Para iniciar, insira o número do processo, selecione a unidade e clique em "Pesquisar", ou carregue um arquivo JSON/dados de exemplo.'
+                        : "Por favor, faça login para pesquisar processos ou carregar dados da API SEI."
+                      }
+                    </p>
+                    <div className="flex space-x-4">
+                      <Button onClick={loadSampleData} variant="secondary" disabled={isLoading || isLoadingSummary}>Usar Dados de Exemplo</Button>
+                      {!isAuthenticated && (
+                        <Button onClick={() => setIsLoginDialogOpen(true)} variant="default"><LogIn className="mr-2 h-4 w-4" />Login SEI</Button>
+                      )}
+                       <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
+                        <DialogTrigger asChild>
+                            <Button 
+                            variant="outline" 
+                            size="sm"
+                            aria-label="Mostrar legenda de cores"
+                            >
+                            <HelpCircle className="mr-2 h-4 w-4" />
+                            Legenda
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                            <DialogTitle>Legenda de Cores dos Nós</DialogTitle>
+                            </DialogHeader>
+                            <ProcessFlowLegend />
+                        </DialogContent>
+                        </Dialog>
+                    </div>
+                  </div>
+                )}
+              </SidebarInset>
+            </div> {/* End of Two Column Wrapper */}
+          </div> {/* End of Main Scrollable Content Area */}
+        </main>
+      </SidebarProvider>
 
       <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -580,6 +601,9 @@ export default function Home() {
           Nota: Para fins de prototipagem, as credenciais de login são armazenadas temporariamente no estado do cliente. Em produção, utilize métodos de autenticação mais seguros.
         </p>
       </footer>
-    </main>
+    </>
   );
 }
+
+
+    
