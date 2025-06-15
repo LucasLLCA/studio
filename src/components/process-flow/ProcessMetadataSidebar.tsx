@@ -37,8 +37,8 @@ export function ProcessMetadataSidebar({
 
   const getOpenUnitsMessage = () => {
     if (isLoadingOpenUnits) return null; 
-    if (!processNumber) return "Carregue um processo para ver as unidades em aberto.";
-    if (openUnitsInProcess && openUnitsInProcess.length === 0) {
+    if (!processNumber && !openUnitsInProcess) return "Carregue ou pesquise um processo para ver as unidades em aberto."; // Adjusted message
+    if (openUnitsInProcess && openUnitsInProcess.length === 0 && processNumber) { // only show if processNumber is also present
       return "Nenhuma unidade com este processo em aberto (conforme API SEI).";
     }
     if (!openUnitsInProcess && processNumber) { 
@@ -59,23 +59,18 @@ export function ProcessMetadataSidebar({
     return openTasksInUnit[0]; 
   };
 
+  // Renders content directly, assuming AccordionItem/AccordionContent provide chrome
   return (
-    <aside className="bg-sidebar text-sidebar-foreground p-4 flex flex-col space-y-6 h-full">
-      <div>
-        <h2 className="text-lg font-semibold mb-1 text-sidebar-primary-foreground">
-           Unidades com Processo Aberto
-        </h2>
-        <p className="text-xs text-sidebar-muted-foreground">
-          (Processo: {displayProcessNumber})
-        </p>
-      </div>
+    <div className="w-full"> 
+      {/* Title and process number are now part of AccordionTrigger in page.tsx */}
+      {/* So, no explicit title here needed unless specific to this content block */}
       
-      <ScrollArea className="flex-grow">
-        <div className="space-y-3 pr-2"> {/* Added pr-2 for scrollbar spacing */}
+      <ScrollArea className="max-h-[300px] lg:max-h-[400px] pr-1"> {/* Max height for scrollability within accordion */}
+        <div className="space-y-3">
           {isLoadingOpenUnits && (
             <>
-              <Skeleton className="h-24 w-full rounded-md bg-sidebar-accent" />
-              <Skeleton className="h-16 w-full rounded-md bg-sidebar-accent" />
+              <Skeleton className="h-24 w-full rounded-md bg-muted/50" />
+              <Skeleton className="h-16 w-full rounded-md bg-muted/50" />
             </>
           )}
           {!isLoadingOpenUnits && openUnitsInProcess && openUnitsInProcess.length > 0 && (
@@ -125,18 +120,18 @@ export function ProcessMetadataSidebar({
             })
           )}
           {!isLoadingOpenUnits && openUnitsMessage && (
-            <p className="text-sm text-sidebar-muted-foreground mt-2 p-2 bg-sidebar-accent rounded-md">
+            <p className="text-sm text-muted-foreground mt-2 p-2 bg-muted/30 rounded-md">
               {openUnitsMessage}
             </p>
           )}
         </div>
       </ScrollArea>
       
-      {!processNumber && !isLoadingOpenUnits && (!openUnitsInProcess || openUnitsInProcess.length === 0) && (
-         <p className="text-sm text-sidebar-muted-foreground flex-grow pt-6 text-center">
-          Busque um processo ou carregue um arquivo JSON para visualizar os detalhes das unidades.
+      {!isLoadingOpenUnits && (!openUnitsInProcess || openUnitsInProcess.length === 0) && !openUnitsMessage && (
+         <p className="text-sm text-muted-foreground text-center py-4">
+          Nenhuma unidade com processo em aberto ou dados não carregados.
          </p>
       )}
-    </aside>
+    </div>
   );
 }
