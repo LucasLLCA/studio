@@ -107,7 +107,6 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
-      // setApiSearchPerformed(false); // Intentionally commented out to persist creation info display
       return null;
     }
     const dataToProcess = {
@@ -194,7 +193,7 @@ export default function Home() {
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
-    setApiSearchPerformed(false); // Reset API search flag for JSON uploads
+    setApiSearchPerformed(false); 
     setProcessCreationInfo(null);
 
     const reader = new FileReader();
@@ -233,7 +232,7 @@ export default function Home() {
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
-    setApiSearchPerformed(false); // Reset API search flag for sample data
+    setApiSearchPerformed(false); 
     setProcessCreationInfo(null);
 
      const sampleDataWithInfo: ProcessoData = {
@@ -260,14 +259,14 @@ export default function Home() {
       return;
     }
 
-    setApiSearchPerformed(true); // Set API search flag
+    setApiSearchPerformed(true); 
     setLoadingMessage("Buscando dados do processo e resumo...");
     setIsLoading(true);
     setIsLoadingSummary(true);
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
-    // setProcessCreationInfo(null); // Creation info will be set by useEffect after rawProcessData is fetched
+    setProcessCreationInfo(null);
 
 
     try {
@@ -347,12 +346,10 @@ export default function Home() {
 
   const accordionDefaultValues = useMemo(() => {
     const values = [];
-    if (rawProcessData && apiSearchPerformed) { // Only consider for API search results
+    if (rawProcessData && apiSearchPerformed) {
         if (processCreationInfo) values.push("creation-details");
         if (isLoadingSummary || processSummary) values.push("process-summary");
-    }
-    if (rawProcessData && (openUnitsInProcess || isLoadingOpenUnits)) { // This applies to any data load
-        values.push("open-units");
+        if (openUnitsInProcess || isLoadingOpenUnits) values.push("open-units");
     }
     return values;
   }, [rawProcessData, apiSearchPerformed, processCreationInfo, isLoadingSummary, processSummary, openUnitsInProcess, isLoadingOpenUnits]);
@@ -414,7 +411,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                 <SidebarTrigger className="hidden md:flex"> {/* Persistent trigger for desktop */}
+                 <SidebarTrigger className="hidden md:flex"> 
                    <Menu className="h-5 w-5" />
                 </SidebarTrigger>
                 {isAuthenticated ? (
@@ -430,8 +427,8 @@ export default function Home() {
             </div>
           </div>
           
-          {/* Content Area with conditional cards and then SidebarProvider for two-column layout */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-6 container mx-auto max-w-full">
+          {/* Content Area with conditional cards and then two-column layout */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-6 max-w-full">
             {apiSearchPerformed && processCreationInfo && rawProcessData && (
                 <Card>
                     <CardHeader>
@@ -440,7 +437,7 @@ export default function Home() {
                         </CardTitle>
                         <CardDescription>Número: {rawProcessData.Info?.NumeroProcesso || processoNumeroInput}</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-2 text-sm pt-4"> {/* Added pt-4 for consistency */}
+                    <CardContent className="space-y-2 text-sm pt-4">
                         <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Unidade Criadora: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
                         <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário Criador: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
                         <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data de Criação: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
@@ -476,25 +473,48 @@ export default function Home() {
               <Sidebar side="left" className="border-r">
                   <SidebarContent className="p-0">
                     <ScrollArea className="h-full">
-                      <Accordion type="multiple" defaultValue={accordionDefaultValues} className="w-full p-4">
-                        {rawProcessData && (openUnitsInProcess || isLoadingOpenUnits) && (
-                          <AccordionItem value="open-units">
-                            <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                                Unidades com Processo Aberto
-                            </AccordionTrigger>
-                            <AccordionContent className="pt-2">
-                                <ProcessMetadataSidebar
-                                    processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
-                                    processNumberPlaceholder="Nenhum processo carregado"
-                                    openUnitsInProcess={openUnitsInProcess}
-                                    isLoadingOpenUnits={isLoadingOpenUnits}
-                                    processedFlowData={processedFlowData}
-                                    onTaskCardClick={handleTaskCardClick}
-                                />
-                            </AccordionContent>
-                          </AccordionItem>
-                        )}
-                      </Accordion>
+                      {apiSearchPerformed && rawProcessData && (
+                        <Accordion type="multiple" defaultValue={accordionDefaultValues} className="w-full p-4">
+                          {processCreationInfo && (
+                             <AccordionItem value="creation-details-in-sidebar-temp">
+                                <AccordionTrigger>Detalhes (Temporário)</AccordionTrigger>
+                                <AccordionContent>
+                                    <p>Esta seção de Detalhes do Processo será movida para dentro do Accordion do Sidebar em breve.</p>
+                                </AccordionContent>
+                             </AccordionItem>
+                          )}
+                           {(isLoadingSummary || processSummary) && (
+                             <AccordionItem value="summary-in-sidebar-temp">
+                                <AccordionTrigger>Resumo (Temporário)</AccordionTrigger>
+                                <AccordionContent>
+                                    <p>Esta seção de Resumo IA será movida para dentro do Accordion do Sidebar em breve.</p>
+                                </AccordionContent>
+                             </AccordionItem>
+                          )}
+                          {(openUnitsInProcess || isLoadingOpenUnits) && (
+                            <AccordionItem value="open-units">
+                              <AccordionTrigger className="text-base font-semibold hover:no-underline">
+                                  Unidades com Processo Aberto
+                              </AccordionTrigger>
+                              <AccordionContent className="pt-2">
+                                  <ProcessMetadataSidebar
+                                      processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
+                                      processNumberPlaceholder="Nenhum processo carregado"
+                                      openUnitsInProcess={openUnitsInProcess}
+                                      isLoadingOpenUnits={isLoadingOpenUnits}
+                                      processedFlowData={processedFlowData}
+                                      onTaskCardClick={handleTaskCardClick}
+                                  />
+                              </AccordionContent>
+                            </AccordionItem>
+                          )}
+                        </Accordion>
+                      )}
+                       {!(apiSearchPerformed && rawProcessData) && (
+                        <div className="p-4 text-sm text-muted-foreground">
+                          Pesquise um processo para ver os metadados.
+                        </div>
+                      )}
                     </ScrollArea>
                   </SidebarContent>
               </Sidebar>
@@ -604,6 +624,3 @@ export default function Home() {
     </>
   );
 }
-
-
-    
