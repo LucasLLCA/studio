@@ -4,21 +4,11 @@
 import type { ProcessedAndamento, Connection, LoginCredentials } from '@/types/process-flow';
 import { TaskNode } from './TaskNode';
 import { TaskDetailsModal } from './TaskDetailsModal';
-import { ProcessFlowLegend } from './ProcessFlowLegend';
+// ProcessFlowLegend is no longer imported/used here, dialog is in page.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
-import { ChevronsLeft, ChevronsRight, HelpCircle, Menu } from 'lucide-react'; 
+// Buttons and icons for diagram controls are removed as they are now in page.tsx
 import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils'; 
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-
 
 interface ProcessFlowDiagramProps {
   tasks: ProcessedAndamento[];
@@ -27,10 +17,9 @@ interface ProcessFlowDiagramProps {
   svgHeight: number;
   laneMap: Map<string, number>;
   taskToScrollTo?: ProcessedAndamento | null;
-  onScrollToFirstTask: () => void;
-  onScrollToLastTask: () => void;
-  loginCredentials: LoginCredentials | null;
-  isAuthenticated: boolean;
+  // onScrollToFirstTask and onScrollToLastTask are removed
+  loginCredentials: LoginCredentials | null; // Still needed for TaskDetailsModal
+  isAuthenticated: boolean; // Still needed for TaskDetailsModal
 }
 
 export function ProcessFlowDiagram({ 
@@ -40,15 +29,12 @@ export function ProcessFlowDiagram({
   svgHeight, 
   laneMap,
   taskToScrollTo,
-  onScrollToFirstTask,
-  onScrollToLastTask,
   loginCredentials,
   isAuthenticated,
 }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
-
+  // isLegendModalOpen and setIsLegendModalOpen are removed
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -163,58 +149,15 @@ export function ProcessFlowDiagram({
 
 
   if (tasks.length === 0) {
+    // This case should be handled by page.tsx before rendering this component
     return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir.</p>;
   }
 
-  const areTasksAvailable = tasks && tasks.length > 0;
-
   return (
     <div className="h-full flex flex-col flex-grow w-full">
-      <div className="flex justify-end space-x-2 my-2">
-        <SidebarTrigger variant="outline" size="sm" aria-label="Alternar metadados">
-          <Menu className="h-4 w-4" />
-        </SidebarTrigger>
-        <Button 
-          onClick={onScrollToFirstTask} 
-          variant="outline" 
-          size="sm"
-          disabled={!areTasksAvailable}
-          aria-label="Ir para o início do fluxo"
-        >
-          <ChevronsLeft className="mr-2 h-4 w-4" />
-          Início
-        </Button>
-        <Button 
-          onClick={onScrollToLastTask} 
-          variant="outline" 
-          size="sm"
-          disabled={!areTasksAvailable}
-          aria-label="Ir para o fim do fluxo"
-        >
-          <ChevronsRight className="mr-2 h-4 w-4" />
-          Fim
-        </Button>
-        <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm"
-              aria-label="Mostrar legenda de cores"
-            >
-              <HelpCircle className="mr-2 h-4 w-4" />
-              Legenda
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Legenda de Cores dos Nós</DialogTitle>
-            </DialogHeader>
-            <ProcessFlowLegend />
-          </DialogContent>
-        </Dialog>
-      </div>
+      {/* Control buttons are removed from here and are now in page.tsx */}
       <ScrollArea
-        className="w-full rounded-md border flex-grow bg-card shadow-inner overflow-hidden mt-2"
+        className="w-full rounded-md border flex-grow bg-card shadow-inner overflow-hidden mt-0" // mt-2 removed
         viewportRef={viewportRef}
       >
         <div
@@ -317,3 +260,4 @@ export function ProcessFlowDiagram({
   );
 }
 
+    

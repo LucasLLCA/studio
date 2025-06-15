@@ -8,8 +8,7 @@ import React from 'react';
 interface ProcessFlowClientProps {
   processedFlowData: ProcessedFlowData | null;
   taskToScrollTo?: ProcessedAndamento | null;
-  onScrollToFirstTask: () => void;
-  onScrollToLastTask: () => void;
+  // onScrollToFirstTask and onScrollToLastTask are removed as buttons are now in page.tsx
   loginCredentials: LoginCredentials | null;
   isAuthenticated: boolean;
 }
@@ -17,17 +16,16 @@ interface ProcessFlowClientProps {
 export function ProcessFlowClient({ 
   processedFlowData, 
   taskToScrollTo, 
-  onScrollToFirstTask, 
-  onScrollToLastTask,
   loginCredentials,
   isAuthenticated,
 }: ProcessFlowClientProps) {
   if (!processedFlowData || !processedFlowData.tasks || processedFlowData.tasks.length === 0) {
+    // This case should ideally be handled by the parent component (page.tsx) before rendering ProcessFlowClient
     return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir ou dados inválidos.</p>;
   }
   
   return (
-    <div className="h-full flex flex-col w-full"> {/* Ensured w-full */}
+    <div className="h-full flex flex-col w-full">
       <ProcessFlowDiagram 
         tasks={processedFlowData.tasks}
         connections={processedFlowData.connections}
@@ -35,8 +33,6 @@ export function ProcessFlowClient({
         svgHeight={processedFlowData.svgHeight}
         laneMap={processedFlowData.laneMap}
         taskToScrollTo={taskToScrollTo}
-        onScrollToFirstTask={onScrollToFirstTask}
-        onScrollToLastTask={onScrollToLastTask}
         loginCredentials={loginCredentials}
         isAuthenticated={isAuthenticated}
       />

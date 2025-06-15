@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials, Andamento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import Image from 'next/image';
 import { sampleProcessFlowData } from '@/data/sample-process-data';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
 import { processAndamentos, parseCustomDateString, formatDisplayDate } from '@/lib/process-flow-utils';
+import { ProcessFlowLegend } from '@/components/process-flow/ProcessFlowLegend';
 import {
   Select,
   SelectContent,
@@ -29,6 +30,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,9 +44,9 @@ import {
 import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, loginToSEI } from './sei-actions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 import { differenceInCalendarDays, formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Sidebar, SidebarContent, SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
 
 const loginSchema = z.object({
@@ -82,6 +84,7 @@ export default function Home() {
   const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(false);
 
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
+  const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginCredentials, setLoginCredentials] = useState<LoginCredentials | null>(null);
@@ -89,6 +92,7 @@ export default function Home() {
 
   const [apiSearchPerformed, setApiSearchPerformed] = useState<boolean>(false);
   const [processCreationInfo, setProcessCreationInfo] = useState<ProcessCreationInfo | null>(null);
+  const [isUnitsSidebarOpen, setIsUnitsSidebarOpen] = useState(true);
 
 
   const methods = useForm<LoginFormValues>({
@@ -407,7 +411,6 @@ export default function Home() {
       </div>
       
       <main className="flex-1 flex flex-col overflow-y-auto p-4 w-full">
-        {/* Conditional Process Creation Info Card */}
         {apiSearchPerformed && processCreationInfo && (
           <Card className="mb-4">
             <CardHeader className="p-2">
@@ -424,80 +427,102 @@ export default function Home() {
           </Card>
         )}
 
-        {/* Conditional AI Summary Card */}
         {apiSearchPerformed && (isLoadingSummary || processSummary) && (
-            <Card className="mb-4">
-              <CardHeader className="p-2">
-                  <CardTitle className="text-md flex items-center text-green-600">
-                  <BookText className="mr-2 h-5 w-5" /> Entendimento Automatizado (IA)
-                  </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-shrink-0 p-2 pt-0">
-                  {isLoadingSummary && !processSummary && (
-                  <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 text-primary animate-spin" /><p className="ml-2 text-muted-foreground">Gerando...</p></div>
-                  )}
-                  {processSummary && (
-                  <ScrollArea className="max-h-[150px] rounded-md border flex-shrink-0"><div className="p-3"><pre className="text-xs whitespace-pre-wrap break-words font-sans">{processSummary}</pre></div></ScrollArea>
-                  )}
-                  {!processSummary && !isLoadingSummary && apiSearchPerformed && (
-                  <div className="flex items-center justify-center p-4 text-muted-foreground"><Info className="mr-2 h-4 w-4" />Nenhum resumo disponível.</div>
-                  )}
-              </CardContent>
+          <Card className="mb-4">
+            <CardHeader className="p-2">
+                <CardTitle className="text-md flex items-center text-green-600">
+                <BookText className="mr-2 h-5 w-5" /> Entendimento Automatizado (IA)
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col flex-shrink-0 p-2 pt-0">
+                {isLoadingSummary && !processSummary && (
+                <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 text-primary animate-spin" /><p className="ml-2 text-muted-foreground">Gerando...</p></div>
+                )}
+                {processSummary && (
+                <ScrollArea className="max-h-[150px] rounded-md border flex-shrink-0"><div className="p-3"><pre className="text-xs whitespace-pre-wrap break-words font-sans">{processSummary}</pre></div></ScrollArea>
+                )}
+                {!processSummary && !isLoadingSummary && apiSearchPerformed && (
+                <div className="flex items-center justify-center p-4 text-muted-foreground"><Info className="mr-2 h-4 w-4" />Nenhum resumo disponível.</div>
+                )}
+            </CardContent>
           </Card>
         )}
         
-        {/* Two-column layout: Sidebar for "Unidades Abertas" + Diagram. Only if data is present */}
         {apiSearchPerformed && rawProcessData ? (
-          <SidebarProvider className="flex flex-1 overflow-hidden w-full" style={{ "--sidebar-width": "22rem" }}>
-            <div className="flex flex-1 overflow-hidden"> {/* This div enables the two-column flex layout */}
-              {/* Left Collapsible Sidebar for "Unidades com Processo Aberto" */}
-              <Sidebar side="left" className="border-r">
-                <SidebarContent className="p-0">
-                  <ScrollArea className="h-full">
-                    <Accordion type="single" collapsible defaultValue="open-units" className="w-full p-4">
-                      {(openUnitsInProcess || isLoadingOpenUnits) && (
-                        <AccordionItem value="open-units">
-                          <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                            Unidades com Processo Aberto
-                          </AccordionTrigger>
-                          <AccordionContent className="pt-2">
-                            <ProcessMetadataSidebar
-                              processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
-                              openUnitsInProcess={openUnitsInProcess}
-                              isLoadingOpenUnits={isLoadingOpenUnits}
-                              processedFlowData={processedFlowData}
-                              onTaskCardClick={handleTaskCardClick}
-                            />
-                          </AccordionContent>
-                        </AccordionItem>
-                      )}
-                    </Accordion>
-                  </ScrollArea>
-                </SidebarContent>
-              </Sidebar>
-
-              {/* Right Main Content Area for Diagram */}
-              <SidebarInset className="flex-1 flex flex-col overflow-y-auto p-4"> {/* Added p-4 here */}
-                <ProcessFlowClient
-                  processedFlowData={processedFlowData}
-                  taskToScrollTo={taskToScrollTo}
-                  onScrollToFirstTask={handleScrollToFirstTask}
-                  onScrollToLastTask={handleScrollToLastTask}
-                  loginCredentials={loginCredentials}
-                  isAuthenticated={isAuthenticated}
-                />
-              </SidebarInset>
+          <div className="flex flex-1 mt-4 overflow-hidden"> {/* Main two-column container */}
+            {/* Left Column: "Unidades em Aberto" - Manually Collapsible */}
+            <div
+              className={cn(
+                "transition-all duration-300 ease-in-out border-r bg-card flex flex-col", 
+                isUnitsSidebarOpen ? "w-[22rem] p-1 opacity-100" : "w-0 p-0 opacity-0" 
+              )}
+            >
+              {isUnitsSidebarOpen && (
+                <ScrollArea className="flex-1">
+                  <Accordion type="single" collapsible defaultValue="open-units" className="w-full">
+                    <AccordionItem value="open-units" className="border-b-0">
+                      <AccordionTrigger className="text-base font-semibold hover:no-underline px-2 py-3 justify-start sticky top-0 bg-card z-10">
+                         <span className="flex items-center">
+                           <Briefcase className="mr-2 h-5 w-5 text-muted-foreground" />
+                           Unidades com Processo Aberto
+                         </span>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-0 pl-2 pr-2 pb-2">
+                        <ProcessMetadataSidebar
+                          processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
+                          openUnitsInProcess={openUnitsInProcess}
+                          isLoadingOpenUnits={isLoadingOpenUnits}
+                          processedFlowData={processedFlowData}
+                          onTaskCardClick={handleTaskCardClick}
+                        />
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </ScrollArea>
+              )}
             </div>
-          </SidebarProvider>
+
+            {/* Right Column: Diagram Area */}
+            <div className="flex-1 flex flex-col p-4 overflow-hidden">
+              {apiSearchPerformed && rawProcessData && (
+                <div className="flex justify-end space-x-2 mb-2">
+                  <Button variant="outline" size="sm" onClick={() => setIsUnitsSidebarOpen(!isUnitsSidebarOpen)} aria-label={isUnitsSidebarOpen ? "Fechar painel de unidades" : "Abrir painel de unidades"}>
+                    <Menu className="h-4 w-4" />
+                  </Button>
+                  <Button onClick={handleScrollToFirstTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length} aria-label="Ir para o início do fluxo">
+                    <ChevronsLeft className="mr-2 h-4 w-4" /> Início
+                  </Button>
+                  <Button onClick={handleScrollToLastTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length} aria-label="Ir para o fim do fluxo">
+                    <ChevronsRight className="mr-2 h-4 w-4" /> Fim
+                  </Button>
+                  <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" aria-label="Mostrar legenda de cores">
+                        <HelpCircle className="mr-2 h-4 w-4" /> Legenda
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader><DialogTitle>Legenda de Cores dos Nós</DialogTitle></DialogHeader>
+                      <ProcessFlowLegend />
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              )}
+              <ProcessFlowClient
+                processedFlowData={processedFlowData}
+                taskToScrollTo={taskToScrollTo}
+                loginCredentials={loginCredentials}
+                isAuthenticated={isAuthenticated}
+              />
+            </div>
+          </div>
         ) : isLoading || isLoadingSummary ? ( 
-          // Loading spinner for API/Summary, shown when rawProcessData is not yet available but a search is in progress
           <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
             <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
             <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
             <p className="text-muted-foreground max-w-md">Aguarde, consulta à API SEI e/ou resumo em andamento.</p>
           </div>
         ) : (
-          // Initial placeholder before any search
           <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
             <FileJson className="h-32 w-32 text-muted-foreground/30 mb-8" />
             <h2 className="text-3xl font-semibold text-foreground mb-4">
@@ -561,3 +586,4 @@ export default function Home() {
   );
 }
 
+    
