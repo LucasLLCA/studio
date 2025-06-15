@@ -8,9 +8,9 @@ import { ProcessFlowLegend } from './ProcessFlowLegend';
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { ChevronsLeft, ChevronsRight, HelpCircle, Menu } from 'lucide-react'; // Added Menu
+import { ChevronsLeft, ChevronsRight, HelpCircle, Menu } from 'lucide-react'; 
 import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils'; 
-import { SidebarTrigger } from '@/components/ui/sidebar'; // Added SidebarTrigger
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import {
   Dialog,
   DialogContent,
@@ -316,3 +316,4 @@ export function ProcessFlowDiagram({
     </div>
   );
 }
+
