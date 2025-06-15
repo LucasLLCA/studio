@@ -46,7 +46,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { differenceInCalendarDays, formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Sidebar, SidebarContent, SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
 
 const loginSchema = z.object({
@@ -344,223 +344,206 @@ export default function Home() {
   const handleScrollToLastTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[processedFlowData.tasks.length - 1]); };
   const inputRef = React.createRef<HTMLInputElement>();
 
+
   const accordionDefaultValues = useMemo(() => {
-    const values = [];
     if (apiSearchPerformed && rawProcessData) {
-        values.push("open-units"); 
+      return ['process-details', 'process-summary', 'open-units'];
     }
-    return values;
+    return [];
   }, [apiSearchPerformed, rawProcessData]);
 
 
   return (
     <>
-      <SidebarProvider className="w-full" style={{ "--sidebar-width": "20rem" }}>
-        <main className="min-h-screen flex flex-col bg-background w-full">
-          <header className="p-2 border-b border-border shadow-sm sticky top-0 z-40 bg-background">
-            <div className="container mx-auto flex items-center justify-start max-w-full space-x-2">
+      <div className="flex flex-col min-h-screen bg-background w-full">
+        <header className="p-2 border-b border-border shadow-sm sticky top-0 z-40 bg-background">
+          <div className="container mx-auto flex items-center justify-between max-w-full">
+            <div className="flex items-center space-x-2">
               <Image src="/logo-sead.png" alt="Logo SEAD Piauí" width={120} height={45} priority data-ai-hint="logo government" />
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-semibold" style={{ color: '#107527' }}>Visualizador de Processos</h1>
                 <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Beta</span>
               </div>
             </div>
-          </header>
-
-          {/* Main Control Bar - Sticky */}
-          <div className="p-3 border-b border-border shadow-sm sticky top-[61px] z-30 bg-card">
-            <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
-              <div className="flex flex-wrap items-center gap-2">
-                <SidebarTrigger className="mr-1"> {/* Unified Sidebar Trigger */}
-                   <Menu className="h-5 w-5" />
-                </SidebarTrigger>
-                <Input
-                  type="text"
-                  placeholder="Número do Processo..."
-                  className="h-9 text-sm w-40 sm:w-44"
-                  value={processoNumeroInput}
-                  onChange={(e) => setProcessoNumeroInput(e.target.value)}
-                  disabled={isLoading || isLoadingSummary || !isAuthenticated}
-                  ref={inputRef}
-                />
-                <Select
-                  value={selectedUnidadeFiltro}
-                  onValueChange={setSelectedUnidadeFiltro}
-                  disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
-                >
-                  <SelectTrigger className="h-9 text-sm w-[150px] sm:w-[180px]">
-                    <SelectValue placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Filtrar Unidade" : "Nenhuma unidade") : "Login para unidades"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {unidadesFiltroList.map((unidade) => (
-                      <SelectItem key={unidade.Id} value={unidade.Id}>{unidade.Sigla} ({unidade.Descricao.substring(0,20)}...)</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" onClick={handleSearchClick} disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro || !isAuthenticated}>
-                  {(isLoading || isLoadingSummary) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />} Pesquisar
-                </Button>
-                <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
-                  <Upload className="mr-2 h-4 w-4" /> JSON
-                </Button>
-                <div className="flex items-center space-x-2">
-                  <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading || isLoadingSummary} />
-                  <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {isAuthenticated ? (
-                  <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
-                ) : (
-                  <Button variant="default" size="sm" onClick={() => setIsLoginDialogOpen(true)}> <LogIn className="mr-2 h-4 w-4" /> Login </Button>
-                )}
-                <div className="hidden md:flex items-center space-x-1 text-xs text-muted-foreground">
-                  <Sparkles className="h-4 w-4 text-accent" />
-                  <span>IA por SoberaniA</span>
-                </div>
-              </div>
+            <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+              <Sparkles className="h-4 w-4 text-accent" />
+              <span>IA por SoberaniA</span>
             </div>
           </div>
+        </header>
+
+        {/* Main Control Bar - Sticky */}
+        <div className="p-3 border-b border-border shadow-sm sticky top-[61px] z-30 bg-card">
+          <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
+            <div className="flex flex-wrap items-center gap-2 flex-grow">
+               <Select
+                value={selectedUnidadeFiltro}
+                onValueChange={setSelectedUnidadeFiltro}
+                disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
+              >
+                <SelectTrigger className="h-9 text-sm w-full sm:w-auto min-w-[150px] sm:min-w-[180px] flex-shrink-0">
+                  <SelectValue placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Filtrar Unidade" : "Nenhuma unidade") : "Login para unidades"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {unidadesFiltroList.map((unidade) => (
+                    <SelectItem key={unidade.Id} value={unidade.Id}>{unidade.Sigla} ({unidade.Descricao.substring(0,20)}...)</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="text"
+                placeholder="Número do Processo..."
+                className="h-9 text-sm w-full sm:w-auto min-w-[150px] sm:min-w-[180px] flex-shrink-0"
+                value={processoNumeroInput}
+                onChange={(e) => setProcessoNumeroInput(e.target.value)}
+                disabled={isLoading || isLoadingSummary || !isAuthenticated}
+                ref={inputRef}
+              />
+              <Button variant="outline" size="sm" onClick={handleSearchClick} disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro || !isAuthenticated} className="bg-green-600 hover:bg-green-700 text-primary-foreground">
+                {(isLoading || isLoadingSummary) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />} Pesquisar
+              </Button>
+               <div className="flex items-center space-x-2 ml-auto sm:ml-0 flex-shrink-0">
+                <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading || isLoadingSummary} />
+                <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
+                <Upload className="mr-2 h-4 w-4" /> JSON
+              </Button>
+              {isAuthenticated ? (
+                <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
+              ) : (
+                <Button variant="default" size="sm" onClick={() => setIsLoginDialogOpen(true)}> <LogIn className="mr-2 h-4 w-4" /> Login </Button>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <SidebarProvider className="flex flex-1 overflow-hidden w-full" style={{ "--sidebar-width": "22rem" }}> {/* Increased sidebar width slightly */}
+          {apiSearchPerformed && rawProcessData && (
+            <Sidebar side="left" className="border-r">
+                <SidebarContent className="p-0">
+                  <ScrollArea className="h-full">
+                    <Accordion type="multiple" defaultValue={['process-details', 'process-summary', 'open-units']} className="w-full p-4">
+                        <AccordionItem value="process-details">
+                           <AccordionTrigger className="text-base font-semibold hover:no-underline">
+                             Informações de Criação
+                           </AccordionTrigger>
+                           <AccordionContent className="pt-2">
+                            {processCreationInfo && (
+                                <Card className="shadow-none border-0">
+                                    <CardHeader className="p-2">
+                                        <CardTitle className="text-md flex items-center text-green-600">
+                                        <FileText className="mr-2 h-5 w-5" /> Número: {rawProcessData.Info?.NumeroProcesso || processoNumeroInput}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-1 text-sm pt-2 p-2">
+                                        <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Unidade: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
+                                        <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
+                                        <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
+                                        <div className="flex items-center"><CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />Tempo: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
+                                    </CardContent>
+                                </Card>
+                            )}
+                           </AccordionContent>
+                        </AccordionItem>
+
+                       {(isLoadingSummary || processSummary) && (
+                        <AccordionItem value="process-summary">
+                           <AccordionTrigger className="text-base font-semibold hover:no-underline">
+                             Entendimento Automatizado (IA)
+                           </AccordionTrigger>
+                           <AccordionContent className="pt-2">
+                                <Card className="shadow-none border-0">
+                                    <CardHeader className="p-2">
+                                        <CardTitle className="text-md flex items-center text-green-600">
+                                        <BookText className="mr-2 h-5 w-5" /> Resumo do Processo
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="flex flex-col flex-shrink-0 p-2 pt-0">
+                                        {isLoadingSummary && !processSummary && (
+                                        <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 text-primary animate-spin" /><p className="ml-2 text-muted-foreground">Gerando...</p></div>
+                                        )}
+                                        {processSummary && (
+                                        <ScrollArea className="max-h-[150px] rounded-md border flex-shrink-0"><div className="p-3"><pre className="text-xs whitespace-pre-wrap break-words font-sans">{processSummary}</pre></div></ScrollArea>
+                                        )}
+                                        {!processSummary && !isLoadingSummary && apiSearchPerformed && (
+                                        <div className="flex items-center justify-center p-4 text-muted-foreground"><Info className="mr-2 h-4 w-4" />Nenhum resumo disponível.</div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                           </AccordionContent>
+                        </AccordionItem>
+                       )}
+
+                      {(openUnitsInProcess || isLoadingOpenUnits) && (
+                        <AccordionItem value="open-units">
+                          <AccordionTrigger className="text-base font-semibold hover:no-underline">
+                              Unidades com Processo Aberto
+                          </AccordionTrigger>
+                          <AccordionContent className="pt-2">
+                              <ProcessMetadataSidebar
+                                  processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
+                                  openUnitsInProcess={openUnitsInProcess}
+                                  isLoadingOpenUnits={isLoadingOpenUnits}
+                                  processedFlowData={processedFlowData}
+                                  onTaskCardClick={handleTaskCardClick}
+                              />
+                          </AccordionContent>
+                        </AccordionItem>
+                      )}
+                    </Accordion>
+                  </ScrollArea>
+                </SidebarContent>
+            </Sidebar>
+          )}
           
-            {/* Conditional Process Details & Summary Cards (Full Width, before two-column layout) */}
-            {apiSearchPerformed && processCreationInfo && rawProcessData && (
-                <Card className="m-4">
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center">
-                        <FileText className="mr-2 h-5 w-5 text-primary" /> Informações de Criação
-                        </CardTitle>
-                        <CardDescription>Número: {rawProcessData.Info?.NumeroProcesso || processoNumeroInput}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm pt-4">
-                        <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Unidade Criadora: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
-                        <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário Criador: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
-                        <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data de Criação: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
-                        <div className="flex items-center"><CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />Tempo Desde Criação: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
-                    </CardContent>
-                </Card>
+          <SidebarInset className="flex-1 flex flex-col overflow-y-auto p-4">
+            {isLoading && !loadingMessage.includes("API SEI") && !loadingMessage.includes("resumo") && !(apiSearchPerformed && rawProcessData) ? (
+              <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
+                <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
+                <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
+                <p className="text-muted-foreground max-w-md">Por favor, aguarde. Os dados estão sendo preparados.</p>
+              </div>
+            ) : (apiSearchPerformed && rawProcessData) || (!apiSearchPerformed && rawProcessData && !isLoading) ? ( // Show diagram if API search done OR sample data loaded
+              <ProcessFlowClient
+                processedFlowData={processedFlowData}
+                taskToScrollTo={taskToScrollTo}
+                onScrollToFirstTask={handleScrollToFirstTask}
+                onScrollToLastTask={handleScrollToLastTask}
+                loginCredentials={loginCredentials}
+                isAuthenticated={isAuthenticated}
+              />
+            ) : isLoading || isLoadingSummary ? (
+              <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
+                <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
+                <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
+                <p className="text-muted-foreground max-w-md">Aguarde, consulta à API SEI e/ou resumo em andamento.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
+                <FileJson className="h-32 w-32 text-muted-foreground/30 mb-8" />
+                <h2 className="text-3xl font-semibold text-foreground mb-4">
+                  {isAuthenticated ? "Nenhum processo carregado" : "Autenticação Necessária"}
+                </h2>
+                <p className="text-muted-foreground mb-8 max-w-md text-center">
+                  {isAuthenticated
+                    ? 'Para iniciar, selecione a unidade, insira o número do processo e clique em "Pesquisar", ou carregue um arquivo JSON/dados de exemplo.'
+                    : "Por favor, faça login para pesquisar processos ou carregar dados da API SEI."
+                  }
+                </p>
+                <div className="flex space-x-4">
+                  <Button onClick={loadSampleData} variant="secondary" disabled={isLoading || isLoadingSummary}>Usar Dados de Exemplo</Button>
+                  {!isAuthenticated && (
+                    <Button onClick={() => setIsLoginDialogOpen(true)} variant="default"><LogIn className="mr-2 h-4 w-4" />Login SEI</Button>
+                  )}
+                </div>
+              </div>
             )}
-
-            {apiSearchPerformed && (isLoadingSummary || processSummary) && rawProcessData && (
-                <Card className="m-4 mt-0"> {/* mt-0 for condensed spacing */}
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center">
-                        <BookText className="mr-2 h-5 w-5 text-primary" /> Entendimento Automatizado (IA)
-                        </CardTitle>
-                        <CardDescription>Este é um resumo gerado por IA sobre o processo.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col flex-shrink-0">
-                        {isLoadingSummary && !processSummary && (
-                        <div className="flex items-center justify-center p-6"><Loader2 className="h-8 w-8 text-primary animate-spin" /><p className="ml-3 text-muted-foreground">Gerando resumo...</p></div>
-                        )}
-                        {processSummary && (
-                        <ScrollArea className="max-h-[200px] rounded-md border flex-shrink-0"><div className="p-4"><pre className="text-sm whitespace-pre-wrap break-words font-sans">{processSummary}</pre></div></ScrollArea>
-                        )}
-                        {!processSummary && !isLoadingSummary && apiSearchPerformed && (
-                        <div className="flex items-center justify-center p-6 text-muted-foreground"><Info className="mr-2 h-5 w-5" />Nenhum resumo disponível.</div>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* Wrapper for sidebar (metadata) and inset (diagram) to make them appear as columns */}
-            <div className="flex flex-1 overflow-hidden"> 
-              <Sidebar side="left" className="border-r">
-                  <SidebarContent className="p-0">
-                    <ScrollArea className="h-full">
-                      {apiSearchPerformed && rawProcessData && (
-                        <Accordion type="multiple" defaultValue={accordionDefaultValues} className="w-full p-4">
-                          {(openUnitsInProcess || isLoadingOpenUnits) && (
-                            <AccordionItem value="open-units">
-                              <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                                  Unidades com Processo Aberto
-                              </AccordionTrigger>
-                              <AccordionContent className="pt-2">
-                                  <ProcessMetadataSidebar
-                                      processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
-                                      processNumberPlaceholder="Nenhum processo carregado"
-                                      openUnitsInProcess={openUnitsInProcess}
-                                      isLoadingOpenUnits={isLoadingOpenUnits}
-                                      processedFlowData={processedFlowData}
-                                      onTaskCardClick={handleTaskCardClick}
-                                  />
-                              </AccordionContent>
-                            </AccordionItem>
-                          )}
-                        </Accordion>
-                      )}
-                       {!(apiSearchPerformed && rawProcessData) && (
-                        <div className="p-4 text-sm text-muted-foreground">
-                          Pesquise um processo para ver os metadados das unidades em aberto.
-                        </div>
-                      )}
-                    </ScrollArea>
-                  </SidebarContent>
-              </Sidebar>
-              
-              <SidebarInset className="flex-1 flex flex-col overflow-y-auto p-4">
-                {isLoading && !loadingMessage.includes("API SEI") && !loadingMessage.includes("resumo") ? (
-                  <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
-                    <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
-                    <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
-                    <p className="text-muted-foreground max-w-md">Por favor, aguarde. Os dados estão sendo preparados.</p>
-                  </div>
-                ) : processedFlowData ? (
-                  <ProcessFlowClient
-                    processedFlowData={processedFlowData}
-                    taskToScrollTo={taskToScrollTo}
-                    onScrollToFirstTask={handleScrollToFirstTask}
-                    onScrollToLastTask={handleScrollToLastTask}
-                    loginCredentials={loginCredentials}
-                    isAuthenticated={isAuthenticated}
-                  />
-                ) : isLoading || isLoadingSummary ? (
-                  <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
-                    <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
-                    <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
-                    <p className="text-muted-foreground max-w-md">Aguarde, consulta à API SEI e/ou resumo em andamento.</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
-                    <FileJson className="h-32 w-32 text-muted-foreground/30 mb-8" />
-                    <h2 className="text-3xl font-semibold text-foreground mb-4">
-                      {isAuthenticated ? "Nenhum processo carregado" : "Autenticação Necessária"}
-                    </h2>
-                    <p className="text-muted-foreground mb-8 max-w-md text-center">
-                      {isAuthenticated
-                        ? 'Para iniciar, insira o número do processo, selecione a unidade e clique em "Pesquisar", ou carregue um arquivo JSON/dados de exemplo.'
-                        : "Por favor, faça login para pesquisar processos ou carregar dados da API SEI."
-                      }
-                    </p>
-                    <div className="flex space-x-4">
-                      <Button onClick={loadSampleData} variant="secondary" disabled={isLoading || isLoadingSummary}>Usar Dados de Exemplo</Button>
-                      {!isAuthenticated && (
-                        <Button onClick={() => setIsLoginDialogOpen(true)} variant="default"><LogIn className="mr-2 h-4 w-4" />Login SEI</Button>
-                      )}
-                       <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
-                        <DialogTrigger asChild>
-                            <Button 
-                            variant="outline" 
-                            size="sm"
-                            aria-label="Mostrar legenda de cores"
-                            >
-                            <HelpCircle className="mr-2 h-4 w-4" />
-                            Legenda
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                            <DialogTitle>Legenda de Cores dos Nós</DialogTitle>
-                            </DialogHeader>
-                            <ProcessFlowLegend />
-                        </DialogContent>
-                        </Dialog>
-                    </div>
-                  </div>
-                )}
-              </SidebarInset>
-            </div> {/* End of Two Column Wrapper */}
-        </main>
-      </SidebarProvider>
+          </SidebarInset>
+        </SidebarProvider>
+      </div>
 
       <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -601,6 +584,3 @@ export default function Home() {
     </>
   );
 }
-
-
-    

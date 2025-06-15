@@ -8,8 +8,9 @@ import { ProcessFlowLegend } from './ProcessFlowLegend';
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { ChevronsLeft, ChevronsRight, HelpCircle } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, HelpCircle, Menu } from 'lucide-react'; // Added Menu
 import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils'; 
+import { SidebarTrigger } from '@/components/ui/sidebar'; // Added SidebarTrigger
 import {
   Dialog,
   DialogContent,
@@ -168,8 +169,11 @@ export function ProcessFlowDiagram({
   const areTasksAvailable = tasks && tasks.length > 0;
 
   return (
-    <div className="h-full flex flex-col flex-grow w-full"> {/* Ensured w-full */}
+    <div className="h-full flex flex-col flex-grow w-full">
       <div className="flex justify-end space-x-2 my-2">
+        <SidebarTrigger variant="outline" size="sm" aria-label="Alternar metadados">
+          <Menu className="h-4 w-4" />
+        </SidebarTrigger>
         <Button 
           onClick={onScrollToFirstTask} 
           variant="outline" 
@@ -312,5 +316,3 @@ export function ProcessFlowDiagram({
     </div>
   );
 }
-
-    
