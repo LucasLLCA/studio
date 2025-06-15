@@ -11,7 +11,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { summarizeTaskDescription } from '@/ai/flows/summarize-task-description';
 import { fetchDocumentSummary } from '@/app/sei-actions';
 import React, { useState, useEffect } from 'react';
 import { formatDisplayDate } from '@/lib/process-flow-utils';
@@ -29,42 +28,19 @@ interface TaskDetailsModalProps {
 }
 
 export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAuthenticated }: TaskDetailsModalProps) {
-  const [taskAISummary, setTaskAISummary] = useState<string | null>(null);
-  const [isLoadingTaskAISummary, setIsLoadingTaskAISummary] = useState<boolean>(false);
-  const [taskAISummaryError, setTaskAISummaryError] = useState<string | null>(null);
-
   const [extractedDocumentNumber, setExtractedDocumentNumber] = useState<string | null>(null);
   const [documentSummary, setDocumentSummary] = useState<string | null>(null);
   const [isLoadingDocumentSummary, setIsLoadingDocumentSummary] = useState<boolean>(false);
   const [documentSummaryError, setDocumentSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Reset all summary states when modal opens or task changes
-    setTaskAISummary(null);
-    setTaskAISummaryError(null);
-    setIsLoadingTaskAISummary(false);
+    // Reset document summary states when modal opens or task changes
     setExtractedDocumentNumber(null);
     setDocumentSummary(null);
     setDocumentSummaryError(null);
     setIsLoadingDocumentSummary(false);
 
     if (task && isOpen) {
-      // Fetch AI summary for the task description
-      if (!task.isSummaryNode) {
-        setIsLoadingTaskAISummary(true);
-        summarizeTaskDescription({ taskDescription: task.Descricao })
-          .then(response => {
-            setTaskAISummary(response.summary);
-          })
-          .catch(err => {
-            console.error("Error summarizing task description:", err);
-            setTaskAISummaryError("Falha ao resumir a descrição da tarefa (IA).");
-          })
-          .finally(() => {
-            setIsLoadingTaskAISummary(false);
-          });
-      }
-
       // Extract document number for potential document summary
       const docNumberMatch = task.Descricao.match(/\b(\d{8,9})\b/);
       if (docNumberMatch && docNumberMatch[1]) {
@@ -116,22 +92,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
         </DialogHeader>
         <ScrollArea className="flex-grow pr-6 -mr-6"> {/* Offset scrollbar */}
           <div className="space-y-4 py-4 pr-2"> {/* Padding for scrollbar */}
-            {!task.isSummaryNode && (
-              <div className="flex items-start space-x-3">
-                <Sparkles className="h-5 w-5 mt-1 text-accent flex-shrink-0" />
-                <div>
-                  <h3 className="font-medium text-foreground">Resumo AI da Tarefa</h3>
-                  {isLoadingTaskAISummary ? (
-                    <Skeleton className="h-12 w-full rounded-md" />
-                  ) : taskAISummaryError ? (
-                    <p className="text-sm text-destructive flex items-center"><AlertCircle className="h-4 w-4 mr-1" /> {taskAISummaryError}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{taskAISummary || "Nenhum resumo de IA disponível para esta tarefa."}</p>
-                  )}
-                </div>
-              </div>
-            )}
-
+            
             <div className="flex items-start space-x-3">
               <FileText className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
               <div>
