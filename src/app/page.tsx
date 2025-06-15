@@ -30,7 +30,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-  DialogTrigger,
+  DialogTrigger, 
 } from "@/components/ui/dialog";
 import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -346,19 +346,17 @@ export default function Home() {
 
   const accordionDefaultValues = useMemo(() => {
     const values = [];
-    if (rawProcessData && apiSearchPerformed) {
-        if (processCreationInfo) values.push("creation-details");
-        if (isLoadingSummary || processSummary) values.push("process-summary");
-        if (openUnitsInProcess || isLoadingOpenUnits) values.push("open-units");
+    if (apiSearchPerformed && rawProcessData) {
+        values.push("open-units"); 
     }
     return values;
-  }, [rawProcessData, apiSearchPerformed, processCreationInfo, isLoadingSummary, processSummary, openUnitsInProcess, isLoadingOpenUnits]);
+  }, [apiSearchPerformed, rawProcessData]);
 
 
   return (
     <>
-      <SidebarProvider style={{ "--sidebar-width": "20rem" }}>
-        <main className="min-h-screen flex flex-col bg-background">
+      <SidebarProvider className="w-full" style={{ "--sidebar-width": "20rem" }}>
+        <main className="min-h-screen flex flex-col bg-background w-full">
           <header className="p-2 border-b border-border shadow-sm sticky top-0 z-40 bg-background">
             <div className="container mx-auto flex items-center justify-start max-w-full space-x-2">
               <Image src="/logo-sead.png" alt="Logo SEAD Piauí" width={120} height={45} priority data-ai-hint="logo government" />
@@ -373,7 +371,7 @@ export default function Home() {
           <div className="p-3 border-b border-border shadow-sm sticky top-[61px] z-30 bg-card">
             <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
               <div className="flex flex-wrap items-center gap-2">
-                <SidebarTrigger className="mr-1 md:hidden"> 
+                <SidebarTrigger className="mr-1"> {/* Unified Sidebar Trigger */}
                    <Menu className="h-5 w-5" />
                 </SidebarTrigger>
                 <Input
@@ -411,9 +409,6 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                 <SidebarTrigger className="hidden md:flex"> 
-                   <Menu className="h-5 w-5" />
-                </SidebarTrigger>
                 {isAuthenticated ? (
                   <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
                 ) : (
@@ -427,10 +422,9 @@ export default function Home() {
             </div>
           </div>
           
-          {/* Content Area with conditional cards and then two-column layout */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-6 max-w-full">
+            {/* Conditional Process Details & Summary Cards (Full Width, before two-column layout) */}
             {apiSearchPerformed && processCreationInfo && rawProcessData && (
-                <Card>
+                <Card className="m-4">
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center">
                         <FileText className="mr-2 h-5 w-5 text-primary" /> Informações de Criação
@@ -447,7 +441,7 @@ export default function Home() {
             )}
 
             {apiSearchPerformed && (isLoadingSummary || processSummary) && rawProcessData && (
-                <Card>
+                <Card className="m-4 mt-0"> {/* mt-0 for condensed spacing */}
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center">
                         <BookText className="mr-2 h-5 w-5 text-primary" /> Entendimento Automatizado (IA)
@@ -468,29 +462,13 @@ export default function Home() {
                 </Card>
             )}
 
-            {/* Wrapper for sidebar and inset to make them appear as columns */}
+            {/* Wrapper for sidebar (metadata) and inset (diagram) to make them appear as columns */}
             <div className="flex flex-1 overflow-hidden"> 
               <Sidebar side="left" className="border-r">
                   <SidebarContent className="p-0">
                     <ScrollArea className="h-full">
                       {apiSearchPerformed && rawProcessData && (
                         <Accordion type="multiple" defaultValue={accordionDefaultValues} className="w-full p-4">
-                          {processCreationInfo && (
-                             <AccordionItem value="creation-details-in-sidebar-temp">
-                                <AccordionTrigger>Detalhes (Temporário)</AccordionTrigger>
-                                <AccordionContent>
-                                    <p>Esta seção de Detalhes do Processo será movida para dentro do Accordion do Sidebar em breve.</p>
-                                </AccordionContent>
-                             </AccordionItem>
-                          )}
-                           {(isLoadingSummary || processSummary) && (
-                             <AccordionItem value="summary-in-sidebar-temp">
-                                <AccordionTrigger>Resumo (Temporário)</AccordionTrigger>
-                                <AccordionContent>
-                                    <p>Esta seção de Resumo IA será movida para dentro do Accordion do Sidebar em breve.</p>
-                                </AccordionContent>
-                             </AccordionItem>
-                          )}
                           {(openUnitsInProcess || isLoadingOpenUnits) && (
                             <AccordionItem value="open-units">
                               <AccordionTrigger className="text-base font-semibold hover:no-underline">
@@ -512,16 +490,16 @@ export default function Home() {
                       )}
                        {!(apiSearchPerformed && rawProcessData) && (
                         <div className="p-4 text-sm text-muted-foreground">
-                          Pesquise um processo para ver os metadados.
+                          Pesquise um processo para ver os metadados das unidades em aberto.
                         </div>
                       )}
                     </ScrollArea>
                   </SidebarContent>
               </Sidebar>
               
-              <SidebarInset className="flex-1 flex flex-col overflow-y-auto p-0 md:p-4">
+              <SidebarInset className="flex-1 flex flex-col overflow-y-auto p-4">
                 {isLoading && !loadingMessage.includes("API SEI") && !loadingMessage.includes("resumo") ? (
-                  <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+                  <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
                     <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
                     <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
                     <p className="text-muted-foreground max-w-md">Por favor, aguarde. Os dados estão sendo preparados.</p>
@@ -536,13 +514,13 @@ export default function Home() {
                     isAuthenticated={isAuthenticated}
                   />
                 ) : isLoading || isLoadingSummary ? (
-                  <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+                  <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
                     <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
                     <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
                     <p className="text-muted-foreground max-w-md">Aguarde, consulta à API SEI e/ou resumo em andamento.</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+                  <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
                     <FileJson className="h-32 w-32 text-muted-foreground/30 mb-8" />
                     <h2 className="text-3xl font-semibold text-foreground mb-4">
                       {isAuthenticated ? "Nenhum processo carregado" : "Autenticação Necessária"}
@@ -581,7 +559,6 @@ export default function Home() {
                 )}
               </SidebarInset>
             </div> {/* End of Two Column Wrapper */}
-          </div> {/* End of Main Scrollable Content Area */}
         </main>
       </SidebarProvider>
 
@@ -624,3 +601,6 @@ export default function Home() {
     </>
   );
 }
+
+
+    

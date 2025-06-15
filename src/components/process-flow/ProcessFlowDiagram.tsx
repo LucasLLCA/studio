@@ -168,7 +168,7 @@ export function ProcessFlowDiagram({
   const areTasksAvailable = tasks && tasks.length > 0;
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 h-full flex flex-col flex-grow">
+    <div className="h-full flex flex-col flex-grow w-full"> {/* Ensured w-full */}
       <div className="flex justify-end space-x-2 my-2">
         <Button 
           onClick={onScrollToFirstTask} 
@@ -312,3 +312,5 @@ export function ProcessFlowDiagram({
     </div>
   );
 }
+
+    

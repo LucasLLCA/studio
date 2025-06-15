@@ -27,7 +27,7 @@ export function ProcessFlowClient({
   }
   
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col w-full"> {/* Ensured w-full */}
       <ProcessFlowDiagram 
         tasks={processedFlowData.tasks}
         connections={processedFlowData.connections}
@@ -43,3 +43,5 @@ export function ProcessFlowClient({
     </div>
   );
 }
+
+    
