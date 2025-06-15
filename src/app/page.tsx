@@ -2,8 +2,8 @@
 "use client";
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
-import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut } from 'lucide-react';
+import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials, Andamento } from '@/types/process-flow';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { sampleProcessFlowData } from '@/data/sample-process-data';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
-import { processAndamentos } from '@/lib/process-flow-utils';
+import { processAndamentos, parseCustomDateString, formatDisplayDate } from '@/lib/process-flow-utils';
 import {
   Select,
   SelectContent,
@@ -33,10 +33,19 @@ import {
 import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, loginToSEI } from './sei-actions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { SidebarProvider, Sidebar, SidebarTrigger, SidebarContent, SidebarInset } from '@/components/ui/sidebar';
+import { differenceInCalendarDays, formatDistanceToNowStrict } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
 
 const loginSchema = z.object({
   usuario: z.string().min(1, "Usuário é obrigatório."),
@@ -44,6 +53,13 @@ const loginSchema = z.object({
   orgao: z.string().min(1, "Orgão é obrigatório."),
 });
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+interface ProcessCreationInfo {
+  creatorUnit: string;
+  creatorUser: string;
+  creationDate: string;
+  timeSinceCreation: string;
+}
 
 
 export default function Home() {
@@ -65,12 +81,15 @@ export default function Home() {
   const [processSummary, setProcessSummary] = useState<string | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(false);
 
-  // Login state
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginCredentials, setLoginCredentials] = useState<LoginCredentials | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const [apiSearchPerformed, setApiSearchPerformed] = useState<boolean>(false);
+  const [processCreationInfo, setProcessCreationInfo] = useState<ProcessCreationInfo | null>(null);
+
 
   const methods = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -85,6 +104,7 @@ export default function Home() {
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
+      setApiSearchPerformed(false); // Reset if raw data becomes null (e.g. logout)
       return null;
     }
     const dataToProcess = {
@@ -98,19 +118,41 @@ export default function Home() {
   }, [rawProcessData, openUnitsInProcess, processoNumeroInput, isSummarizedView]);
 
   useEffect(() => {
+    if (rawProcessData && rawProcessData.Andamentos && rawProcessData.Andamentos.length > 0) {
+      const sortedAndamentos = [...rawProcessData.Andamentos]
+        .map(a => ({ ...a, parsedDate: parseCustomDateString(a.DataHora) }))
+        .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+
+      let generationEvent: Andamento | undefined = sortedAndamentos.find(a => a.Tarefa === 'GERACAO-PROCEDIMENTO');
+      if (!generationEvent && sortedAndamentos.length > 0) {
+        generationEvent = sortedAndamentos[0]; // Fallback to the very first event
+      }
+
+      if (generationEvent) {
+        const creationDate = parseCustomDateString(generationEvent.DataHora);
+        setProcessCreationInfo({
+          creatorUnit: generationEvent.Unidade.Sigla,
+          creatorUser: generationEvent.Usuario.Nome,
+          creationDate: formatDisplayDate(creationDate),
+          timeSinceCreation: formatDistanceToNowStrict(creationDate, { addSuffix: true, locale: ptBR }),
+        });
+      } else {
+        setProcessCreationInfo(null);
+      }
+    } else {
+      setProcessCreationInfo(null);
+    }
+  }, [rawProcessData]);
+
+
+  useEffect(() => {
     const numeroProcessoAtual = rawProcessData?.Info?.NumeroProcesso || processoNumeroInput;
     if (numeroProcessoAtual && selectedUnidadeFiltro && isAuthenticated && loginCredentials) {
       setIsLoadingOpenUnits(true);
       setOpenUnitsInProcess(null);
-      console.log(`[UI] Fetching open units for: Processo='${numeroProcessoAtual}', Unidade='${selectedUnidadeFiltro}'`);
       fetchOpenUnitsForProcess(loginCredentials, numeroProcessoAtual, selectedUnidadeFiltro)
         .then(result => {
           if ('error' in result) {
-            console.error(
-              `Error fetching open units: Status ${result.status || 'N/A'}, Error: "${result.error}"`,
-              `Details: ${typeof result.details === 'string' ? result.details : JSON.stringify(result.details)}`,
-              `Params used: processo="${numeroProcessoAtual}", unidade="${selectedUnidadeFiltro}"`
-            );
             setOpenUnitsInProcess([]);
             if (result.status === 401) {
                  toast({ title: "Sessão Expirada ou Inválida", description: "Por favor, faça login novamente.", variant: "destructive" });
@@ -121,10 +163,6 @@ export default function Home() {
           }
         })
         .catch(error => {
-          console.error(
-            "[UI] Unexpected error fetching open units:", error,
-            `Params used: processo="${numeroProcessoAtual}", unidade="${selectedUnidadeFiltro}"`
-            );
           setOpenUnitsInProcess([]);
         })
         .finally(() => {
@@ -142,28 +180,19 @@ export default function Home() {
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
+    if (!file) return;
     if (file.type !== "application/json") {
-      toast({
-        title: "Erro ao carregar arquivo",
-        description: "Por favor, selecione um arquivo JSON.",
-        variant: "destructive",
-      });
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      toast({ title: "Erro ao carregar arquivo", description: "Por favor, selecione um arquivo JSON.", variant: "destructive" });
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-
     setIsLoading(true);
     setLoadingMessage("Processando arquivo JSON...");
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
-
+    setApiSearchPerformed(false);
+    setProcessCreationInfo(null);
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -174,40 +203,23 @@ export default function Home() {
           if (jsonData && jsonData.Andamentos && Array.isArray(jsonData.Andamentos) && jsonData.Info) {
             setRawProcessData(jsonData as ProcessoData);
             setProcessoNumeroInput(jsonData.Info?.NumeroProcesso || processoNumeroInput || "");
-            toast({
-              title: "Sucesso!",
-              description: `Arquivo JSON "${file.name}" carregado e processado.`,
-            });
+            toast({ title: "Sucesso!", description: `Arquivo JSON "${file.name}" carregado e processado.` });
           } else {
             throw new Error("Formato JSON inválido. Estrutura esperada (Info, Andamentos) não encontrada.");
           }
         }
       } catch (error) {
-        console.error("Error parsing JSON:", error);
-        setRawProcessData(null);
-        setOpenUnitsInProcess(null);
-        toast({
-          title: "Erro ao processar JSON",
-          description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.",
-          variant: "destructive",
-        });
+        setRawProcessData(null); setOpenUnitsInProcess(null);
+        toast({ title: "Erro ao processar JSON", description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.", variant: "destructive" });
       } finally {
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
+        if (fileInputRef.current) fileInputRef.current.value = "";
         setIsLoading(false);
       }
     };
     reader.onerror = () => {
-      toast({
-        title: "Erro ao ler arquivo",
-        description: "Não foi possível ler o arquivo selecionado.",
-        variant: "destructive",
-      });
-       if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-       setIsLoading(false);
+      toast({ title: "Erro ao ler arquivo", description: "Não foi possível ler o arquivo selecionado.", variant: "destructive" });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setIsLoading(false);
     };
     reader.readAsText(file);
   };
@@ -218,25 +230,16 @@ export default function Home() {
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
+    setApiSearchPerformed(false);
+    setProcessCreationInfo(null);
 
      const sampleDataWithInfo: ProcessoData = {
-      Info: {
-        ...sampleProcessFlowData.Info,
-        Pagina: sampleProcessFlowData.Info?.Pagina || 1,
-        TotalPaginas: sampleProcessFlowData.Info?.TotalPaginas || 1,
-        QuantidadeItens: sampleProcessFlowData.Andamentos.length,
-        TotalItens: sampleProcessFlowData.Info?.TotalItens || sampleProcessFlowData.Andamentos.length,
-        NumeroProcesso: sampleProcessFlowData.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)",
-      },
+      Info: { ...sampleProcessFlowData.Info, Pagina: sampleProcessFlowData.Info?.Pagina || 1, TotalPaginas: sampleProcessFlowData.Info?.TotalPaginas || 1, QuantidadeItens: sampleProcessFlowData.Andamentos.length, TotalItens: sampleProcessFlowData.Info?.TotalItens || sampleProcessFlowData.Andamentos.length, NumeroProcesso: sampleProcessFlowData.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)" },
       Andamentos: sampleProcessFlowData.Andamentos,
     };
     setRawProcessData(sampleDataWithInfo);
     setProcessoNumeroInput(sampleDataWithInfo.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)");
-
-    toast({
-        title: "Dados de exemplo carregados",
-        description: "Visualizando o fluxograma de exemplo.",
-    });
+    toast({ title: "Dados de exemplo carregados", description: "Visualizando o fluxograma de exemplo." });
     setIsLoading(false);
   };
 
@@ -254,13 +257,15 @@ export default function Home() {
       return;
     }
 
-    console.log(`[UI] Iniciando busca SEI com: Processo='${processoNumeroInput}', Unidade='${selectedUnidadeFiltro}'`);
     setLoadingMessage("Buscando dados do processo e resumo...");
     setIsLoading(true);
-    setIsLoadingSummary(true); 
+    setIsLoadingSummary(true);
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
+    setApiSearchPerformed(true); // Mark that API search was initiated
+    setProcessCreationInfo(null);
+
 
     try {
       const [processDataResult, summaryResult] = await Promise.all([
@@ -268,434 +273,297 @@ export default function Home() {
         fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
       ]);
 
-      // Handle Process Data Result
       if ('error' in processDataResult && typeof processDataResult.error === 'string') {
         let errorTitle = "Erro ao buscar dados do processo";
         let errorDescription = processDataResult.error;
-
-        if (processDataResult.status === 422) {
-          errorTitle = "Erro de Validação dos Dados (422)";
-          errorDescription = `A API não pôde processar os dados fornecidos. Verifique se o 'Número do Processo' (ex: 00002.001000/2024-92) e a 'Unidade' selecionada são corretos e são válidos para esta consulta.`;
-        } else if (processDataResult.status === 404) {
-          errorTitle = "Processo Não Encontrado (404)";
-          errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro} para o número ${processoNumeroInput}, ou o processo não possui andamentos registrados nessa unidade. Verifique os dados e tente novamente.`;
-        } else if (processDataResult.status === 401) {
-          errorTitle = "Falha na Autenticação com a API SEI (401)";
-          errorDescription = `Não foi possível autenticar com o servidor SEI. Verifique se as credenciais estão corretas e tente fazer login novamente.`;
-          handleLogout(); 
-        } else if (processDataResult.status === 500) {
-            errorTitle = "Erro Interno no Servidor da API SEI (500)";
-            errorDescription = `O servidor da API SEI encontrou um problema. Tente novamente mais tarde.`;
-        } else if (processDataResult.status) {
-             errorDescription = `Erro ${processDataResult.status}: ${processDataResult.error || 'Desconhecido'}`;
-        }
-        if (processDataResult.details) {
-            try {
-                const detailsString = typeof processDataResult.details === 'string' ? processDataResult.details : JSON.stringify(processDataResult.details);
-                if (detailsString && detailsString !== '{}' && detailsString.length < 250) {
-                    errorDescription += ` Detalhes: ${detailsString}`;
-                } else if (detailsString.length >= 250) {
-                    errorDescription += ` Detalhes da API muito longos para exibição.`;
-                }
-            } catch (e) { /* erro ao formatar detalhes */ }
-        }
+        if (processDataResult.status === 422) { errorTitle = "Erro de Validação (422)"; errorDescription = `Verifique o 'Número do Processo' e 'Unidade'.`; }
+        else if (processDataResult.status === 404) { errorTitle = "Processo Não Encontrado (404)"; errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro}.`; }
+        else if (processDataResult.status === 401) { errorTitle = "Falha na Autenticação (401)"; errorDescription = `Credenciais inválidas. Faça login novamente.`; handleLogout(); }
+        else if (processDataResult.status === 500) { errorTitle = "Erro Interno no Servidor SEI (500)"; errorDescription = `Tente novamente mais tarde.`;}
         toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
         setRawProcessData(null);
+        setApiSearchPerformed(false);
       } else if (!('error' in processDataResult) && processDataResult.Andamentos && Array.isArray(processDataResult.Andamentos)) {
         setRawProcessData(processDataResult);
-        toast({ title: "Dados do Processo Carregados", description: `Total ${processDataResult.Andamentos.length} andamentos carregados da API.` });
-      } else if (!('error' in processDataResult)) {
-        console.error("[UI] Resposta da API SEI (andamentos) bem-sucedida, mas 'Andamentos' está ausente ou não é um array:", processDataResult);
-        toast({ title: "Dados Incompletos (Andamentos)", description: "A API retornou uma resposta, mas não contém os andamentos esperados.", variant: "destructive", duration: 7000 });
-        setRawProcessData(null);
+        toast({ title: "Dados do Processo Carregados", description: `Total ${processDataResult.Andamentos.length} andamentos carregados.` });
       } else {
-        console.error("[UI] Resposta inesperada da API SEI (andamentos):", processDataResult);
-        toast({ title: "Erro Desconhecido (Andamentos)", description: "A API retornou uma resposta inesperada ao buscar andamentos.", variant: "destructive" });
+        toast({ title: "Erro Desconhecido (Andamentos)", description: "Resposta inesperada ao buscar andamentos.", variant: "destructive" });
         setRawProcessData(null);
+        setApiSearchPerformed(false);
       }
 
-      // Handle Summary Result
       if ('error' in summaryResult) {
-        let description = summaryResult.error;
-        if (summaryResult.error.toLowerCase().includes("failed to fetch") || summaryResult.error.toLowerCase().includes("load failed")) {
-           description = `Não foi possível conectar à API de resumo. Verifique o serviço e CORS. Detalhes: ${summaryResult.details || summaryResult.error}`;
-        } else if (summaryResult.details && typeof summaryResult.details === 'string' && summaryResult.details.length > 0 && summaryResult.details.length < 150 && summaryResult.details !== '{}') {
-           description += ` Detalhes: ${summaryResult.details}`;
-        }
-        toast({ title: "Erro ao Gerar Resumo do Processo", description: description, variant: "destructive", duration: 9000 });
+        toast({ title: "Erro ao Gerar Resumo", description: summaryResult.error, variant: "destructive", duration: 9000 });
         setProcessSummary(null);
       } else {
-        const cleanedSummary = summaryResult.summary.replace(/[#*]/g, '');
-        setProcessSummary(cleanedSummary);
-        toast({ title: "Resumo do Processo Gerado", description: "O resumo do processo foi carregado com sucesso." });
+        setProcessSummary(summaryResult.summary.replace(/[#*]/g, ''));
+        toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
       }
 
     } catch (error) {
-      console.error("[UI] Erro inesperado ao buscar dados do processo e/ou resumo:", error);
-      let errorMessage = "Ocorreu um erro inesperado ao tentar buscar os dados e/ou resumo.";
-      if (error instanceof Error) {
-        errorMessage += ` Detalhes: ${error.message}`;
-      }
-      toast({ title: "Erro Inesperado na Aplicação", description: errorMessage, variant: "destructive", duration: 7000 });
-      setRawProcessData(null);
-      setProcessSummary(null);
+      toast({ title: "Erro Inesperado", description: error instanceof Error ? error.message : "Erro ao buscar dados.", variant: "destructive", duration: 7000 });
+      setRawProcessData(null); setProcessSummary(null); setApiSearchPerformed(false);
     } finally {
-      setLoadingMessage("Processando dados..."); 
-      setIsLoading(false);
-      setIsLoadingSummary(false);
+      setLoadingMessage("Processando dados..."); setIsLoading(false); setIsLoadingSummary(false);
     }
   };
 
 
   const onLoginSubmit: SubmitHandler<LoginFormValues> = async (data) => {
-    setIsLoggingIn(true);
-    setLoginError(null);
-    console.log("[UI] onLoginSubmit - Iniciando login com dados:", data);
+    setIsLoggingIn(true); setLoginError(null);
     try {
       const response = await loginToSEI(data);
-      console.log("[UI] onLoginSubmit - Resposta da action loginToSEI:", response);
-
       if (response.success && response.token) {
-        setLoginCredentials(data);
-        setIsAuthenticated(true);
-        
+        setLoginCredentials(data); setIsAuthenticated(true);
         const unidadesRecebidas = response.unidades || [];
-        console.log("[UI] onLoginSubmit - Unidades recebidas da action:", unidadesRecebidas);
         setUnidadesFiltroList(unidadesRecebidas);
-        console.log("[UI] onLoginSubmit - Estado unidadesFiltroList definido com:", unidadesRecebidas);
-
-
-        if (unidadesRecebidas.length > 0) {
-          toast({
-            title: "Login bem-sucedido!",
-            description: `${unidadesRecebidas.length} unidades carregadas.`,
-          });
-        } else {
-          toast({
-            title: "Login Bem-sucedido",
-            description: "Nenhuma unidade de acesso foi retornada para seleção. Verifique suas permissões ou a configuração da API.",
-            variant: "default",
-            duration: 7000,
-          });
-        }
-        setSelectedUnidadeFiltro(undefined); 
-        setIsLoginDialogOpen(false);
-        methods.reset();
+        if (unidadesRecebidas.length > 0) toast({ title: "Login bem-sucedido!", description: `${unidadesRecebidas.length} unidades carregadas.` });
+        else toast({ title: "Login Bem-sucedido", description: "Nenhuma unidade de acesso retornada.", variant: "default", duration: 7000 });
+        setSelectedUnidadeFiltro(undefined); setIsLoginDialogOpen(false); methods.reset();
       } else {
-        setLoginError(response.error || "Falha no login. Verifique suas credenciais.");
+        setLoginError(response.error || "Falha no login.");
         toast({ title: "Erro de Login", description: response.error || "Falha no login.", variant: "destructive" });
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Erro desconhecido durante o login.";
+      const errorMsg = err instanceof Error ? err.message : "Erro desconhecido.";
       setLoginError(errorMsg);
       toast({ title: "Erro de Login", description: errorMsg, variant: "destructive" });
-      console.error("[UI] onLoginSubmit - Erro no catch:", err);
     } finally {
       setIsLoggingIn(false);
     }
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setLoginCredentials(null);
-    setUnidadesFiltroList([]);
-    setSelectedUnidadeFiltro(undefined);
-    setRawProcessData(null);
-    setOpenUnitsInProcess(null);
-    setProcessSummary(null);
+    setIsAuthenticated(false); setLoginCredentials(null); setUnidadesFiltroList([]); setSelectedUnidadeFiltro(undefined);
+    setRawProcessData(null); setOpenUnitsInProcess(null); setProcessSummary(null); setApiSearchPerformed(false); setProcessCreationInfo(null);
     toast({ title: "Logout realizado." });
   };
 
-
-  const handleTaskCardClick = (task: ProcessedAndamento) => {
-    setTaskToScrollTo(task);
-  };
-
-  const handleScrollToFirstTask = () => {
-    if (processedFlowData && processedFlowData.tasks.length > 0) {
-      setTaskToScrollTo(processedFlowData.tasks[0]);
-    }
-  };
-
-  const handleScrollToLastTask = () => {
-    if (processedFlowData && processedFlowData.tasks.length > 0) {
-      setTaskToScrollTo(processedFlowData.tasks[processedFlowData.tasks.length - 1]);
-    }
-  };
-
+  const handleTaskCardClick = (task: ProcessedAndamento) => setTaskToScrollTo(task);
+  const handleScrollToFirstTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[0]); };
+  const handleScrollToLastTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[processedFlowData.tasks.length - 1]); };
   const inputRef = React.createRef<HTMLInputElement>();
 
-
   return (
-    <main className="min-h-screen flex flex-col bg-background">
-      <header className="p-4 border-b border-border shadow-sm">
-        <div className="container mx-auto flex items-center justify-between max-w-full">
-          <div className="flex items-center space-x-3">
-            <Image
-              src="/logo-sead.png"
-              alt="Logo SEAD Piauí"
-              width={160}
-              height={60}
-              priority
-              data-ai-hint="logo government"
-            />
-            <h1 className="text-xl font-semibold" style={{ color: '#107527' }}>
-              Visualizador de Processos
-            </h1>
-            <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Beta</span>
+    <SidebarProvider defaultOpen={true} style={{ "--sidebar-width": "20rem" }}>
+      <main className="min-h-screen flex flex-col bg-background">
+        <header className="p-2 border-b border-border shadow-sm sticky top-0 z-40 bg-background">
+          <div className="container mx-auto flex items-center justify-start max-w-full">
+            <Image src="/logo-sead.png" alt="Logo SEAD Piauí" width={120} height={45} priority data-ai-hint="logo government" />
           </div>
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2">
+        </header>
+
+        {/* Main Control Bar */}
+        <div className="p-3 border-b border-border shadow-sm sticky top-[61px] z-30 bg-card">
+          <div className="container mx-auto flex flex-wrap items-center justify-between gap-3 max-w-full">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="mr-1 md:hidden"> <Menu className="h-5 w-5" /> </SidebarTrigger>
+              <h1 className="text-lg font-semibold" style={{ color: '#107527' }}>Visualizador de Processos</h1>
+              <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Beta</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
               <Input
                 type="text"
                 placeholder="Número do Processo..."
-                className="h-9 text-sm w-48"
+                className="h-9 text-sm w-44"
                 value={processoNumeroInput}
                 onChange={(e) => setProcessoNumeroInput(e.target.value)}
                 disabled={isLoading || isLoadingSummary || !isAuthenticated}
                 ref={inputRef}
               />
-               <Select
-                  value={selectedUnidadeFiltro}
-                  onValueChange={setSelectedUnidadeFiltro}
-                  disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
-                >
-                <SelectTrigger className="h-9 text-sm w-[200px]">
-                  <SelectValue placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Filtrar por Unidade" : "Nenhuma unidade disponível") : "Faça login para unidades"} />
+              <Select
+                value={selectedUnidadeFiltro}
+                onValueChange={setSelectedUnidadeFiltro}
+                disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
+              >
+                <SelectTrigger className="h-9 text-sm w-[180px]">
+                  <SelectValue placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Filtrar Unidade" : "Nenhuma unidade") : "Login para unidades"} />
                 </SelectTrigger>
                 <SelectContent>
                   {unidadesFiltroList.map((unidade) => (
-                    <SelectItem key={unidade.Id} value={unidade.Id}>
-                      {unidade.Sigla} ({unidade.Descricao.substring(0,25)}...)
-                    </SelectItem>
+                    <SelectItem key={unidade.Id} value={unidade.Id}>{unidade.Sigla} ({unidade.Descricao.substring(0,20)}...)</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSearchClick}
-                disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro || !isAuthenticated}
-              >
-                {(isLoading || isLoadingSummary) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                {(isLoading || isLoadingSummary) ? "Pesquisando..." : "Pesquisar"}
+              <Button variant="outline" size="sm" onClick={handleSearchClick} disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro || !isAuthenticated}>
+                {(isLoading || isLoadingSummary) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />} Pesquisar
               </Button>
+              <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
+                <Upload className="mr-2 h-4 w-4" /> JSON
+              </Button>
+              <div className="flex items-center space-x-2">
+                <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading || isLoadingSummary} />
+                <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
+              </div>
             </div>
-            <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
-              <Upload className="mr-2 h-4 w-4" />
-              Carregar JSON
-            </Button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              accept="application/json"
-            />
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="summarize-graph"
-                checked={isSummarizedView}
-                onCheckedChange={setIsSummarizedView}
-                disabled={!rawProcessData || isLoading || isLoadingSummary}
-              />
-              <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Versão Resumida</Label>
-            </div>
-            {isAuthenticated ? (
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" onClick={() => setIsLoginDialogOpen(true)}>
-                <LogIn className="mr-2 h-4 w-4" />
-                Login
-              </Button>
-            )}
-            <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-              <Sparkles className="h-4 w-4 text-accent" />
-              <span>IA potencializada pelo SoberaniA</span>
+
+            <div className="flex items-center gap-2">
+               {isAuthenticated ? (
+                <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
+              ) : (
+                <Button variant="default" size="sm" onClick={() => setIsLoginDialogOpen(true)}> <LogIn className="mr-2 h-4 w-4" /> Login </Button>
+              )}
+              <div className="hidden md:flex items-center space-x-1 text-xs text-muted-foreground">
+                <Sparkles className="h-4 w-4 text-accent" />
+                <span>IA por SoberaniA</span>
+              </div>
             </div>
           </div>
         </div>
-      </header>
 
-      <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Login SEI</DialogTitle>
-            <DialogDescription>
-              Forneça suas credenciais para acessar a API SEI.
-            </DialogDescription>
-          </DialogHeader>
-          <FormProvider {...methods}>
-            <form onSubmit={handleSubmit(onLoginSubmit)} className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="usuario" className="text-right">
-                  Usuário
-                </Label>
-                <Input
-                  id="usuario"
-                  {...register("usuario")}
-                  className="col-span-3"
-                  disabled={isLoggingIn}
-                />
-                {errors.usuario && <p className="col-span-4 text-destructive text-xs text-right">{errors.usuario.message}</p>}
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="senha" className="text-right">
-                  Senha
-                </Label>
-                <Input
-                  id="senha"
-                  type="password"
-                  {...register("senha")}
-                  className="col-span-3"
-                  disabled={isLoggingIn}
-                />
-                {errors.senha && <p className="col-span-4 text-destructive text-xs text-right">{errors.senha.message}</p>}
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="orgao" className="text-right">
-                  Orgão
-                </Label>
-                <Input
-                  id="orgao"
-                  {...register("orgao")}
-                  className="col-span-3"
-                  disabled={isLoggingIn}
-                />
-                {errors.orgao && <p className="col-span-4 text-destructive text-xs text-right">{errors.orgao.message}</p>}
-              </div>
-              {loginError && <p className="text-destructive text-sm text-center col-span-4">{loginError}</p>}
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button type="button" variant="outline" disabled={isLoggingIn}>
-                    Cancelar
-                  </Button>
-                </DialogClose>
-                <Button type="submit" disabled={isLoggingIn}>
-                  {isLoggingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Entrar
-                </Button>
-              </DialogFooter>
-            </form>
-          </FormProvider>
-        </DialogContent>
-      </Dialog>
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar side="left" variant="sidebar" collapsible="icon">
+            <SidebarContent className="p-0"> {/* Remove padding from content if sidebar itself adds it */}
+              <ProcessMetadataSidebar
+                processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
+                processNumberPlaceholder="Nenhum processo carregado"
+                openUnitsInProcess={openUnitsInProcess}
+                isLoadingOpenUnits={isLoadingOpenUnits}
+                processedFlowData={processedFlowData}
+                onTaskCardClick={handleTaskCardClick}
+              />
+            </SidebarContent>
+          </Sidebar>
 
-      { (isLoadingSummary || processSummary) && (
-        <section className="container mx-auto max-w-full p-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <BookText className="mr-2 h-5 w-5 text-primary" />
-                Resumo do Processo {processoNumeroInput ? `(${processoNumeroInput})` : ''}
-              </CardTitle>
-              <CardDescription>
-                Este é um resumo gerado por IA sobre o processo.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col flex-shrink-0"> 
-              {isLoadingSummary && !processSummary && ( 
-                <div className="flex items-center justify-center p-6">
-                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                  <p className="ml-3 text-muted-foreground">Gerando resumo do processo...</p>
-                </div>
+          <SidebarInset className="flex-1 flex flex-col overflow-y-auto"> {/* Main content area */}
+            <div className="container mx-auto max-w-full p-4 space-y-6">
+              {apiSearchPerformed && rawProcessData && (processCreationInfo || processSummary) && (
+                <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
+                  <AccordionItem value="item-1">
+                    <AccordionTrigger className="text-base font-semibold hover:no-underline">
+                      Informações do Processo e Resumo AI
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-2">
+                      <div className="space-y-4">
+                        {processCreationInfo && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg flex items-center">
+                                <FileText className="mr-2 h-5 w-5 text-primary" /> Detalhes do Processo
+                              </CardTitle>
+                              <CardDescription>Número: {rawProcessData.Info?.NumeroProcesso || processoNumeroInput}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-2 text-sm">
+                              <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Unidade Criadora: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
+                              <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário Criador: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
+                              <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data de Criação: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
+                              <div className="flex items-center"><CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />Tempo Desde Criação: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
+                            </CardContent>
+                          </Card>
+                        )}
+                        {(isLoadingSummary || processSummary) && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg flex items-center">
+                                <BookText className="mr-2 h-5 w-5 text-primary" /> Resumo IA do Processo
+                              </CardTitle>
+                              <CardDescription>Este é um resumo gerado por IA sobre o processo.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex flex-col flex-shrink-0">
+                              {isLoadingSummary && !processSummary && (
+                                <div className="flex items-center justify-center p-6"><Loader2 className="h-8 w-8 text-primary animate-spin" /><p className="ml-3 text-muted-foreground">Gerando resumo...</p></div>
+                              )}
+                              {processSummary && (
+                                <ScrollArea className="max-h-[200px] rounded-md border flex-shrink-0"><div className="p-4"><pre className="text-sm whitespace-pre-wrap break-words font-sans">{processSummary}</pre></div></ScrollArea>
+                              )}
+                              {!processSummary && !isLoadingSummary && (
+                                <div className="flex items-center justify-center p-6 text-muted-foreground"><Info className="mr-2 h-5 w-5" />Nenhum resumo disponível.</div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               )}
-              {processSummary && ( 
-                 <ScrollArea className="max-h-[300px] rounded-md border flex-shrink-0"> 
-                   <div className="p-4">
-                    <pre className="text-sm whitespace-pre-wrap break-words font-sans">
-                      {processSummary}
-                    </pre>
+
+              {/* Process Flow Diagram Area */}
+              <div className="flex-1 flex flex-col overflow-hidden min-h-[500px]"> {/* Ensure this takes up space */}
+                {isLoading && !loadingMessage.includes("API SEI") && !loadingMessage.includes("resumo") ? (
+                  <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+                    <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
+                    <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
+                    <p className="text-muted-foreground max-w-md">Por favor, aguarde. Os dados estão sendo preparados.</p>
                   </div>
-                </ScrollArea>
-              )}
-              {!processSummary && !isLoadingSummary && (
-                <div className="flex items-center justify-center p-6 text-muted-foreground">
-                    <Info className="mr-2 h-5 w-5" />
-                    Nenhum resumo de processo disponível. Clique em "Pesquisar" para gerar.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-      )}
-
-      <div className="flex flex-1 overflow-hidden">
-        <ProcessMetadataSidebar
-          processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
-          processNumberPlaceholder="Nenhum processo carregado"
-          openUnitsInProcess={openUnitsInProcess}
-          isLoadingOpenUnits={isLoadingOpenUnits}
-          processedFlowData={processedFlowData}
-          onTaskCardClick={handleTaskCardClick}
-        />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {isLoading && !loadingMessage.includes("API SEI") && !loadingMessage.includes("resumo") ? ( 
-            <div className="flex flex-col items-center justify-center h-full p-10 text-center">
-              <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">
-                {loadingMessage}
-              </h2>
-              <p className="text-muted-foreground max-w-md">
-                Por favor, aguarde. Os dados estão sendo preparados para visualização.
-              </p>
-            </div>
-          ) : processedFlowData ? (
-            <ProcessFlowClient
-              processedFlowData={processedFlowData}
-              taskToScrollTo={taskToScrollTo}
-              onScrollToFirstTask={handleScrollToFirstTask}
-              onScrollToLastTask={handleScrollToLastTask}
-              loginCredentials={loginCredentials}
-              isAuthenticated={isAuthenticated}
-            />
-          ) : isLoading || isLoadingSummary ? ( 
-             <div className="flex flex-col items-center justify-center h-full p-10 text-center">
-              <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">
-                {loadingMessage}
-              </h2>
-              <p className="text-muted-foreground max-w-md">
-                Por favor, aguarde. A consulta à API SEI e/ou API de resumo pode levar alguns instantes.
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full p-10 text-center">
-              <FileJson className="h-20 w-20 text-muted-foreground/50 mb-6" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">
-                {isAuthenticated ? "Nenhum processo carregado" : "Autenticação Necessária"}
-              </h2>
-              <p className="text-muted-foreground mb-6 max-w-md">
-                {isAuthenticated
-                  ? 'Para iniciar, insira o número do processo, selecione a unidade e clique em "Pesquisar", clique em "Carregar JSON" para selecionar um arquivo do seu computador, ou carregue os dados de exemplo.'
-                  : "Por favor, faça login para pesquisar processos ou carregar dados da API SEI."
-                }
-              </p>
-              <div className="flex space-x-4">
-                <Button onClick={loadSampleData} variant="secondary" disabled={isLoading || isLoadingSummary}>
-                  Usar Dados de Exemplo
-                </Button>
-                 {!isAuthenticated && (
-                  <Button onClick={() => setIsLoginDialogOpen(true)} variant="default">
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Login SEI
-                  </Button>
+                ) : processedFlowData ? (
+                  <ProcessFlowClient
+                    processedFlowData={processedFlowData}
+                    taskToScrollTo={taskToScrollTo}
+                    onScrollToFirstTask={handleScrollToFirstTask}
+                    onScrollToLastTask={handleScrollToLastTask}
+                    loginCredentials={loginCredentials}
+                    isAuthenticated={isAuthenticated}
+                  />
+                ) : isLoading || isLoadingSummary ? (
+                  <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+                    <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
+                    <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
+                    <p className="text-muted-foreground max-w-md">Aguarde, consulta à API SEI e/ou resumo em andamento.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+                    <FileJson className="h-24 w-24 text-muted-foreground/40 mb-8" />
+                    <h2 className="text-2xl font-semibold text-foreground mb-3">
+                      {isAuthenticated ? "Nenhum processo carregado" : "Autenticação Necessária"}
+                    </h2>
+                    <p className="text-muted-foreground mb-8 max-w-md">
+                      {isAuthenticated
+                        ? 'Para iniciar, insira o número do processo, selecione a unidade e clique em "Pesquisar", ou carregue um arquivo JSON/dados de exemplo.'
+                        : "Por favor, faça login para pesquisar processos ou carregar dados da API SEI."
+                      }
+                    </p>
+                    <div className="flex space-x-4">
+                      <Button onClick={loadSampleData} variant="secondary" disabled={isLoading || isLoadingSummary}>Usar Dados de Exemplo</Button>
+                      {!isAuthenticated && (
+                        <Button onClick={() => setIsLoginDialogOpen(true)} variant="default"><LogIn className="mr-2 h-4 w-4" />Login SEI</Button>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
-          )}
-        </div>
-      </div>
+            </div> {/* End of container for accordion and diagram */}
+          </SidebarInset> {/* End of Main content area */}
+        </div> {/* End of flex container for sidebar and main content */}
 
-      <footer className="p-3 border-t border-border text-center text-xs text-muted-foreground">
-        © {currentYear !== null ? currentYear : new Date().getFullYear()} Visualizador de Processos. Todos os direitos reservados.
-        <p className="text-xs text-muted-foreground/80 mt-1">
-          Nota: Para fins de prototipagem, as credenciais de login são armazenadas temporariamente no estado do cliente. Em produção, utilize métodos de autenticação mais seguros.
-        </p>
-      </footer>
-    </main>
+        <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader><DialogTitle>Login SEI</DialogTitle><DialogDescription>Forneça suas credenciais para acessar a API SEI.</DialogDescription></DialogHeader>
+            <FormProvider {...methods}>
+              <form onSubmit={handleSubmit(onLoginSubmit)} className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="usuario" className="text-right">Usuário</Label>
+                  <Input id="usuario" {...register("usuario")} className="col-span-3" disabled={isLoggingIn} />
+                  {errors.usuario && <p className="col-span-4 text-destructive text-xs text-right">{errors.usuario.message}</p>}
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="senha" className="text-right">Senha</Label>
+                  <Input id="senha" type="password" {...register("senha")} className="col-span-3" disabled={isLoggingIn} />
+                  {errors.senha && <p className="col-span-4 text-destructive text-xs text-right">{errors.senha.message}</p>}
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="orgao" className="text-right">Orgão</Label>
+                  <Input id="orgao" {...register("orgao")} className="col-span-3" disabled={isLoggingIn} />
+                  {errors.orgao && <p className="col-span-4 text-destructive text-xs text-right">{errors.orgao.message}</p>}
+                </div>
+                {loginError && <p className="text-destructive text-sm text-center col-span-4">{loginError}</p>}
+                <DialogFooter>
+                  <DialogClose asChild><Button type="button" variant="outline" disabled={isLoggingIn}>Cancelar</Button></DialogClose>
+                  <Button type="submit" disabled={isLoggingIn}>{isLoggingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Entrar</Button>
+                </DialogFooter>
+              </form>
+            </FormProvider>
+          </DialogContent>
+        </Dialog>
+
+        <footer className="p-3 border-t border-border text-center text-xs text-muted-foreground">
+          © {currentYear !== null ? currentYear : new Date().getFullYear()} Visualizador de Processos. Todos os direitos reservados.
+          <p className="text-xs text-muted-foreground/80 mt-1">
+            Nota: Para fins de prototipagem, as credenciais de login são armazenadas temporariamente no estado do cliente. Em produção, utilize métodos de autenticação mais seguros.
+          </p>
+        </footer>
+      </main>
+    </SidebarProvider>
   );
 }
