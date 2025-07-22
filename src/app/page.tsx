@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials, Andamento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,8 +45,9 @@ import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary,
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { differenceInCalendarDays, formatDistanceToNowStrict } from 'date-fns';
+import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ProcessTimeline } from '@/components/process-flow/ProcessTimeline';
 
 
 const loginSchema = z.object({
@@ -449,8 +450,7 @@ export default function Home() {
         )}
         
         {apiSearchPerformed && rawProcessData ? (
-          <div className="flex flex-1 mt-4 overflow-hidden"> {/* Main two-column container */}
-            {/* Left Column: "Unidades em Aberto" - Manually Collapsible */}
+          <div className="flex flex-1 mt-4 overflow-hidden">
             <div
               className={cn(
                 "transition-all duration-300 ease-in-out border-r bg-card flex flex-col", 
@@ -459,7 +459,7 @@ export default function Home() {
             >
               {isUnitsSidebarOpen && (
                 <ScrollArea className="flex-1">
-                  <Accordion type="single" collapsible defaultValue="open-units" className="w-full">
+                  <Accordion type="multiple" defaultValue={['open-units', 'timeline']} className="w-full">
                     <AccordionItem value="open-units" className="border-b-0">
                       <AccordionTrigger className="text-base font-semibold hover:no-underline px-2 py-3 justify-start sticky top-0 bg-card z-10">
                          <span className="flex items-center">
@@ -477,16 +477,26 @@ export default function Home() {
                         />
                       </AccordionContent>
                     </AccordionItem>
+                     <AccordionItem value="timeline" className="border-b-0">
+                      <AccordionTrigger className="text-base font-semibold hover:no-underline px-2 py-3 justify-start sticky top-0 bg-card z-10">
+                         <span className="flex items-center">
+                           <GanttChartSquare className="mr-2 h-5 w-5 text-muted-foreground" />
+                           Linha do Tempo do Processo
+                         </span>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-0 pl-2 pr-2 pb-2">
+                        <ProcessTimeline tasks={processedFlowData?.tasks ?? []} />
+                      </AccordionContent>
+                    </AccordionItem>
                   </Accordion>
                 </ScrollArea>
               )}
             </div>
 
-            {/* Right Column: Diagram Area */}
             <div className="flex-1 flex flex-col p-4 overflow-hidden">
               {apiSearchPerformed && rawProcessData && (
                 <div className="flex justify-end space-x-2 mb-2">
-                  <Button variant="outline" size="sm" onClick={() => setIsUnitsSidebarOpen(!isUnitsSidebarOpen)} aria-label={isUnitsSidebarOpen ? "Fechar painel de unidades" : "Abrir painel de unidades"}>
+                  <Button variant="outline" size="sm" onClick={() => setIsUnitsSidebarOpen(!isUnitsSidebarOpen)} aria-label={isUnitsSidebarOpen ? "Fechar painel de metadados" : "Abrir painel de metadados"}>
                     <Menu className="h-4 w-4" />
                   </Button>
                   <Button onClick={handleScrollToFirstTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length} aria-label="Ir para o início do fluxo">
@@ -585,5 +595,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
