@@ -47,8 +47,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ProcessTimeline } from '@/components/process-flow/ProcessTimeline';
-
 
 const loginSchema = z.object({
   usuario: z.string().min(1, "Usuário é obrigatório."),
@@ -459,7 +457,7 @@ export default function Home() {
             >
               {isUnitsSidebarOpen && (
                 <ScrollArea className="flex-1">
-                  <Accordion type="multiple" defaultValue={['open-units', 'timeline']} className="w-full">
+                  <Accordion type="single" collapsible defaultValue="open-units" className="w-full">
                     <AccordionItem value="open-units" className="border-b-0">
                       <AccordionTrigger className="text-base font-semibold hover:no-underline px-2 py-3 justify-start sticky top-0 bg-card z-10">
                          <span className="flex items-center">
@@ -475,17 +473,6 @@ export default function Home() {
                           processedFlowData={processedFlowData}
                           onTaskCardClick={handleTaskCardClick}
                         />
-                      </AccordionContent>
-                    </AccordionItem>
-                     <AccordionItem value="timeline" className="border-b-0">
-                      <AccordionTrigger className="text-base font-semibold hover:no-underline px-2 py-3 justify-start sticky top-0 bg-card z-10">
-                         <span className="flex items-center">
-                           <GanttChartSquare className="mr-2 h-5 w-5 text-muted-foreground" />
-                           Linha do Tempo do Processo
-                         </span>
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-0 pl-2 pr-2 pb-2">
-                        <ProcessTimeline tasks={processedFlowData?.tasks ?? []} />
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>

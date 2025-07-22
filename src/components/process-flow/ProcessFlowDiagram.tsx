@@ -4,11 +4,10 @@
 import type { ProcessedAndamento, Connection, LoginCredentials } from '@/types/process-flow';
 import { TaskNode } from './TaskNode';
 import { TaskDetailsModal } from './TaskDetailsModal';
-// ProcessFlowLegend is no longer imported/used here, dialog is in page.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-// Buttons and icons for diagram controls are removed as they are now in page.tsx
 import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils'; 
+import { ProcessTimelineBar } from './ProcessTimelineBar';
 
 interface ProcessFlowDiagramProps {
   tasks: ProcessedAndamento[];
@@ -17,9 +16,8 @@ interface ProcessFlowDiagramProps {
   svgHeight: number;
   laneMap: Map<string, number>;
   taskToScrollTo?: ProcessedAndamento | null;
-  // onScrollToFirstTask and onScrollToLastTask are removed
-  loginCredentials: LoginCredentials | null; // Still needed for TaskDetailsModal
-  isAuthenticated: boolean; // Still needed for TaskDetailsModal
+  loginCredentials: LoginCredentials | null;
+  isAuthenticated: boolean; 
 }
 
 export function ProcessFlowDiagram({ 
@@ -34,7 +32,6 @@ export function ProcessFlowDiagram({
 }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  // isLegendModalOpen and setIsLegendModalOpen are removed
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -47,7 +44,7 @@ export function ProcessFlowDiagram({
     if (taskToScrollTo && viewportRef.current) {
       const viewport = viewportRef.current;
       const targetScrollLeft = LANE_LABEL_AREA_WIDTH + taskToScrollTo.x - (viewport.offsetWidth / 2);
-      const targetScrollTop = taskToScrollTo.y - (viewport.offsetHeight / 2);
+      const targetScrollTop = taskToScrollTo.y - (viewport.offsetHeight / 2) + 50; // +50px offset to account for timeline bar
 
       viewport.scrollTo({
         left: Math.max(0, targetScrollLeft),
@@ -95,7 +92,7 @@ export function ProcessFlowDiagram({
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     const targetTagName = (e.target as HTMLElement).tagName.toLowerCase();
-    if (viewportRef.current && e.button === 0 && (targetTagName === 'svg' || (targetTagName === 'div' && (e.target as HTMLElement).dataset.diagramRoot))) { 
+    if (viewportRef.current && e.button === 0 && (targetTagName === 'svg' || (e.target as HTMLElement).dataset.diagramRoot)) { 
       setIsDragging(true);
       setDragStart({
         x: e.clientX,
@@ -149,31 +146,34 @@ export function ProcessFlowDiagram({
 
 
   if (tasks.length === 0) {
-    // This case should be handled by page.tsx before rendering this component
     return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir.</p>;
   }
+  
+  const TIMELINE_HEIGHT = 60; // Height of the timeline bar
+  const DIAGRAM_TOP_OFFSET = TIMELINE_HEIGHT + 20; // Give some space below the timeline
 
   return (
     <div className="h-full flex flex-col flex-grow w-full">
-      {/* Control buttons are removed from here and are now in page.tsx */}
       <ScrollArea
-        className="w-full rounded-md border flex-grow bg-card shadow-inner overflow-hidden mt-0" // mt-2 removed
+        className="w-full rounded-md border flex-grow bg-card shadow-inner overflow-hidden"
         viewportRef={viewportRef}
       >
         <div
           data-diagram-root 
           style={{
             width: svgWidth + LANE_LABEL_AREA_WIDTH, 
-            height: svgHeight,
+            height: svgHeight + DIAGRAM_TOP_OFFSET,
             position: 'relative', 
             cursor: 'grab', 
           }}
           onMouseDown={handleMouseDown} 
         >
+          {/* Sticky Lane Labels */}
           <div
             style={{
               position: 'sticky', 
               left: 0,
+              top: DIAGRAM_TOP_OFFSET, // Align with the start of the SVG lanes
               width: `${LANE_LABEL_AREA_WIDTH}px`,
               height: `${svgHeight}px`, 
               zIndex: 10, 
@@ -199,6 +199,21 @@ export function ProcessFlowDiagram({
             ))}
           </div>
 
+          {/* Horizontal Timeline Bar */}
+          <div 
+             style={{
+                position: 'absolute',
+                top: 0,
+                left: `${LANE_LABEL_AREA_WIDTH}px`,
+                width: `${svgWidth}px`,
+                height: `${TIMELINE_HEIGHT}px`,
+                zIndex: 5, // Below node tooltips, above connections
+             }}
+          >
+            <ProcessTimelineBar tasks={tasks} svgWidth={svgWidth} />
+          </div>
+
+          {/* SVG Diagram */}
           <svg
             width={svgWidth} 
             height={svgHeight}
@@ -207,7 +222,7 @@ export function ProcessFlowDiagram({
             style={{
               position: 'absolute', 
               left: `${LANE_LABEL_AREA_WIDTH}px`, 
-              top: 0,
+              top: `${DIAGRAM_TOP_OFFSET}px`, // Position below timeline
               display: 'block', 
             }}
           >
@@ -259,5 +274,3 @@ export function ProcessFlowDiagram({
     </div>
   );
 }
-
-    
