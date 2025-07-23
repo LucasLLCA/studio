@@ -150,7 +150,7 @@ export function ProcessFlowDiagram({
   }
   
   const TOP_PADDING = 20; // Space for the top date labels
-  const TIMELINE_HEIGHT = 60; // Height of the timeline bar
+  const TIMELINE_HEIGHT = 65; // Height of the timeline bar
   const DIAGRAM_TOP_OFFSET = TIMELINE_HEIGHT; // The diagram starts right after the timeline
 
   return (
