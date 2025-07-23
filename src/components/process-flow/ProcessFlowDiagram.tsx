@@ -149,8 +149,9 @@ export function ProcessFlowDiagram({
     return <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir.</p>;
   }
   
+  const TOP_PADDING = 20; // Space for the top date labels
   const TIMELINE_HEIGHT = 60; // Height of the timeline bar
-  const DIAGRAM_TOP_OFFSET = TIMELINE_HEIGHT + 20; // Give some space below the timeline
+  const DIAGRAM_TOP_OFFSET = TIMELINE_HEIGHT; // The diagram starts right after the timeline
 
   return (
     <div className="h-full flex flex-col flex-grow w-full">
@@ -162,9 +163,10 @@ export function ProcessFlowDiagram({
           data-diagram-root 
           style={{
             width: svgWidth + LANE_LABEL_AREA_WIDTH, 
-            height: svgHeight + DIAGRAM_TOP_OFFSET,
+            height: svgHeight + DIAGRAM_TOP_OFFSET + TOP_PADDING,
             position: 'relative', 
             cursor: 'grab', 
+            paddingTop: `${TOP_PADDING}px`,
           }}
           onMouseDown={handleMouseDown} 
         >
