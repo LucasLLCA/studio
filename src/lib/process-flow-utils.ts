@@ -4,6 +4,7 @@ import {
   type ProcessedAndamento,
   type Connection,
   type UnidadeAberta,
+  ProcessedFlowData,
 } from '@/types/process-flow';
 import { differenceInDays } from 'date-fns';
 
