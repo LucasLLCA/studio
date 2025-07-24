@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  output: 'standalone', // <-- essa linha habilita a build standalone
 };
 
 export default nextConfig;
