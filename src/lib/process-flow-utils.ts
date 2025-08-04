@@ -190,7 +190,10 @@ export function processAndamentos(
       const lastActionInCurrentLane = latestTaskInLane.get(currentTask.Unidade.IdUnidade);
       if (lastActionInCurrentLane) { 
           if(lastActionInCurrentLane.IdAndamento !== currentTask.IdAndamento || lastActionInCurrentLane.globalSequence !== currentTask.globalSequence) {
-             connections.push({ sourceTask: lastActionInCurrentLane, targetTask: currentTask });
+             // Do not draw a connection if the last action was an automatic conclusion.
+             if (lastActionInCurrentLane.Tarefa !== 'CONCLUSAO-AUTOMATICA-UNIDADE') {
+                connections.push({ sourceTask: lastActionInCurrentLane, targetTask: currentTask });
+             }
           }
       }
       latestTaskInLane.set(currentTask.Unidade.IdUnidade, currentTask);
@@ -250,4 +253,3 @@ export function processAndamentos(
     processNumber: numeroProcesso,
   };
 }
-
