@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Process Flow Tracker',
-  description: 'Visualize your process flow with AI-powered insights.',
+  title: 'Visualizador de Proccessos',
+  description: '',
 };
 
 export default function RootLayout({
