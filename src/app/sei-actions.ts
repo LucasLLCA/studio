@@ -6,6 +6,14 @@ import type { ProcessoData, ApiError, ProcessSummaryResponse, LoginCredentials, 
 const SEI_API_BASE_URL = process.env.NEXT_PUBLIC_SEI_API_BASE_URL;
 const SUMMARY_API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
 
+export interface HealthCheckResponse {
+  isOnline: boolean;
+  status: 'online' | 'offline' | 'error';
+  responseTime?: number;
+  error?: string;
+  timestamp: Date;
+}
+
 // This function now requires credentials to be passed in.
 async function getAuthToken(credentials: LoginCredentials): Promise<string | ApiError> {
   if (!SEI_API_BASE_URL) {
@@ -439,6 +447,179 @@ export async function fetchProcessSummary(
   }
 }
 
+export async function checkSEIApiHealth(): Promise<HealthCheckResponse> {
+  const startTime = Date.now();
+  const timestamp = new Date();
+
+  if (!SEI_API_BASE_URL) {
+    return {
+      isOnline: false,
+      status: 'error',
+      error: 'SEI API Base URL não configurada',
+      timestamp
+    };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    // Usar um endpoint simples que não requer autenticação para verificar se a API está respondendo
+    const response = await fetch(`${SEI_API_BASE_URL}/`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    
+    clearTimeout(timeoutId);
+    const responseTime = Date.now() - startTime;
+
+    // A API está online se responder com qualquer status HTTP (mesmo 404 ou 401)
+    // O que importa é que ela está respondendo
+    if (response.status < 500) {
+      return {
+        isOnline: true,
+        status: 'online',
+        responseTime,
+        timestamp
+      };
+    } else {
+      return {
+        isOnline: false,
+        status: 'offline',
+        responseTime,
+        error: `Erro do servidor: HTTP ${response.status}`,
+        timestamp
+      };
+    }
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return {
+          isOnline: false,
+          status: 'offline',
+          responseTime,
+          error: 'Timeout: API não respondeu em 5 segundos',
+          timestamp
+        };
+      }
+      
+      return {
+        isOnline: false,
+        status: 'error',
+        responseTime,
+        error: error.message,
+        timestamp
+      };
+    }
+    
+    return {
+      isOnline: false,
+      status: 'error',
+      responseTime,
+      error: 'Erro desconhecido ao verificar API',
+      timestamp
+    };
+  }
+}
+
+export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
+  const startTime = Date.now();
+  const timestamp = new Date();
+
+  if (!SUMMARY_API_BASE_URL) {
+    return {
+      isOnline: false,
+      status: 'error',
+      error: 'Summary API Base URL não configurada',
+      timestamp
+    };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    // Tentar o endpoint /health primeiro, se não existir, tentar a raiz
+    let response;
+    try {
+      response = await fetch(`${SUMMARY_API_BASE_URL}/health`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+    } catch (e) {
+      // Se /health falhar, tentar a raiz da API
+      response = await fetch(`${SUMMARY_API_BASE_URL}/`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+    }
+    
+    clearTimeout(timeoutId);
+    const responseTime = Date.now() - startTime;
+
+    if (response.status < 500) {
+      return {
+        isOnline: true,
+        status: 'online',
+        responseTime,
+        timestamp
+      };
+    } else {
+      return {
+        isOnline: false,
+        status: 'offline',
+        responseTime,
+        error: `Erro do servidor: HTTP ${response.status}`,
+        timestamp
+      };
+    }
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return {
+          isOnline: false,
+          status: 'offline',
+          responseTime,
+          error: 'Timeout: API não respondeu em 5 segundos',
+          timestamp
+        };
+      }
+      
+      return {
+        isOnline: false,
+        status: 'error',
+        responseTime,
+        error: error.message,
+        timestamp
+      };
+    }
+    
+    return {
+      isOnline: false,
+      status: 'error',
+      responseTime,
+      error: 'Erro desconhecido ao verificar API de resumo',
+      timestamp
+    };
+  }
+}
+
 
 export async function fetchDocumentSummary(
   credentials: LoginCredentials,
@@ -534,7 +715,3 @@ export async function fetchDocumentSummary(
     return { error: errorMessage, details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
-    
-    
-    
-    

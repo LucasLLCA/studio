@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials, Andamento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare, Activity } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, loginToSEI } from './sei-actions';
+import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, loginToSEI, checkSEIApiHealth, checkSummaryApiHealth } from './sei-actions';
+import type { HealthCheckResponse } from './sei-actions';
+import ApiHealthCheck from '@/components/ApiHealthCheck';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -84,6 +86,7 @@ export default function Home() {
 
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
+  const [isApiStatusModalOpen, setIsApiStatusModalOpen] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginCredentials, setLoginCredentials] = useState<LoginCredentials | null>(null);
@@ -400,6 +403,9 @@ export default function Home() {
             <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
               <Upload className="mr-2 h-4 w-4" /> JSON
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsApiStatusModalOpen(true)} title="Status das APIs">
+              <Activity className="h-4 w-4" />
+            </Button>
             {isAuthenticated ? (
               <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
             ) : (
@@ -410,6 +416,8 @@ export default function Home() {
       </div>
       
       <main className="flex-1 flex flex-col overflow-y-auto p-4 w-full">
+        <ApiHealthCheck />
+        
         {apiSearchPerformed && processCreationInfo && (
           <Card className="mb-4">
             <CardHeader className="p-2">
@@ -582,6 +590,18 @@ export default function Home() {
               </DialogFooter>
             </form>
           </FormProvider>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isApiStatusModalOpen} onOpenChange={setIsApiStatusModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Status das APIs</DialogTitle>
+            <DialogDescription>
+              Monitoramento em tempo real da conectividade das APIs.
+            </DialogDescription>
+          </DialogHeader>
+          <ApiHealthCheck showDetails={true} className="border-0 shadow-none p-0" />
         </DialogContent>
       </Dialog>
 
