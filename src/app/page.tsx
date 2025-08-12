@@ -548,22 +548,34 @@ export default function Home() {
           <DialogHeader><DialogTitle>Login SEI</DialogTitle><DialogDescription>Forneça suas credenciais para acessar a API SEI.</DialogDescription></DialogHeader>
           <FormProvider {...methods}>
             <form onSubmit={handleSubmit(onLoginSubmit)} className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="usuario" className="text-right">Usuário</Label>
-                <Input id="usuario" {...register("usuario")} className="col-span-3" disabled={isLoggingIn} />
-                {errors.usuario && <p className="col-span-4 text-destructive text-xs text-right">{errors.usuario.message}</p>}
+              <div className="space-y-1">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="usuario" className="text-right self-start">Usuário</Label>
+                  <div className="col-span-3">
+                    <Input id="usuario" {...register("usuario")} disabled={isLoggingIn} />
+                    {errors.usuario && <p className="text-destructive text-xs mt-1">{errors.usuario.message}</p>}
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="senha" className="text-right">Senha</Label>
-                <Input id="senha" type="password" {...register("senha")} className="col-span-3" disabled={isLoggingIn} />
-                {errors.senha && <p className="col-span-4 text-destructive text-xs text-right">{errors.senha.message}</p>}
+              <div className="space-y-1">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="senha" className="text-right self-start">Senha</Label>
+                  <div className="col-span-3">
+                    <Input id="senha" type="password" {...register("senha")} disabled={isLoggingIn} />
+                    {errors.senha && <p className="text-destructive text-xs mt-1">{errors.senha.message}</p>}
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="orgao" className="text-right">Orgão</Label>
-                <Input id="orgao" {...register("orgao")} className="col-span-3" disabled={isLoggingIn} />
-                {errors.orgao && <p className="col-span-4 text-destructive text-xs text-right">{errors.orgao.message}</p>}
+              <div className="space-y-1">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="orgao" className="text-right self-start">Orgão</Label>
+                  <div className="col-span-3">
+                    <Input id="orgao" {...register("orgao")} disabled={isLoggingIn} />
+                    {errors.orgao && <p className="text-destructive text-xs mt-1">{errors.orgao.message}</p>}
+                  </div>
+                </div>
               </div>
-              {loginError && <p className="text-destructive text-sm text-center col-span-4">{loginError}</p>}
+              {loginError && <p className="text-destructive text-sm text-center">{loginError}</p>}
               <DialogFooter>
                 <DialogClose asChild><Button type="button" variant="outline" disabled={isLoggingIn}>Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={isLoggingIn}>{isLoggingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Entrar</Button>
