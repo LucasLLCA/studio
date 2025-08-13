@@ -102,34 +102,6 @@ const ApiHealthCheck: React.FC<ApiHealthCheckProps> = ({
               )}
             </div>
           </div>
-
-          {lastCheck && (
-            <div className="flex items-center text-xs text-muted-foreground">
-              <Clock className="h-3 w-3 mr-1" />
-              Última verificação: {lastCheck.toLocaleTimeString()}
-            </div>
-          )}
-
-          {(seiApiStatus?.error || summaryApiStatus?.error) && (
-            <div className="space-y-2">
-              {seiApiStatus?.error && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>API SEI:</strong> {seiApiStatus.error}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {summaryApiStatus?.error && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>API Resumo:</strong> {summaryApiStatus.error}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
     );

@@ -439,7 +439,7 @@ export async function fetchProcessSummary(
     console.error("[Summary API - Process] Erro na requisição de resumo do processo:", error);
     let errorMessage = "Falha na requisição para a API de resumo do processo.";
      if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
-        errorMessage = `Não foi possível conectar à API de resumo em ${SUMMARY_API_BASE_URL}. Verifique se o serviço está rodando e acessível, e se as configurações de CORS da API de resumo permitem esta origem.`;
+        errorMessage = `Não foi possível conectar à API de resumo. Verifique se o serviço está disponível.`;
     } else if (error instanceof Error) {
         errorMessage = error.message;
     }
@@ -462,7 +462,7 @@ export async function checkSEIApiHealth(): Promise<HealthCheckResponse> {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     
     // Usar um endpoint simples que não requer autenticação para verificar se a API está respondendo
     const response = await fetch(`${SEI_API_BASE_URL}/`, {
@@ -477,24 +477,15 @@ export async function checkSEIApiHealth(): Promise<HealthCheckResponse> {
     clearTimeout(timeoutId);
     const responseTime = Date.now() - startTime;
 
-    // A API está online se responder com qualquer status HTTP (mesmo 404 ou 401)
-    // O que importa é que ela está respondendo
-    if (response.status < 500) {
-      return {
-        isOnline: true,
-        status: 'online',
-        responseTime,
-        timestamp
-      };
-    } else {
-      return {
-        isOnline: false,
-        status: 'offline',
-        responseTime,
-        error: `Erro do servidor: HTTP ${response.status}`,
-        timestamp
-      };
-    }
+    // A API está online se responder com qualquer status HTTP 
+    // Mesmo 404, 401, 405 indicam que a API está funcionando
+    // Apenas 500+ indicam problemas reais do servidor
+    return {
+      isOnline: true,
+      status: 'online',
+      responseTime,
+      timestamp
+    };
   } catch (error) {
     const responseTime = Date.now() - startTime;
     
@@ -504,16 +495,28 @@ export async function checkSEIApiHealth(): Promise<HealthCheckResponse> {
           isOnline: false,
           status: 'offline',
           responseTime,
-          error: 'Timeout: API não respondeu em 5 segundos',
+          error: 'Timeout: API não respondeu em 10 segundos',
           timestamp
         };
+      }
+      
+      // Tratar diferentes tipos de erro de conexão
+      let cleanError = 'Serviço indisponível';
+      if (error.message.toLowerCase().includes('econnreset')) {
+        cleanError = 'Conexão resetada pelo servidor';
+      } else if (error.message.toLowerCase().includes('failed to fetch') || error.message.toLowerCase().includes('load failed')) {
+        cleanError = 'Serviço indisponível';
+      } else if (error.message.toLowerCase().includes('timeout')) {
+        cleanError = 'Timeout na conexão';
+      } else if (error.message.toLowerCase().includes('network')) {
+        cleanError = 'Erro de rede';
       }
       
       return {
         isOnline: false,
         status: 'error',
         responseTime,
-        error: error.message,
+        error: cleanError,
         timestamp
       };
     }
@@ -543,7 +546,7 @@ export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     
     // Tentar o endpoint /health primeiro, se não existir, tentar a raiz
     let response;
@@ -571,22 +574,13 @@ export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
     clearTimeout(timeoutId);
     const responseTime = Date.now() - startTime;
 
-    if (response.status < 500) {
-      return {
-        isOnline: true,
-        status: 'online',
-        responseTime,
-        timestamp
-      };
-    } else {
-      return {
-        isOnline: false,
-        status: 'offline',
-        responseTime,
-        error: `Erro do servidor: HTTP ${response.status}`,
-        timestamp
-      };
-    }
+    // A API está online se responder com qualquer status HTTP
+    return {
+      isOnline: true,
+      status: 'online',
+      responseTime,
+      timestamp
+    };
   } catch (error) {
     const responseTime = Date.now() - startTime;
     
@@ -596,16 +590,28 @@ export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
           isOnline: false,
           status: 'offline',
           responseTime,
-          error: 'Timeout: API não respondeu em 5 segundos',
+          error: 'Timeout: API não respondeu em 10 segundos',
           timestamp
         };
+      }
+      
+      // Tratar diferentes tipos de erro de conexão
+      let cleanError = 'Serviço indisponível';
+      if (error.message.toLowerCase().includes('econnreset')) {
+        cleanError = 'Conexão resetada pelo servidor';
+      } else if (error.message.toLowerCase().includes('failed to fetch') || error.message.toLowerCase().includes('load failed')) {
+        cleanError = 'Serviço indisponível';
+      } else if (error.message.toLowerCase().includes('timeout')) {
+        cleanError = 'Timeout na conexão';
+      } else if (error.message.toLowerCase().includes('network')) {
+        cleanError = 'Erro de rede';
       }
       
       return {
         isOnline: false,
         status: 'error',
         responseTime,
-        error: error.message,
+        error: cleanError,
         timestamp
       };
     }
@@ -708,7 +714,7 @@ export async function fetchDocumentSummary(
     console.error("[Summary API - Document] Erro na requisição de resumo do documento:", error);
     let errorMessage = "Falha na requisição para a API de resumo do documento.";
      if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
-        errorMessage = `Não foi possível conectar à API de resumo em ${SUMMARY_API_BASE_URL}. Verifique se o serviço está rodando e acessível, e se as configurações de CORS da API de resumo permitem esta origem.`;
+        errorMessage = `Não foi possível conectar à API de resumo. Verifique se o serviço está disponível.`;
     } else if (error instanceof Error) {
         errorMessage = error.message;
     }

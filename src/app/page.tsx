@@ -11,7 +11,6 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { sampleProcessFlowData } from '@/data/sample-process-data';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
 import { processAndamentos, parseCustomDateString, formatDisplayDate } from '@/lib/process-flow-utils';
 import { ProcessFlowLegend } from '@/components/process-flow/ProcessFlowLegend';
@@ -229,24 +228,6 @@ export default function Home() {
     reader.readAsText(file);
   };
 
-  const loadSampleData = () => {
-    setIsLoading(true);
-    setLoadingMessage("Carregando dados de exemplo...");
-    setRawProcessData(null);
-    setOpenUnitsInProcess(null);
-    setProcessSummary(null);
-    setApiSearchPerformed(false); 
-    setProcessCreationInfo(null);
-
-     const sampleDataWithInfo: ProcessoData = {
-      Info: { ...sampleProcessFlowData.Info, Pagina: sampleProcessFlowData.Info?.Pagina || 1, TotalPaginas: sampleProcessFlowData.Info?.TotalPaginas || 1, QuantidadeItens: sampleProcessFlowData.Andamentos.length, TotalItens: sampleProcessFlowData.Info?.TotalItens || sampleProcessFlowData.Andamentos.length, NumeroProcesso: sampleProcessFlowData.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)" },
-      Andamentos: sampleProcessFlowData.Andamentos,
-    };
-    setRawProcessData(sampleDataWithInfo);
-    setProcessoNumeroInput(sampleDataWithInfo.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)");
-    toast({ title: "Dados de exemplo carregados", description: "Visualizando o fluxograma de exemplo." });
-    setIsLoading(false);
-  };
 
   const handleSearchClick = async () => {
     if (!isAuthenticated || !loginCredentials) {
@@ -349,23 +330,8 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background w-full">
-      <header className="p-2 border-b border-border shadow-sm sticky top-0 z-40 bg-background">
-        <div className="container mx-auto flex items-center justify-between max-w-full">
-          <div className="flex items-center space-x-2">
-            <Image src="/logo-sead.png" alt="Logo SEAD Piauí" width={120} height={45} priority data-ai-hint="logo government" />
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold" style={{ color: '#107527' }}>Visualizador de Processos</h1>
-              <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Beta</span>
-            </div>
-          </div>
-          <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-accent" />
-            <span>IA por SoberaniA</span>
-          </div>
-        </div>
-      </header>
-
-      <div className="p-3 border-b border-border shadow-sm sticky top-[61px] z-30 bg-card">
+      {/* Barra de controles no topo */}
+      <div className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
              <Select
@@ -382,18 +348,6 @@ export default function Home() {
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              type="text"
-              placeholder="Número do Processo..."
-              className="h-9 text-sm w-full sm:w-auto min-w-[150px] sm:min-w-[180px] flex-shrink-0"
-              value={processoNumeroInput}
-              onChange={(e) => setProcessoNumeroInput(e.target.value)}
-              disabled={isLoading || isLoadingSummary || !isAuthenticated}
-              ref={inputRef}
-            />
-            <Button variant="outline" size="sm" onClick={handleSearchClick} disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro || !isAuthenticated} className="bg-green-600 hover:bg-green-700 text-primary-foreground">
-              {(isLoading || isLoadingSummary) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />} Pesquisar
-            </Button>
              <div className="flex items-center space-x-2 ml-auto sm:ml-0 flex-shrink-0">
               <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading || isLoadingSummary} />
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
@@ -409,14 +363,62 @@ export default function Home() {
             {isAuthenticated ? (
               <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
             ) : (
-              <Button variant="default" size="sm" onClick={() => setIsLoginDialogOpen(true)}> <LogIn className="mr-2 h-4 w-4" /> Login </Button>
+              <Button variant="default" size="sm" onClick={() => setIsLoginDialogOpen(true)} className="bg-green-700 hover:bg-green-800 text-white"> <LogIn className="mr-2 h-4 w-4" /> Login </Button>
             )}
           </div>
         </div>
       </div>
       
+      <ApiHealthCheck />
+
       <main className="flex-1 flex flex-col overflow-y-auto p-4 w-full">
-        <ApiHealthCheck />
+        {/* Logo e título centralizados no meio da tela */}
+        {(!apiSearchPerformed && !isLoading && !isLoadingSummary) && (
+          <div className="flex flex-col items-center justify-center flex-1 -mt-8">
+            <div className="flex flex-col items-center space-y-4">
+              <Image src="/logo-sead.png" alt="Logo SEAD Piauí" width={500} height={500} priority data-ai-hint="logo government" />
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-semibold" style={{ color: '#107527' }}>Visualizador de Processos</h1>
+                <span className="text-sm font-semibold text-blue-500 bg-blue-100 px-3 py-1 rounded-full">Beta</span>
+              </div>
+              <p className="text-muted-foreground text-center max-w-md mt-4">
+                {isAuthenticated
+                  ? 'Para iniciar, selecione a unidade, insira o número do processo e clique em "Pesquisar".'
+                  : "Por favor, faça login para pesquisar processos na API SEI."
+                }
+              </p>
+              
+              {/* Campo de busca centralizado */}
+              <div className="relative w-full max-w-2xl mt-8">
+                <Input
+                  type="text"
+                  placeholder="Digite o número do processo..."
+                  className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
+                  value={processoNumeroInput}
+                  onChange={(e) => setProcessoNumeroInput(e.target.value)}
+                  disabled={isLoading || isLoadingSummary || !isAuthenticated}
+                  ref={inputRef}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !(!isAuthenticated || isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro)) {
+                      handleSearchClick();
+                    }
+                  }}
+                />
+                <Button 
+                  onClick={handleSearchClick} 
+                  disabled={!isAuthenticated || isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro}
+                  className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
+                >
+                  {(isLoading || isLoadingSummary) ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Search className="h-5 w-5" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         
         {apiSearchPerformed && processCreationInfo && (
           <Card className="mb-4">
@@ -455,7 +457,7 @@ export default function Home() {
           </Card>
         )}
         
-        {apiSearchPerformed && rawProcessData ? (
+        {apiSearchPerformed && rawProcessData && (
           <div className="flex flex-1 mt-4 overflow-hidden">
             <div
               className={cn(
@@ -521,30 +523,13 @@ export default function Home() {
               />
             </div>
           </div>
-        ) : isLoading || isLoadingSummary ? ( 
+        )}
+        
+        {(isLoading || isLoadingSummary) && ( 
           <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
             <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
             <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
             <p className="text-muted-foreground max-w-md">Aguarde, consulta à API SEI e/ou resumo em andamento.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
-            <FileJson className="h-32 w-32 text-muted-foreground/30 mb-8" />
-            <h2 className="text-3xl font-semibold text-foreground mb-4">
-              {isAuthenticated ? "Nenhum processo carregado" : "Autenticação Necessária"}
-            </h2>
-            <p className="text-muted-foreground mb-8 max-w-md text-center">
-              {isAuthenticated
-                ? 'Para iniciar, selecione a unidade, insira o número do processo e clique em "Pesquisar", ou carregue um arquivo JSON/dados de exemplo.'
-                : "Por favor, faça login para pesquisar processos ou carregar dados da API SEI."
-              }
-            </p>
-            <div className="flex space-x-4">
-              <Button onClick={loadSampleData} variant="secondary" disabled={isLoading || isLoadingSummary}>Usar Dados de Exemplo</Button>
-              {!isAuthenticated && (
-                <Button onClick={() => setIsLoginDialogOpen(true)} variant="default"><LogIn className="mr-2 h-4 w-4" />Login SEI</Button>
-              )}
-            </div>
           </div>
         )}
       </main>
@@ -595,18 +580,16 @@ export default function Home() {
 
       <Dialog open={isApiStatusModalOpen} onOpenChange={setIsApiStatusModalOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Status das APIs</DialogTitle>
-            <DialogDescription>
-              Monitoramento em tempo real da conectividade das APIs.
-            </DialogDescription>
-          </DialogHeader>
-          <ApiHealthCheck showDetails={true} className="border-0 shadow-none p-0" />
+          <ApiHealthCheck showDetails={true} className="border-0 shadow-none p-0 bg-transparent" />
         </DialogContent>
       </Dialog>
 
       <footer className="p-3 border-t border-border text-center text-xs text-muted-foreground">
         © {currentYear !== null ? currentYear : new Date().getFullYear()} Visualizador de Processos. Todos os direitos reservados.
+        <div className="flex items-center justify-center space-x-1 mt-2">
+          <Sparkles className="h-3 w-3 text-accent" />
+          <span>IA por SoberaniA</span>
+        </div>
         <p className="text-xs text-muted-foreground/80 mt-1">
           Nota: Para fins de prototipagem, as credenciais de login são armazenadas temporariamente no estado do cliente. Em produção, utilize métodos de autenticação mais seguros.
         </p>
