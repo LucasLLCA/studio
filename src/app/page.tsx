@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import Image from 'next/image';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
 import { processAndamentos, parseCustomDateString, formatDisplayDate } from '@/lib/process-flow-utils';
@@ -71,8 +72,17 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>([]);
-  const [selectedUnidadeFiltro, setSelectedUnidadeFiltro] = useState<string | undefined>(undefined);
+  // Hook de autenticação persistente
+  const {
+    isAuthenticated,
+    loginCredentials,
+    unidadesFiltroList,
+    selectedUnidadeFiltro,
+    login: persistLogin,
+    logout: persistLogout,
+    updateSelectedUnidade
+  } = usePersistedAuth();
+
   const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoadingOpenUnits, setIsLoadingOpenUnits] = useState<boolean>(false);
@@ -87,8 +97,6 @@ export default function Home() {
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
   const [isApiStatusModalOpen, setIsApiStatusModalOpen] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loginCredentials, setLoginCredentials] = useState<LoginCredentials | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const [apiSearchPerformed, setApiSearchPerformed] = useState<boolean>(false);
@@ -298,12 +306,11 @@ export default function Home() {
     try {
       const response = await loginToSEI(data);
       if (response.success && response.token) {
-        setLoginCredentials(data); setIsAuthenticated(true);
         const unidadesRecebidas = response.unidades || [];
-        setUnidadesFiltroList(unidadesRecebidas);
+        persistLogin(data, unidadesRecebidas);
         if (unidadesRecebidas.length > 0) toast({ title: "Login bem-sucedido!", description: `${unidadesRecebidas.length} unidades carregadas.` });
         else toast({ title: "Login Bem-sucedido", description: "Nenhuma unidade de acesso retornada.", variant: "default", duration: 7000 });
-        setSelectedUnidadeFiltro(undefined); setIsLoginDialogOpen(false); methods.reset();
+        setIsLoginDialogOpen(false); methods.reset();
       } else {
         setLoginError(response.error || "Falha no login.");
         toast({ title: "Erro de Login", description: response.error || "Falha no login.", variant: "destructive" });
@@ -318,7 +325,7 @@ export default function Home() {
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false); setLoginCredentials(null); setUnidadesFiltroList([]); setSelectedUnidadeFiltro(undefined);
+    persistLogout();
     setRawProcessData(null); setOpenUnitsInProcess(null); setProcessSummary(null); setApiSearchPerformed(false); setProcessCreationInfo(null);
     toast({ title: "Logout realizado." });
   };
@@ -348,7 +355,7 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-2 flex-grow">
              <Select
               value={selectedUnidadeFiltro}
-              onValueChange={setSelectedUnidadeFiltro}
+              onValueChange={updateSelectedUnidade}
               disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
             >
               <SelectTrigger className="h-9 text-sm w-full sm:w-auto min-w-[150px] sm:min-w-[180px] flex-shrink-0">
