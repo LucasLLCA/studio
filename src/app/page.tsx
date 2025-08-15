@@ -15,13 +15,7 @@ import Image from 'next/image';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
 import { processAndamentos, parseCustomDateString, formatDisplayDate } from '@/lib/process-flow-utils';
 import { ProcessFlowLegend } from '@/components/process-flow/ProcessFlowLegend';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -353,20 +347,19 @@ export default function Home() {
       <div className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
-             <Select
+             <Combobox
+              options={unidadesFiltroList.map((unidade) => ({
+                value: unidade.Id,
+                label: `${unidade.Sigla} - ${unidade.Descricao}`
+              }))}
               value={selectedUnidadeFiltro}
               onValueChange={updateSelectedUnidade}
+              placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Selecione uma unidade..." : "Nenhuma unidade") : "Login para unidades"}
+              searchPlaceholder="Buscar unidade..."
+              emptyMessage="Nenhuma unidade encontrada."
               disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
-            >
-              <SelectTrigger className="h-9 text-sm w-full sm:w-auto min-w-[150px] sm:min-w-[180px] flex-shrink-0">
-                <SelectValue placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Filtrar Unidade" : "Nenhuma unidade") : "Login para unidades"} />
-              </SelectTrigger>
-              <SelectContent>
-                {unidadesFiltroList.map((unidade) => (
-                  <SelectItem key={unidade.Id} value={unidade.Id}>{unidade.Sigla} ({unidade.Descricao.substring(0,20)}...)</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              className="h-9 text-sm w-full sm:w-auto min-w-[200px] sm:min-w-[250px] flex-shrink-0"
+            />
              <div className="flex items-center space-x-2 ml-auto sm:ml-0 flex-shrink-0">
               <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading || isLoadingSummary} />
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
