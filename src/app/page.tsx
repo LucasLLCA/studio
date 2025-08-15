@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials, Andamento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare, Activity } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare, Activity, Home as HomeIcon } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -326,6 +326,18 @@ export default function Home() {
   const handleTaskCardClick = (task: ProcessedAndamento) => setTaskToScrollTo(task);
   const handleScrollToFirstTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[0]); };
   const handleScrollToLastTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[processedFlowData.tasks.length - 1]); };
+  
+  const handleBackToHome = () => {
+    setRawProcessData(null);
+    setOpenUnitsInProcess(null);
+    setProcessSummary(null);
+    setApiSearchPerformed(false);
+    setProcessCreationInfo(null);
+    setProcessoNumeroInput("");
+    setTaskToScrollTo(null);
+    toast({ title: "Voltando ao início" });
+  };
+  
   const inputRef = React.createRef<HTMLInputElement>();
 
   return (
@@ -354,6 +366,11 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {apiSearchPerformed && (
+              <Button onClick={handleBackToHome} variant="outline" size="sm" disabled={isLoading || isLoadingSummary} title="Voltar ao início">
+                <HomeIcon className="mr-2 h-4 w-4" /> Início
+              </Button>
+            )}
             <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
               <Upload className="mr-2 h-4 w-4" /> JSON
             </Button>
