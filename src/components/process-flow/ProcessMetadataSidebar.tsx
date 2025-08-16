@@ -19,7 +19,6 @@ interface ProcessMetadataSidebarProps {
   processNumber?: string;
   processNumberPlaceholder?: string;
   openUnitsInProcess: UnidadeAberta[] | null;
-  isLoadingOpenUnits: boolean;
   processedFlowData: ProcessedFlowData | null; 
   onTaskCardClick: (task: ProcessedAndamento) => void; 
 }
@@ -28,7 +27,6 @@ export function ProcessMetadataSidebar({
   processNumber, 
   processNumberPlaceholder,
   openUnitsInProcess,
-  isLoadingOpenUnits,
   processedFlowData,
   onTaskCardClick,
 }: ProcessMetadataSidebarProps) {
@@ -36,7 +34,6 @@ export function ProcessMetadataSidebar({
   const displayProcessNumber = processNumber || processNumberPlaceholder || "Não disponível";
 
   const getOpenUnitsMessage = () => {
-    if (isLoadingOpenUnits) return null; 
     if (!processNumber && !openUnitsInProcess) return "Carregue ou pesquise um processo para ver as unidades em aberto.";
     if (openUnitsInProcess && openUnitsInProcess.length === 0 && processNumber) { 
       return "Nenhuma unidade com este processo em aberto (conforme API SEI).";
@@ -62,13 +59,7 @@ export function ProcessMetadataSidebar({
   return (
     <div className="w-full"> 
         <div className="space-y-3">
-          {isLoadingOpenUnits && (
-            <>
-              <Skeleton className="h-24 w-full rounded-md bg-muted/50" />
-              <Skeleton className="h-16 w-full rounded-md bg-muted/50" />
-            </>
-          )}
-          {!isLoadingOpenUnits && openUnitsInProcess && openUnitsInProcess.length > 0 && (
+          {openUnitsInProcess && openUnitsInProcess.length > 0 && (
             openUnitsInProcess.map(unitInfo => {
               const openTaskDetails = findOpenTaskForUnit(unitInfo.Unidade.IdUnidade);
               const cardIsClickable = !!openTaskDetails;
@@ -114,14 +105,14 @@ export function ProcessMetadataSidebar({
               );
             })
           )}
-          {!isLoadingOpenUnits && openUnitsMessage && (
+          {openUnitsMessage && (
             <p className="text-sm text-muted-foreground mt-2 p-2 bg-muted/30 rounded-md">
               {openUnitsMessage}
             </p>
           )}
         </div>
       
-      {!isLoadingOpenUnits && (!openUnitsInProcess || openUnitsInProcess.length === 0) && !openUnitsMessage && (
+      {(!openUnitsInProcess || openUnitsInProcess.length === 0) && !openUnitsMessage && (
          <p className="text-sm text-muted-foreground text-center py-4">
           Nenhuma unidade com processo em aberto ou dados não carregados.
          </p>

@@ -79,13 +79,11 @@ export default function Home() {
 
   const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isLoadingOpenUnits, setIsLoadingOpenUnits] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>("Processando dados...");
   const [isSummarizedView, setIsSummarizedView] = useState<boolean>(false);
   const [openUnitsInProcess, setOpenUnitsInProcess] = useState<UnidadeAberta[] | null>(null);
 
   const [processSummary, setProcessSummary] = useState<string | null>(null);
-  const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(false);
 
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
@@ -154,7 +152,6 @@ export default function Home() {
   useEffect(() => {
     const numeroProcessoAtual = rawProcessData?.Info?.NumeroProcesso || processoNumeroInput;
     if (numeroProcessoAtual && selectedUnidadeFiltro && isAuthenticated && loginCredentials) {
-      setIsLoadingOpenUnits(true);
       setOpenUnitsInProcess(null);
       fetchOpenUnitsForProcess(loginCredentials, numeroProcessoAtual, selectedUnidadeFiltro)
         .then(result => {
@@ -170,9 +167,6 @@ export default function Home() {
         })
         .catch(error => {
           setOpenUnitsInProcess([]);
-        })
-        .finally(() => {
-          setIsLoadingOpenUnits(false);
         });
     } else {
         setOpenUnitsInProcess(null);
@@ -246,20 +240,20 @@ export default function Home() {
     }
 
     setApiSearchPerformed(true); 
-    setLoadingMessage("Buscando dados do processo e resumo...");
     setIsLoading(true);
-    setIsLoadingSummary(true);
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
     setProcessCreationInfo(null);
 
-
     try {
-      const [processDataResult, summaryResult] = await Promise.all([
-        fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro),
-        fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
-      ]);
+      setLoadingMessage("1/3 - Buscando dados do processo no SEI...");
+      const processDataResult = await fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro);
+      
+      setLoadingMessage("2/3 - Gerando resumo do processo...");
+      const summaryResult = await fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro);
+      
+      setLoadingMessage("3/3 - Processando e organizando dados...");
 
       if ('error' in processDataResult && typeof processDataResult.error === 'string') {
         let errorTitle = "Erro ao buscar dados do processo";
@@ -290,7 +284,7 @@ export default function Home() {
       toast({ title: "Erro Inesperado", description: error instanceof Error ? error.message : "Erro ao buscar dados.", variant: "destructive", duration: 7000 });
       setRawProcessData(null); setProcessSummary(null);
     } finally {
-      setLoadingMessage("Processando dados..."); setIsLoading(false); setIsLoadingSummary(false);
+      setIsLoading(false);
     }
   };
 
@@ -357,21 +351,21 @@ export default function Home() {
               placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Selecione uma unidade..." : "Nenhuma unidade") : "Login para unidades"}
               searchPlaceholder="Buscar unidade..."
               emptyMessage="Nenhuma unidade encontrada."
-              disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
+              disabled={isLoading || !isAuthenticated || unidadesFiltroList.length === 0}
               className="h-9 text-sm w-full sm:w-auto min-w-[200px] sm:min-w-[250px] flex-shrink-0"
             />
              <div className="flex items-center space-x-2 ml-auto sm:ml-0 flex-shrink-0">
-              <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading || isLoadingSummary} />
+              <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading} />
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {apiSearchPerformed && (
-              <Button onClick={handleBackToHome} variant="outline" size="sm" disabled={isLoading || isLoadingSummary} title="Voltar ao início">
+              <Button onClick={handleBackToHome} variant="outline" size="sm" disabled={isLoading} title="Voltar ao início">
                 <HomeIcon className="mr-2 h-4 w-4" /> Início
               </Button>
             )}
-            <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
+            <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading}>
               <Upload className="mr-2 h-4 w-4" /> JSON
             </Button>
             <Button variant="outline" size="sm" onClick={() => setIsApiStatusModalOpen(true)} title="Status das APIs">
@@ -390,7 +384,7 @@ export default function Home() {
 
       <main className="flex-1 flex flex-col overflow-y-auto p-4 w-full">
         {/* Logo e título centralizados no meio da tela */}
-        {(!apiSearchPerformed && !isLoading && !isLoadingSummary) && (
+        {(!apiSearchPerformed && !isLoading) && (
           <div className="flex flex-col items-center justify-center flex-1 -mt-8">
             <div className="flex flex-col items-center space-y-4">
               <Image src="/logo-sead.png" alt="Logo SEAD Piauí" width={500} height={500} priority data-ai-hint="logo government" />
@@ -413,20 +407,20 @@ export default function Home() {
                   className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
                   value={processoNumeroInput}
                   onChange={(e) => setProcessoNumeroInput(e.target.value)}
-                  disabled={isLoading || isLoadingSummary || !isAuthenticated}
+                  disabled={isLoading || !isAuthenticated}
                   ref={inputRef}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !(!isAuthenticated || isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro)) {
+                    if (e.key === 'Enter' && !(!isAuthenticated || isLoading || !processoNumeroInput || !selectedUnidadeFiltro)) {
                       handleSearchClick();
                     }
                   }}
                 />
                 <Button 
                   onClick={handleSearchClick} 
-                  disabled={!isAuthenticated || isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro}
+                  disabled={!isAuthenticated || isLoading || !processoNumeroInput || !selectedUnidadeFiltro}
                   className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
                 >
-                  {(isLoading || isLoadingSummary) ? (
+                  {isLoading ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     <Search className="h-5 w-5" />
@@ -453,7 +447,7 @@ export default function Home() {
           </Card>
         )}
 
-        {apiSearchPerformed && (isLoadingSummary || processSummary) && (
+        {apiSearchPerformed && processSummary && (
           <Card className="mb-4">
             <CardHeader className="p-2">
                 <CardTitle className="text-md flex items-center text-green-600">
@@ -461,13 +455,13 @@ export default function Home() {
                 </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col flex-shrink-0 p-2 pt-0">
-                {isLoadingSummary && !processSummary && (
+                {!processSummary && (
                 <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 text-primary animate-spin" /><p className="ml-2 text-muted-foreground">Gerando...</p></div>
                 )}
                 {processSummary && (
                 <ScrollArea className="max-h-[150px] rounded-md border flex-shrink-0"><div className="p-3"><pre className="text-xs whitespace-pre-wrap break-words font-sans">{processSummary}</pre></div></ScrollArea>
                 )}
-                {!processSummary && !isLoadingSummary && apiSearchPerformed && (
+                {!processSummary && apiSearchPerformed && (
                 <div className="flex items-center justify-center p-4 text-muted-foreground"><Info className="mr-2 h-4 w-4" />Nenhum resumo disponível.</div>
                 )}
             </CardContent>
@@ -496,7 +490,6 @@ export default function Home() {
                         <ProcessMetadataSidebar
                           processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
                           openUnitsInProcess={openUnitsInProcess}
-                          isLoadingOpenUnits={isLoadingOpenUnits}
                           processedFlowData={processedFlowData}
                           onTaskCardClick={handleTaskCardClick}
                         />
@@ -537,16 +530,17 @@ export default function Home() {
                 taskToScrollTo={taskToScrollTo}
                 loginCredentials={loginCredentials}
                 isAuthenticated={isAuthenticated}
+                selectedUnidadeFiltro={selectedUnidadeFiltro}
               />
             </div>
           </div>
         )}
         
-        {(isLoading || isLoadingSummary) && ( 
+        {isLoading && ( 
           <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
             <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
             <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
-            <p className="text-muted-foreground max-w-md">Aguarde, consulta à API SEI e/ou resumo em andamento.</p>
+            <p className="text-muted-foreground max-w-md">Aguarde, processamento em andamento...</p>
           </div>
         )}
       </main>
