@@ -14,9 +14,9 @@ export interface HealthCheckResponse {
   timestamp: Date;
 }
 
-// Cache de tokens com expiração (5 minutos)
+// Cache de tokens com expiração (30 minutos)
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
-const TOKEN_CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+const TOKEN_CACHE_DURATION = 30 * 60 * 1000; // 30 minutos
 
 // This function now requires credentials to be passed in.
 async function getAuthToken(credentials: LoginCredentials): Promise<string | ApiError> {
