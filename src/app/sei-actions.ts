@@ -14,6 +14,10 @@ export interface HealthCheckResponse {
   timestamp: Date;
 }
 
+// Cache de tokens com expiração (5 minutos)
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
+const TOKEN_CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+
 // This function now requires credentials to be passed in.
 async function getAuthToken(credentials: LoginCredentials): Promise<string | ApiError> {
   if (!SEI_API_BASE_URL) {
@@ -23,6 +27,16 @@ async function getAuthToken(credentials: LoginCredentials): Promise<string | Api
   if (!credentials || !credentials.usuario || !credentials.senha || !credentials.orgao) {
     console.error("[SEI API Auth] Credentials not provided to getAuthToken.");
     return { error: "Credenciais de autenticação não fornecidas.", status: 400 };
+  }
+
+  // Gerar chave única para o cache baseada nas credenciais
+  const cacheKey = `${credentials.usuario}-${credentials.orgao}`;
+  
+  // Verificar se existe token válido no cache
+  const cached = tokenCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    console.log("[SEI API Auth] Using cached token.");
+    return cached.token;
   }
 
   try {
@@ -59,7 +73,12 @@ async function getAuthToken(credentials: LoginCredentials): Promise<string | Api
       console.error("[SEI API Auth] Token not found in authentication response:", data);
       return { error: "Token não encontrado na resposta da autenticação da API SEI.", details: data, status: 500 };
     }
-    console.log(`[SEI API Auth] Auth token obtained successfully.`);
+    
+    // Armazenar token no cache com expiração
+    const expiresAt = Date.now() + TOKEN_CACHE_DURATION;
+    tokenCache.set(cacheKey, { token: data.Token, expiresAt });
+    
+    console.log(`[SEI API Auth] Auth token obtained successfully and cached.`);
     return data.Token;
   } catch (error) {
     console.error("[SEI API Auth] Error fetching auth token:", error);
