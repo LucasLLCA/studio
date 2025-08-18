@@ -247,14 +247,10 @@ export default function Home() {
     setProcessCreationInfo(null);
 
     try {
-      setLoadingMessage("1/3 - Buscando dados do processo no SEI...");
+      // 1. Buscar dados do processo primeiro
+      setLoadingMessage("Buscando dados do processo no SEI...");
       const processDataResult = await fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro);
       
-      setLoadingMessage("2/3 - Gerando resumo do processo...");
-      const summaryResult = await fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro);
-      
-      setLoadingMessage("3/3 - Processando e organizando dados...");
-
       if ('error' in processDataResult && typeof processDataResult.error === 'string') {
         let errorTitle = "Erro ao buscar dados do processo";
         let errorDescription = processDataResult.error;
@@ -264,20 +260,30 @@ export default function Home() {
         else if (processDataResult.status === 500) { errorTitle = "Erro Interno no Servidor SEI (500)"; errorDescription = `Tente novamente mais tarde.`;}
         toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
         setRawProcessData(null);
+        return;
       } else if (!('error' in processDataResult) && processDataResult.Andamentos && Array.isArray(processDataResult.Andamentos)) {
+        // 2. Dados carregados - exibir gráfico imediatamente
         setRawProcessData(processDataResult);
         toast({ title: "Dados do Processo Carregados", description: `Total ${processDataResult.Andamentos.length} andamentos carregados.` });
+        
+        // 3. Buscar resumo em background (não bloqueia o gráfico)
+        fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+          .then(summaryResult => {
+            if ('error' in summaryResult) {
+              toast({ title: "Erro ao Gerar Resumo", description: summaryResult.error, variant: "destructive", duration: 9000 });
+              setProcessSummary(null);
+            } else {
+              setProcessSummary(summaryResult.summary.replace(/[#*]/g, ''));
+              toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
+            }
+          })
+          .catch(error => {
+            toast({ title: "Erro ao Gerar Resumo", description: "Erro inesperado ao gerar resumo.", variant: "destructive", duration: 7000 });
+            setProcessSummary(null);
+          });
       } else {
         toast({ title: "Erro Desconhecido (Andamentos)", description: "Resposta inesperada ao buscar andamentos.", variant: "destructive" });
         setRawProcessData(null);
-      }
-
-      if ('error' in summaryResult) {
-        toast({ title: "Erro ao Gerar Resumo", description: summaryResult.error, variant: "destructive", duration: 9000 });
-        setProcessSummary(null);
-      } else {
-        setProcessSummary(summaryResult.summary.replace(/[#*]/g, ''));
-        toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
       }
 
     } catch (error) {
