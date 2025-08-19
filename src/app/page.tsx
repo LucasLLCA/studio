@@ -241,14 +241,14 @@ export default function Home() {
 
     setApiSearchPerformed(true); 
     setIsLoading(true);
+    setLoadingMessage("Buscando dados do processo...");
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
     setProcessCreationInfo(null);
 
     try {
-      // 1. Buscar dados do processo primeiro
-      setLoadingMessage("Buscando dados do processo no SEI...");
+      // Buscar dados do processo
       const processDataResult = await fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro);
       
       if ('error' in processDataResult && typeof processDataResult.error === 'string') {
@@ -262,11 +262,11 @@ export default function Home() {
         setRawProcessData(null);
         return;
       } else if (!('error' in processDataResult) && processDataResult.Andamentos && Array.isArray(processDataResult.Andamentos)) {
-        // 2. Dados carregados - exibir gráfico imediatamente
+        // Dados carregados - exibir fluxo imediatamente
         setRawProcessData(processDataResult);
         toast({ title: "Dados do Processo Carregados", description: `Total ${processDataResult.Andamentos.length} andamentos carregados.` });
         
-        // 3. Buscar resumo em background (não bloqueia o gráfico)
+        // Buscar resumo em background (não bloqueia o fluxo)
         fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
           .then(summaryResult => {
             if ('error' in summaryResult) {
