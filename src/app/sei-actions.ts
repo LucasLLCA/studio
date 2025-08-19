@@ -483,8 +483,8 @@ export async function checkSEIApiHealth(): Promise<HealthCheckResponse> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    // Usar um endpoint simples que não requer autenticação para verificar se a API está respondendo
-    const response = await fetch(`${SEI_API_BASE_URL}/`, {
+    // Usar endpoint específico /orgaos que retorna dados reais para verificar se a API está funcionando
+    const response = await fetch(`${SEI_API_BASE_URL}/orgaos?pagina=1&quantidade=10`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -496,15 +496,23 @@ export async function checkSEIApiHealth(): Promise<HealthCheckResponse> {
     clearTimeout(timeoutId);
     const responseTime = Date.now() - startTime;
 
-    // A API está online se responder com qualquer status HTTP 
-    // Mesmo 404, 401, 405 indicam que a API está funcionando
-    // Apenas 500+ indicam problemas reais do servidor
-    return {
-      isOnline: true,
-      status: 'online',
-      responseTime,
-      timestamp
-    };
+    // A API está online se responder com status 200
+    if (response.status === 200) {
+      return {
+        isOnline: true,
+        status: 'online',
+        responseTime,
+        timestamp
+      };
+    } else {
+      return {
+        isOnline: false,
+        status: 'offline',
+        responseTime,
+        error: `API respondeu com status ${response.status}`,
+        timestamp
+      };
+    }
   } catch (error) {
     const responseTime = Date.now() - startTime;
     
