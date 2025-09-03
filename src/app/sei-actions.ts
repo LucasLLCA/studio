@@ -6,6 +6,18 @@ import type { ProcessoData, ApiError, ProcessSummaryResponse, LoginCredentials, 
 const SEI_API_BASE_URL = process.env.NEXT_PUBLIC_SEI_API_BASE_URL;
 const SUMMARY_API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
 
+export interface HealthCheckResponse {
+  isOnline: boolean;
+  status: 'online' | 'offline' | 'error';
+  responseTime?: number;
+  error?: string;
+  timestamp: Date;
+}
+
+// Cache de tokens com expiração (30 minutos)
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
+const TOKEN_CACHE_DURATION = 30 * 60 * 1000; // 30 minutos
+
 // This function now requires credentials to be passed in.
 async function getAuthToken(credentials: LoginCredentials): Promise<string | ApiError> {
   if (!SEI_API_BASE_URL) {
@@ -15,6 +27,16 @@ async function getAuthToken(credentials: LoginCredentials): Promise<string | Api
   if (!credentials || !credentials.usuario || !credentials.senha || !credentials.orgao) {
     console.error("[SEI API Auth] Credentials not provided to getAuthToken.");
     return { error: "Credenciais de autenticação não fornecidas.", status: 400 };
+  }
+
+  // Gerar chave única para o cache baseada nas credenciais
+  const cacheKey = `${credentials.usuario}-${credentials.orgao}`;
+  
+  // Verificar se existe token válido no cache
+  const cached = tokenCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    console.log("[SEI API Auth] Using cached token.");
+    return cached.token;
   }
 
   try {
@@ -51,7 +73,12 @@ async function getAuthToken(credentials: LoginCredentials): Promise<string | Api
       console.error("[SEI API Auth] Token not found in authentication response:", data);
       return { error: "Token não encontrado na resposta da autenticação da API SEI.", details: data, status: 500 };
     }
-    console.log(`[SEI API Auth] Auth token obtained successfully.`);
+    
+    // Armazenar token no cache com expiração
+    const expiresAt = Date.now() + TOKEN_CACHE_DURATION;
+    tokenCache.set(cacheKey, { token: data.Token, expiresAt });
+    
+    console.log(`[SEI API Auth] Auth token obtained successfully and cached.`);
     return data.Token;
   } catch (error) {
     console.error("[SEI API Auth] Error fetching auth token:", error);
@@ -431,11 +458,198 @@ export async function fetchProcessSummary(
     console.error("[Summary API - Process] Erro na requisição de resumo do processo:", error);
     let errorMessage = "Falha na requisição para a API de resumo do processo.";
      if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
-        errorMessage = `Não foi possível conectar à API de resumo em ${SUMMARY_API_BASE_URL}. Verifique se o serviço está rodando e acessível, e se as configurações de CORS da API de resumo permitem esta origem.`;
+        errorMessage = `Não foi possível conectar à API de resumo. Verifique se o serviço está disponível.`;
     } else if (error instanceof Error) {
         errorMessage = error.message;
     }
     return { error: errorMessage, details: error instanceof Error ? error.message : String(error), status: 500 };
+  }
+}
+
+export async function checkSEIApiHealth(): Promise<HealthCheckResponse> {
+  const startTime = Date.now();
+  const timestamp = new Date();
+
+  if (!SEI_API_BASE_URL) {
+    return {
+      isOnline: false,
+      status: 'error',
+      error: 'SEI API Base URL não configurada',
+      timestamp
+    };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    // Usar endpoint específico /orgaos que retorna dados reais para verificar se a API está funcionando
+    const response = await fetch(`${SEI_API_BASE_URL}/orgaos?pagina=1&quantidade=10`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    
+    clearTimeout(timeoutId);
+    const responseTime = Date.now() - startTime;
+
+    // A API está online se responder com status 200
+    if (response.status === 200) {
+      return {
+        isOnline: true,
+        status: 'online',
+        responseTime,
+        timestamp
+      };
+    } else {
+      return {
+        isOnline: false,
+        status: 'offline',
+        responseTime,
+        error: `API respondeu com status ${response.status}`,
+        timestamp
+      };
+    }
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return {
+          isOnline: false,
+          status: 'offline',
+          responseTime,
+          error: 'Timeout: API não respondeu em 10 segundos',
+          timestamp
+        };
+      }
+      
+      // Tratar diferentes tipos de erro de conexão
+      let cleanError = 'Serviço indisponível';
+      if (error.message.toLowerCase().includes('econnreset')) {
+        cleanError = 'Conexão resetada pelo servidor';
+      } else if (error.message.toLowerCase().includes('failed to fetch') || error.message.toLowerCase().includes('load failed')) {
+        cleanError = 'Serviço indisponível';
+      } else if (error.message.toLowerCase().includes('timeout')) {
+        cleanError = 'Timeout na conexão';
+      } else if (error.message.toLowerCase().includes('network')) {
+        cleanError = 'Erro de rede';
+      }
+      
+      return {
+        isOnline: false,
+        status: 'error',
+        responseTime,
+        error: cleanError,
+        timestamp
+      };
+    }
+    
+    return {
+      isOnline: false,
+      status: 'error',
+      responseTime,
+      error: 'Erro desconhecido ao verificar API',
+      timestamp
+    };
+  }
+}
+
+export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
+  const startTime = Date.now();
+  const timestamp = new Date();
+
+  if (!SUMMARY_API_BASE_URL) {
+    return {
+      isOnline: false,
+      status: 'error',
+      error: 'Summary API Base URL não configurada',
+      timestamp
+    };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    // Tentar o endpoint /health primeiro, se não existir, tentar a raiz
+    let response;
+    try {
+      response = await fetch(`${SUMMARY_API_BASE_URL}/health`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+    } catch (e) {
+      // Se /health falhar, tentar a raiz da API
+      response = await fetch(`${SUMMARY_API_BASE_URL}/`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+    }
+    
+    clearTimeout(timeoutId);
+    const responseTime = Date.now() - startTime;
+
+    // A API está online se responder com qualquer status HTTP
+    return {
+      isOnline: true,
+      status: 'online',
+      responseTime,
+      timestamp
+    };
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return {
+          isOnline: false,
+          status: 'offline',
+          responseTime,
+          error: 'Timeout: API não respondeu em 10 segundos',
+          timestamp
+        };
+      }
+      
+      // Tratar diferentes tipos de erro de conexão
+      let cleanError = 'Serviço indisponível';
+      if (error.message.toLowerCase().includes('econnreset')) {
+        cleanError = 'Conexão resetada pelo servidor';
+      } else if (error.message.toLowerCase().includes('failed to fetch') || error.message.toLowerCase().includes('load failed')) {
+        cleanError = 'Serviço indisponível';
+      } else if (error.message.toLowerCase().includes('timeout')) {
+        cleanError = 'Timeout na conexão';
+      } else if (error.message.toLowerCase().includes('network')) {
+        cleanError = 'Erro de rede';
+      }
+      
+      return {
+        isOnline: false,
+        status: 'error',
+        responseTime,
+        error: cleanError,
+        timestamp
+      };
+    }
+    
+    return {
+      isOnline: false,
+      status: 'error',
+      responseTime,
+      error: 'Erro desconhecido ao verificar API de resumo',
+      timestamp
+    };
   }
 }
 
@@ -527,14 +741,10 @@ export async function fetchDocumentSummary(
     console.error("[Summary API - Document] Erro na requisição de resumo do documento:", error);
     let errorMessage = "Falha na requisição para a API de resumo do documento.";
      if (error instanceof TypeError && (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("load failed"))) {
-        errorMessage = `Não foi possível conectar à API de resumo em ${SUMMARY_API_BASE_URL}. Verifique se o serviço está rodando e acessível, e se as configurações de CORS da API de resumo permitem esta origem.`;
+        errorMessage = `Não foi possível conectar à API de resumo. Verifique se o serviço está disponível.`;
     } else if (error instanceof Error) {
         errorMessage = error.message;
     }
     return { error: errorMessage, details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
-    
-    
-    
-    

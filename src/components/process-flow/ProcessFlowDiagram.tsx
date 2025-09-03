@@ -17,7 +17,8 @@ interface ProcessFlowDiagramProps {
   laneMap: Map<string, number>;
   taskToScrollTo?: ProcessedAndamento | null;
   loginCredentials: LoginCredentials | null;
-  isAuthenticated: boolean; 
+  isAuthenticated: boolean;
+  selectedUnidadeFiltro: string | undefined;
 }
 
 export function ProcessFlowDiagram({ 
@@ -29,6 +30,7 @@ export function ProcessFlowDiagram({
   taskToScrollTo,
   loginCredentials,
   isAuthenticated,
+  selectedUnidadeFiltro,
 }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -272,6 +274,7 @@ export function ProcessFlowDiagram({
         onClose={handleCloseDetailsModal}
         loginCredentials={loginCredentials}
         isAuthenticated={isAuthenticated}
+        selectedUnidadeFiltro={selectedUnidadeFiltro}
       />
     </div>
   );

@@ -12,12 +12,12 @@ interface LegendItemProps {
 const LegendItem: React.FC<LegendItemProps> = ({ color, label, isHslVar }) => {
   const style = isHslVar ? { backgroundColor: `hsl(var(${color}))` } : { backgroundColor: color };
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center space-x-3">
       <div
-        className="w-4 h-4 rounded-full border border-card-foreground/50"
+        className="w-6 h-6 rounded-full border-2 border-gray-300 shadow-sm flex-shrink-0"
         style={style}
       ></div>
-      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm text-foreground font-medium">{label}</span>
     </div>
   );
 };
@@ -35,9 +35,8 @@ const legendItems: Array<Omit<LegendItemProps, 'isHslVar'> & {isHslVar?: boolean
 
 export function ProcessFlowLegend() {
   return (
-    <div className="mt-4 p-4 border-t border-border bg-card rounded-b-md shadow-sm">
-      <h3 className="text-md font-semibold text-foreground mb-3">Legenda de Cores dos Nós:</h3>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2">
+    <div className="p-4 bg-card rounded-md shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
         {legendItems.map((item) => (
           <LegendItem key={item.label} color={item.color} label={item.label} isHslVar={item.isHslVar} />
         ))}

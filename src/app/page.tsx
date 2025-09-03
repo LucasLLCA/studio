@@ -3,25 +3,22 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials, Andamento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare, Activity, Home as HomeIcon } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import Image from 'next/image';
-import { sampleProcessFlowData } from '@/data/sample-process-data';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
 import { processAndamentos, parseCustomDateString, formatDisplayDate } from '@/lib/process-flow-utils';
 import { ProcessFlowLegend } from '@/components/process-flow/ProcessFlowLegend';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +38,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, loginToSEI } from './sei-actions';
+import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, loginToSEI, checkSEIApiHealth, checkSummaryApiHealth } from './sei-actions';
+import type { HealthCheckResponse } from './sei-actions';
+import ApiHealthCheck from '@/components/ApiHealthCheck';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -69,29 +68,37 @@ export default function Home() {
   const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const router = useRouter();
 
-  const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>([]);
-  const [selectedUnidadeFiltro, setSelectedUnidadeFiltro] = useState<string | undefined>(undefined);
+  // Hook de autenticação persistente
+  const {
+    isAuthenticated,
+    loginCredentials,
+    unidadesFiltroList,
+    selectedUnidadeFiltro,
+    login: persistLogin,
+    logout: persistLogout,
+    updateSelectedUnidade
+  } = usePersistedAuth();
+
   const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isLoadingOpenUnits, setIsLoadingOpenUnits] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>("Processando dados...");
   const [isSummarizedView, setIsSummarizedView] = useState<boolean>(false);
   const [openUnitsInProcess, setOpenUnitsInProcess] = useState<UnidadeAberta[] | null>(null);
 
   const [processSummary, setProcessSummary] = useState<string | null>(null);
-  const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(false);
 
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
+  const [isApiStatusModalOpen, setIsApiStatusModalOpen] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loginCredentials, setLoginCredentials] = useState<LoginCredentials | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const [apiSearchPerformed, setApiSearchPerformed] = useState<boolean>(false);
   const [processCreationInfo, setProcessCreationInfo] = useState<ProcessCreationInfo | null>(null);
   const [isUnitsSidebarOpen, setIsUnitsSidebarOpen] = useState(true);
+  const [unidadeSearchTerm, setUnidadeSearchTerm] = useState<string>("");
 
 
   const methods = useForm<LoginFormValues>({
@@ -104,6 +111,13 @@ export default function Home() {
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
   }, []);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
@@ -150,7 +164,6 @@ export default function Home() {
   useEffect(() => {
     const numeroProcessoAtual = rawProcessData?.Info?.NumeroProcesso || processoNumeroInput;
     if (numeroProcessoAtual && selectedUnidadeFiltro && isAuthenticated && loginCredentials) {
-      setIsLoadingOpenUnits(true);
       setOpenUnitsInProcess(null);
       fetchOpenUnitsForProcess(loginCredentials, numeroProcessoAtual, selectedUnidadeFiltro)
         .then(result => {
@@ -166,9 +179,6 @@ export default function Home() {
         })
         .catch(error => {
           setOpenUnitsInProcess([]);
-        })
-        .finally(() => {
-          setIsLoadingOpenUnits(false);
         });
     } else {
         setOpenUnitsInProcess(null);
@@ -226,24 +236,6 @@ export default function Home() {
     reader.readAsText(file);
   };
 
-  const loadSampleData = () => {
-    setIsLoading(true);
-    setLoadingMessage("Carregando dados de exemplo...");
-    setRawProcessData(null);
-    setOpenUnitsInProcess(null);
-    setProcessSummary(null);
-    setApiSearchPerformed(false); 
-    setProcessCreationInfo(null);
-
-     const sampleDataWithInfo: ProcessoData = {
-      Info: { ...sampleProcessFlowData.Info, Pagina: sampleProcessFlowData.Info?.Pagina || 1, TotalPaginas: sampleProcessFlowData.Info?.TotalPaginas || 1, QuantidadeItens: sampleProcessFlowData.Andamentos.length, TotalItens: sampleProcessFlowData.Info?.TotalItens || sampleProcessFlowData.Andamentos.length, NumeroProcesso: sampleProcessFlowData.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)" },
-      Andamentos: sampleProcessFlowData.Andamentos,
-    };
-    setRawProcessData(sampleDataWithInfo);
-    setProcessoNumeroInput(sampleDataWithInfo.Info?.NumeroProcesso || "0042431-96.2023.8.18.0001 (Exemplo)");
-    toast({ title: "Dados de exemplo carregados", description: "Visualizando o fluxograma de exemplo." });
-    setIsLoading(false);
-  };
 
   const handleSearchClick = async () => {
     if (!isAuthenticated || !loginCredentials) {
@@ -260,21 +252,17 @@ export default function Home() {
     }
 
     setApiSearchPerformed(true); 
-    setLoadingMessage("Buscando dados do processo e resumo...");
     setIsLoading(true);
-    setIsLoadingSummary(true);
+    setLoadingMessage("Buscando dados do processo...");
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessSummary(null);
     setProcessCreationInfo(null);
 
-
     try {
-      const [processDataResult, summaryResult] = await Promise.all([
-        fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro),
-        fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
-      ]);
-
+      // Buscar dados do processo
+      const processDataResult = await fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro);
+      
       if ('error' in processDataResult && typeof processDataResult.error === 'string') {
         let errorTitle = "Erro ao buscar dados do processo";
         let errorDescription = processDataResult.error;
@@ -284,27 +272,37 @@ export default function Home() {
         else if (processDataResult.status === 500) { errorTitle = "Erro Interno no Servidor SEI (500)"; errorDescription = `Tente novamente mais tarde.`;}
         toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
         setRawProcessData(null);
+        return;
       } else if (!('error' in processDataResult) && processDataResult.Andamentos && Array.isArray(processDataResult.Andamentos)) {
+        // Dados carregados - exibir fluxo imediatamente
         setRawProcessData(processDataResult);
         toast({ title: "Dados do Processo Carregados", description: `Total ${processDataResult.Andamentos.length} andamentos carregados.` });
+        
+        // Buscar resumo em background (não bloqueia o fluxo)
+        fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+          .then(summaryResult => {
+            if ('error' in summaryResult) {
+              toast({ title: "Erro ao Gerar Resumo", description: summaryResult.error, variant: "destructive", duration: 9000 });
+              setProcessSummary(null);
+            } else {
+              setProcessSummary(summaryResult.summary.replace(/[#*]/g, ''));
+              toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
+            }
+          })
+          .catch(error => {
+            toast({ title: "Erro ao Gerar Resumo", description: "Erro inesperado ao gerar resumo.", variant: "destructive", duration: 7000 });
+            setProcessSummary(null);
+          });
       } else {
         toast({ title: "Erro Desconhecido (Andamentos)", description: "Resposta inesperada ao buscar andamentos.", variant: "destructive" });
         setRawProcessData(null);
-      }
-
-      if ('error' in summaryResult) {
-        toast({ title: "Erro ao Gerar Resumo", description: summaryResult.error, variant: "destructive", duration: 9000 });
-        setProcessSummary(null);
-      } else {
-        setProcessSummary(summaryResult.summary.replace(/[#*]/g, ''));
-        toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
       }
 
     } catch (error) {
       toast({ title: "Erro Inesperado", description: error instanceof Error ? error.message : "Erro ao buscar dados.", variant: "destructive", duration: 7000 });
       setRawProcessData(null); setProcessSummary(null);
     } finally {
-      setLoadingMessage("Processando dados..."); setIsLoading(false); setIsLoadingSummary(false);
+      setIsLoading(false);
     }
   };
 
@@ -314,12 +312,11 @@ export default function Home() {
     try {
       const response = await loginToSEI(data);
       if (response.success && response.token) {
-        setLoginCredentials(data); setIsAuthenticated(true);
         const unidadesRecebidas = response.unidades || [];
-        setUnidadesFiltroList(unidadesRecebidas);
+        persistLogin(data, unidadesRecebidas);
         if (unidadesRecebidas.length > 0) toast({ title: "Login bem-sucedido!", description: `${unidadesRecebidas.length} unidades carregadas.` });
         else toast({ title: "Login Bem-sucedido", description: "Nenhuma unidade de acesso retornada.", variant: "default", duration: 7000 });
-        setSelectedUnidadeFiltro(undefined); setIsLoginDialogOpen(false); methods.reset();
+        setIsLoginDialogOpen(false); methods.reset();
       } else {
         setLoginError(response.error || "Falha no login.");
         toast({ title: "Erro de Login", description: response.error || "Falha no login.", variant: "destructive" });
@@ -334,7 +331,7 @@ export default function Home() {
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false); setLoginCredentials(null); setUnidadesFiltroList([]); setSelectedUnidadeFiltro(undefined);
+    persistLogout();
     setRawProcessData(null); setOpenUnitsInProcess(null); setProcessSummary(null); setApiSearchPerformed(false); setProcessCreationInfo(null);
     toast({ title: "Logout realizado." });
   };
@@ -342,74 +339,151 @@ export default function Home() {
   const handleTaskCardClick = (task: ProcessedAndamento) => setTaskToScrollTo(task);
   const handleScrollToFirstTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[0]); };
   const handleScrollToLastTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[processedFlowData.tasks.length - 1]); };
+  
+  const handleBackToHome = () => {
+    setRawProcessData(null);
+    setOpenUnitsInProcess(null);
+    setProcessSummary(null);
+    setApiSearchPerformed(false);
+    setProcessCreationInfo(null);
+    setProcessoNumeroInput("");
+    setTaskToScrollTo(null);
+    toast({ title: "Voltando ao início" });
+  };
+  
   const inputRef = React.createRef<HTMLInputElement>();
+
+  // Filtrar unidades baseado no termo de busca
+  const filteredUnidades = useMemo(() => {
+    if (!unidadeSearchTerm) return unidadesFiltroList;
+    return unidadesFiltroList.filter(unidade => 
+      unidade.Sigla.toLowerCase().includes(unidadeSearchTerm.toLowerCase()) ||
+      unidade.Descricao.toLowerCase().includes(unidadeSearchTerm.toLowerCase())
+    );
+  }, [unidadesFiltroList, unidadeSearchTerm]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background w-full">
-      <header className="p-2 border-b border-border shadow-sm sticky top-0 z-40 bg-background">
-        <div className="container mx-auto flex items-center justify-between max-w-full">
-          <div className="flex items-center space-x-2">
-            <Image src="/logo-sead.png" alt="Logo SEAD Piauí" width={120} height={45} priority data-ai-hint="logo government" />
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold" style={{ color: '#107527' }}>Visualizador de Processos</h1>
-              <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Beta</span>
-            </div>
-          </div>
-          <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-accent" />
-            <span>IA por SoberaniA</span>
-          </div>
-        </div>
-      </header>
-
-      <div className="p-3 border-b border-border shadow-sm sticky top-[61px] z-30 bg-card">
+      {/* Barra de controles no topo */}
+      <div className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
-             <Select
-              value={selectedUnidadeFiltro}
-              onValueChange={setSelectedUnidadeFiltro}
-              disabled={isLoading || isLoadingSummary || !isAuthenticated || unidadesFiltroList.length === 0}
-            >
-              <SelectTrigger className="h-9 text-sm w-full sm:w-auto min-w-[150px] sm:min-w-[180px] flex-shrink-0">
-                <SelectValue placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Filtrar Unidade" : "Nenhuma unidade") : "Login para unidades"} />
-              </SelectTrigger>
-              <SelectContent>
-                {unidadesFiltroList.map((unidade) => (
-                  <SelectItem key={unidade.Id} value={unidade.Id}>{unidade.Sigla} ({unidade.Descricao.substring(0,20)}...)</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="text"
-              placeholder="Número do Processo..."
-              className="h-9 text-sm w-full sm:w-auto min-w-[150px] sm:min-w-[180px] flex-shrink-0"
-              value={processoNumeroInput}
-              onChange={(e) => setProcessoNumeroInput(e.target.value)}
-              disabled={isLoading || isLoadingSummary || !isAuthenticated}
-              ref={inputRef}
-            />
-            <Button variant="outline" size="sm" onClick={handleSearchClick} disabled={isLoading || isLoadingSummary || !processoNumeroInput || !selectedUnidadeFiltro || !isAuthenticated} className="bg-green-600 hover:bg-green-700 text-primary-foreground">
-              {(isLoading || isLoadingSummary) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />} Pesquisar
-            </Button>
              <div className="flex items-center space-x-2 ml-auto sm:ml-0 flex-shrink-0">
-              <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading || isLoadingSummary} />
+              <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading} />
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading || isLoadingSummary}>
+            {apiSearchPerformed && (
+              <Button onClick={handleBackToHome} variant="outline" size="sm" disabled={isLoading} title="Voltar ao início">
+                <HomeIcon className="mr-2 h-4 w-4" /> Início
+              </Button>
+            )}
+            <Button onClick={handleFileUploadClick} variant="outline" size="sm" disabled={isLoading}>
               <Upload className="mr-2 h-4 w-4" /> JSON
             </Button>
-            {isAuthenticated ? (
+            <Button variant="outline" size="sm" onClick={() => setIsApiStatusModalOpen(true)} title="Status das APIs">
+              <Activity className="h-4 w-4" />
+            </Button>
+            {isAuthenticated && (
               <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
-            ) : (
-              <Button variant="default" size="sm" onClick={() => setIsLoginDialogOpen(true)}> <LogIn className="mr-2 h-4 w-4" /> Login </Button>
             )}
           </div>
         </div>
       </div>
       
+      <ApiHealthCheck />
+
       <main className="flex-1 flex flex-col overflow-y-auto p-4 w-full">
+        {/* Logo e título centralizados no meio da tela */}
+        {(!apiSearchPerformed && !isLoading) && (
+          <div className="flex flex-col items-center justify-center flex-1 -mt-8">
+            <div className="flex flex-col items-center space-y-4">
+              <Image src="/logo-sead.png" alt="Logo SEAD Piauí" width={500} height={500} priority data-ai-hint="logo government" />
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-semibold" style={{ color: '#107527' }}>Visualizador de Processos</h1>
+                <span className="text-sm font-semibold text-blue-500 bg-blue-100 px-3 py-1 rounded-full">Beta</span>
+              </div>
+              <p className="text-muted-foreground text-center max-w-md mt-4">
+                Para iniciar, selecione a unidade, insira o número do processo e clique em "Pesquisar".
+              </p>
+              
+              {/* Campo de busca centralizado */}
+              <div className="w-full max-w-2xl mt-8 space-y-4">
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Digite o número do processo..."
+                    className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
+                    value={processoNumeroInput}
+                    onChange={(e) => setProcessoNumeroInput(e.target.value)}
+                    disabled={isLoading || !isAuthenticated}
+                    ref={inputRef}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !(!isAuthenticated || isLoading || !processoNumeroInput || !selectedUnidadeFiltro)) {
+                        handleSearchClick();
+                      }
+                    }}
+                  />
+                  <Button 
+                    onClick={handleSearchClick} 
+                    disabled={!isAuthenticated || isLoading || !processoNumeroInput || !selectedUnidadeFiltro}
+                    className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Search className="h-5 w-5" />
+                    )}
+                  </Button>
+                </div>
+                
+                {/* Seletor de unidade */}
+                <div className="w-full">
+                  <Select
+                    value={selectedUnidadeFiltro || ""}
+                    onValueChange={updateSelectedUnidade}
+                    disabled={isLoading || !isAuthenticated || unidadesFiltroList.length === 0}
+                  >
+                    <SelectTrigger className="h-12 text-lg w-full rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg">
+                      <SelectValue 
+                        placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Selecione uma unidade..." : "Nenhuma unidade") : "Login para unidades"} 
+                      />
+                    </SelectTrigger>
+                    <SelectContent 
+                      side="bottom" 
+                      align="start"
+                      sideOffset={4}
+                      className="max-h-60"
+                      position="popper"
+                    >
+                      <div className="px-2 py-2 border-b">
+                        <Input
+                          placeholder="Buscar por sigla..."
+                          className="h-8 text-sm"
+                          value={unidadeSearchTerm}
+                          onChange={(e) => setUnidadeSearchTerm(e.target.value)}
+                        />
+                      </div>
+                      {filteredUnidades.length === 0 ? (
+                        <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                          Nenhuma unidade encontrada
+                        </div>
+                      ) : (
+                        filteredUnidades.map((unidade) => (
+                          <SelectItem key={unidade.Id} value={unidade.Id}>
+                            {unidade.Sigla} - {unidade.Descricao}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {apiSearchPerformed && processCreationInfo && (
           <Card className="mb-4">
             <CardHeader className="p-2">
@@ -426,7 +500,7 @@ export default function Home() {
           </Card>
         )}
 
-        {apiSearchPerformed && (isLoadingSummary || processSummary) && (
+        {apiSearchPerformed && processSummary && (
           <Card className="mb-4">
             <CardHeader className="p-2">
                 <CardTitle className="text-md flex items-center text-green-600">
@@ -434,20 +508,20 @@ export default function Home() {
                 </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col flex-shrink-0 p-2 pt-0">
-                {isLoadingSummary && !processSummary && (
+                {!processSummary && (
                 <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 text-primary animate-spin" /><p className="ml-2 text-muted-foreground">Gerando...</p></div>
                 )}
                 {processSummary && (
                 <ScrollArea className="max-h-[150px] rounded-md border flex-shrink-0"><div className="p-3"><pre className="text-xs whitespace-pre-wrap break-words font-sans">{processSummary}</pre></div></ScrollArea>
                 )}
-                {!processSummary && !isLoadingSummary && apiSearchPerformed && (
+                {!processSummary && apiSearchPerformed && (
                 <div className="flex items-center justify-center p-4 text-muted-foreground"><Info className="mr-2 h-4 w-4" />Nenhum resumo disponível.</div>
                 )}
             </CardContent>
           </Card>
         )}
         
-        {apiSearchPerformed && rawProcessData ? (
+        {apiSearchPerformed && rawProcessData && (
           <div className="flex flex-1 mt-4 overflow-hidden">
             <div
               className={cn(
@@ -469,7 +543,6 @@ export default function Home() {
                         <ProcessMetadataSidebar
                           processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
                           openUnitsInProcess={openUnitsInProcess}
-                          isLoadingOpenUnits={isLoadingOpenUnits}
                           processedFlowData={processedFlowData}
                           onTaskCardClick={handleTaskCardClick}
                         />
@@ -499,7 +572,7 @@ export default function Home() {
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-md">
-                      <DialogHeader><DialogTitle>Legenda de Cores dos Nós</DialogTitle></DialogHeader>
+                      <DialogHeader><DialogTitle>Legenda de cores dos Nós</DialogTitle></DialogHeader>
                       <ProcessFlowLegend />
                     </DialogContent>
                   </Dialog>
@@ -510,33 +583,17 @@ export default function Home() {
                 taskToScrollTo={taskToScrollTo}
                 loginCredentials={loginCredentials}
                 isAuthenticated={isAuthenticated}
+                selectedUnidadeFiltro={selectedUnidadeFiltro}
               />
             </div>
           </div>
-        ) : isLoading || isLoadingSummary ? ( 
+        )}
+        
+        {isLoading && ( 
           <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
             <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
             <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
-            <p className="text-muted-foreground max-w-md">Aguarde, consulta à API SEI e/ou resumo em andamento.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
-            <FileJson className="h-32 w-32 text-muted-foreground/30 mb-8" />
-            <h2 className="text-3xl font-semibold text-foreground mb-4">
-              {isAuthenticated ? "Nenhum processo carregado" : "Autenticação Necessária"}
-            </h2>
-            <p className="text-muted-foreground mb-8 max-w-md text-center">
-              {isAuthenticated
-                ? 'Para iniciar, selecione a unidade, insira o número do processo e clique em "Pesquisar", ou carregue um arquivo JSON/dados de exemplo.'
-                : "Por favor, faça login para pesquisar processos ou carregar dados da API SEI."
-              }
-            </p>
-            <div className="flex space-x-4">
-              <Button onClick={loadSampleData} variant="secondary" disabled={isLoading || isLoadingSummary}>Usar Dados de Exemplo</Button>
-              {!isAuthenticated && (
-                <Button onClick={() => setIsLoginDialogOpen(true)} variant="default"><LogIn className="mr-2 h-4 w-4" />Login SEI</Button>
-              )}
-            </div>
+            <p className="text-muted-foreground max-w-md">Aguarde, processamento em andamento...</p>
           </div>
         )}
       </main>
@@ -585,8 +642,18 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isApiStatusModalOpen} onOpenChange={setIsApiStatusModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <ApiHealthCheck showDetails={true} className="border-0 shadow-none p-0 bg-transparent" />
+        </DialogContent>
+      </Dialog>
+
       <footer className="p-3 border-t border-border text-center text-xs text-muted-foreground">
         © {currentYear !== null ? currentYear : new Date().getFullYear()} Visualizador de Processos. Todos os direitos reservados.
+        <div className="flex items-center justify-center space-x-1 mt-2">
+          <Sparkles className="h-3 w-3 text-accent" />
+          <span>IA por SoberaniA</span>
+        </div>
         <p className="text-xs text-muted-foreground/80 mt-1">
           Nota: Para fins de prototipagem, as credenciais de login são armazenadas temporariamente no estado do cliente. Em produção, utilize métodos de autenticação mais seguros.
         </p>

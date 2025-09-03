@@ -11,6 +11,7 @@ interface ProcessFlowClientProps {
   // onScrollToFirstTask and onScrollToLastTask are removed as buttons are now in page.tsx
   loginCredentials: LoginCredentials | null;
   isAuthenticated: boolean;
+  selectedUnidadeFiltro: string | undefined;
 }
 
 export function ProcessFlowClient({ 
@@ -18,6 +19,7 @@ export function ProcessFlowClient({
   taskToScrollTo, 
   loginCredentials,
   isAuthenticated,
+  selectedUnidadeFiltro,
 }: ProcessFlowClientProps) {
   if (!processedFlowData || !processedFlowData.tasks || processedFlowData.tasks.length === 0) {
     // This case should ideally be handled by the parent component (page.tsx) before rendering ProcessFlowClient
@@ -35,6 +37,7 @@ export function ProcessFlowClient({
         taskToScrollTo={taskToScrollTo}
         loginCredentials={loginCredentials}
         isAuthenticated={isAuthenticated}
+        selectedUnidadeFiltro={selectedUnidadeFiltro}
       />
     </div>
   );

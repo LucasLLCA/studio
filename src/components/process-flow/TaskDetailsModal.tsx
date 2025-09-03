@@ -25,9 +25,10 @@ interface TaskDetailsModalProps {
   onClose: () => void;
   loginCredentials: LoginCredentials | null;
   isAuthenticated: boolean;
+  selectedUnidadeFiltro: string | undefined;
 }
 
-export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAuthenticated }: TaskDetailsModalProps) {
+export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAuthenticated, selectedUnidadeFiltro }: TaskDetailsModalProps) {
   const [extractedDocumentNumber, setExtractedDocumentNumber] = useState<string | null>(null);
   const [documentSummary, setDocumentSummary] = useState<string | null>(null);
   const [isLoadingDocumentSummary, setIsLoadingDocumentSummary] = useState<boolean>(false);
@@ -50,7 +51,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
   }, [task, isOpen]);
 
   const handleFetchDocumentSummary = async () => {
-    if (!extractedDocumentNumber || !loginCredentials || !task) {
+    if (!extractedDocumentNumber || !loginCredentials || !task || !selectedUnidadeFiltro) {
       setDocumentSummaryError("Não é possível buscar o resumo do documento. Dados ausentes.");
       return;
     }
@@ -60,7 +61,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
     setDocumentSummaryError(null);
 
     try {
-      const result = await fetchDocumentSummary(loginCredentials, extractedDocumentNumber, task.Unidade.IdUnidade);
+      const result = await fetchDocumentSummary(loginCredentials, extractedDocumentNumber, selectedUnidadeFiltro!);
       if ('error' in result) {
         setDocumentSummaryError(result.error || "Erro desconhecido ao buscar resumo do documento.");
       } else {
