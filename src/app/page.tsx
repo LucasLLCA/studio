@@ -12,10 +12,13 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
 import { processAndamentos, parseCustomDateString, formatDisplayDate } from '@/lib/process-flow-utils';
 import { ProcessFlowLegend } from '@/components/process-flow/ProcessFlowLegend';
 import { Combobox } from "@/components/ui/combobox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -65,6 +68,7 @@ export default function Home() {
   const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const router = useRouter();
 
   // Hook de autenticação persistente
   const {
@@ -94,6 +98,7 @@ export default function Home() {
   const [apiSearchPerformed, setApiSearchPerformed] = useState<boolean>(false);
   const [processCreationInfo, setProcessCreationInfo] = useState<ProcessCreationInfo | null>(null);
   const [isUnitsSidebarOpen, setIsUnitsSidebarOpen] = useState(true);
+  const [unidadeSearchTerm, setUnidadeSearchTerm] = useState<string>("");
 
 
   const methods = useForm<LoginFormValues>({
@@ -106,6 +111,13 @@ export default function Home() {
   useEffect(() => {
     setCurrentYear(new Date().getFullYear());
   }, []);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
@@ -341,25 +353,21 @@ export default function Home() {
   
   const inputRef = React.createRef<HTMLInputElement>();
 
+  // Filtrar unidades baseado no termo de busca
+  const filteredUnidades = useMemo(() => {
+    if (!unidadeSearchTerm) return unidadesFiltroList;
+    return unidadesFiltroList.filter(unidade => 
+      unidade.Sigla.toLowerCase().includes(unidadeSearchTerm.toLowerCase()) ||
+      unidade.Descricao.toLowerCase().includes(unidadeSearchTerm.toLowerCase())
+    );
+  }, [unidadesFiltroList, unidadeSearchTerm]);
+
   return (
     <div className="flex flex-col min-h-screen bg-background w-full">
       {/* Barra de controles no topo */}
       <div className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
-             <Combobox
-              options={unidadesFiltroList.map((unidade) => ({
-                value: unidade.Id,
-                label: `${unidade.Sigla} - ${unidade.Descricao}`
-              }))}
-              value={selectedUnidadeFiltro}
-              onValueChange={updateSelectedUnidade}
-              placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Selecione uma unidade..." : "Nenhuma unidade") : "Login para unidades"}
-              searchPlaceholder="Buscar unidade..."
-              emptyMessage="Nenhuma unidade encontrada."
-              disabled={isLoading || !isAuthenticated || unidadesFiltroList.length === 0}
-              className="h-9 text-sm w-full sm:w-auto min-w-[200px] sm:min-w-[250px] flex-shrink-0"
-            />
              <div className="flex items-center space-x-2 ml-auto sm:ml-0 flex-shrink-0">
               <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading} />
               <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
@@ -377,10 +385,8 @@ export default function Home() {
             <Button variant="outline" size="sm" onClick={() => setIsApiStatusModalOpen(true)} title="Status das APIs">
               <Activity className="h-4 w-4" />
             </Button>
-            {isAuthenticated ? (
+            {isAuthenticated && (
               <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
-            ) : (
-              <Button variant="default" size="sm" onClick={() => setIsLoginDialogOpen(true)} className="bg-green-700 hover:bg-green-800 text-white"> <LogIn className="mr-2 h-4 w-4" /> Login </Button>
             )}
           </div>
         </div>
@@ -399,39 +405,80 @@ export default function Home() {
                 <span className="text-sm font-semibold text-blue-500 bg-blue-100 px-3 py-1 rounded-full">Beta</span>
               </div>
               <p className="text-muted-foreground text-center max-w-md mt-4">
-                {isAuthenticated
-                  ? 'Para iniciar, selecione a unidade, insira o número do processo e clique em "Pesquisar".'
-                  : "Por favor, faça login para pesquisar processos na API SEI."
-                }
+                Para iniciar, selecione a unidade, insira o número do processo e clique em "Pesquisar".
               </p>
               
               {/* Campo de busca centralizado */}
-              <div className="relative w-full max-w-2xl mt-8">
-                <Input
-                  type="text"
-                  placeholder="Digite o número do processo..."
-                  className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
-                  value={processoNumeroInput}
-                  onChange={(e) => setProcessoNumeroInput(e.target.value)}
-                  disabled={isLoading || !isAuthenticated}
-                  ref={inputRef}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !(!isAuthenticated || isLoading || !processoNumeroInput || !selectedUnidadeFiltro)) {
-                      handleSearchClick();
-                    }
-                  }}
-                />
-                <Button 
-                  onClick={handleSearchClick} 
-                  disabled={!isAuthenticated || isLoading || !processoNumeroInput || !selectedUnidadeFiltro}
-                  className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Search className="h-5 w-5" />
-                  )}
-                </Button>
+              <div className="w-full max-w-2xl mt-8 space-y-4">
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Digite o número do processo..."
+                    className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
+                    value={processoNumeroInput}
+                    onChange={(e) => setProcessoNumeroInput(e.target.value)}
+                    disabled={isLoading || !isAuthenticated}
+                    ref={inputRef}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !(!isAuthenticated || isLoading || !processoNumeroInput || !selectedUnidadeFiltro)) {
+                        handleSearchClick();
+                      }
+                    }}
+                  />
+                  <Button 
+                    onClick={handleSearchClick} 
+                    disabled={!isAuthenticated || isLoading || !processoNumeroInput || !selectedUnidadeFiltro}
+                    className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Search className="h-5 w-5" />
+                    )}
+                  </Button>
+                </div>
+                
+                {/* Seletor de unidade */}
+                <div className="w-full">
+                  <Select
+                    value={selectedUnidadeFiltro || ""}
+                    onValueChange={updateSelectedUnidade}
+                    disabled={isLoading || !isAuthenticated || unidadesFiltroList.length === 0}
+                  >
+                    <SelectTrigger className="h-12 text-lg w-full rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg">
+                      <SelectValue 
+                        placeholder={isAuthenticated ? (unidadesFiltroList.length > 0 ? "Selecione uma unidade..." : "Nenhuma unidade") : "Login para unidades"} 
+                      />
+                    </SelectTrigger>
+                    <SelectContent 
+                      side="bottom" 
+                      align="start"
+                      sideOffset={4}
+                      className="max-h-60"
+                      position="popper"
+                    >
+                      <div className="px-2 py-2 border-b">
+                        <Input
+                          placeholder="Buscar por sigla..."
+                          className="h-8 text-sm"
+                          value={unidadeSearchTerm}
+                          onChange={(e) => setUnidadeSearchTerm(e.target.value)}
+                        />
+                      </div>
+                      {filteredUnidades.length === 0 ? (
+                        <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                          Nenhuma unidade encontrada
+                        </div>
+                      ) : (
+                        filteredUnidades.map((unidade) => (
+                          <SelectItem key={unidade.Id} value={unidade.Id}>
+                            {unidade.Sigla} - {unidade.Descricao}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>
@@ -525,7 +572,7 @@ export default function Home() {
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-md">
-                      <DialogHeader><DialogTitle>Legenda de Cores dos Nós</DialogTitle></DialogHeader>
+                      <DialogHeader><DialogTitle>Legenda de cores dos Nós</DialogTitle></DialogHeader>
                       <ProcessFlowLegend />
                     </DialogContent>
                   </Dialog>
