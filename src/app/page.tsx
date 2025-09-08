@@ -598,7 +598,6 @@ export default function Home() {
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-md">
-                      <DialogHeader><DialogTitle>Legenda de cores dos Nós</DialogTitle></DialogHeader>
                       <ProcessFlowLegend />
                     </DialogContent>
                   </Dialog>
