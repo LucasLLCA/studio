@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials, Andamento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare, Activity, Home as HomeIcon } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare, Activity, Home as HomeIcon, CheckCircle, Clock } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -161,29 +161,7 @@ export default function Home() {
   }, [rawProcessData]);
 
 
-  useEffect(() => {
-    const numeroProcessoAtual = rawProcessData?.Info?.NumeroProcesso || processoNumeroInput;
-    if (numeroProcessoAtual && selectedUnidadeFiltro && isAuthenticated && loginCredentials) {
-      setOpenUnitsInProcess(null);
-      fetchOpenUnitsForProcess(loginCredentials, numeroProcessoAtual, selectedUnidadeFiltro)
-        .then(result => {
-          if ('error' in result) {
-            setOpenUnitsInProcess([]);
-            if (result.status === 401) {
-                 toast({ title: "Sessão Expirada ou Inválida", description: "Por favor, faça login novamente.", variant: "destructive" });
-                 handleLogout();
-            }
-          } else {
-            setOpenUnitsInProcess(result);
-          }
-        })
-        .catch(error => {
-          setOpenUnitsInProcess([]);
-        });
-    } else {
-        setOpenUnitsInProcess(null);
-    }
-  }, [rawProcessData, processoNumeroInput, selectedUnidadeFiltro, isAuthenticated, loginCredentials, toast]);
+  // useEffect removido - agora as requisições executam em paralelo no handleSearchClick
 
 
   const handleFileUploadClick = () => {
@@ -260,47 +238,80 @@ export default function Home() {
     setProcessCreationInfo(null);
 
     try {
-      // Buscar dados do processo
-      const processDataResult = await fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro);
-      
-      if ('error' in processDataResult && typeof processDataResult.error === 'string') {
-        let errorTitle = "Erro ao buscar dados do processo";
-        let errorDescription = processDataResult.error;
-        if (processDataResult.status === 422) { errorTitle = "Erro de Validação (422)"; errorDescription = `Verifique o 'Número do Processo' e 'Unidade'.`; }
-        else if (processDataResult.status === 404) { errorTitle = "Processo Não Encontrado (404)"; errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro}.`; }
-        else if (processDataResult.status === 401) { errorTitle = "Falha na Autenticação (401)"; errorDescription = `Credenciais inválidas. Faça login novamente.`; handleLogout(); }
-        else if (processDataResult.status === 500) { errorTitle = "Erro Interno no Servidor SEI (500)"; errorDescription = `Tente novamente mais tarde.`;}
-        toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
-        setRawProcessData(null);
-        return;
-      } else if (!('error' in processDataResult) && processDataResult.Andamentos && Array.isArray(processDataResult.Andamentos)) {
-        // Dados carregados - exibir fluxo imediatamente
-        setRawProcessData(processDataResult);
-        toast({ title: "Dados do Processo Carregados", description: `Total ${processDataResult.Andamentos.length} andamentos carregados.` });
-        
-        // Buscar resumo em background (não bloqueia o fluxo)
-        fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
-          .then(summaryResult => {
-            if ('error' in summaryResult) {
-              toast({ title: "Erro ao Gerar Resumo", description: summaryResult.error, variant: "destructive", duration: 9000 });
+      // 🚀 EXECUTAR REQUISIÇÕES EM PARALELO para melhor performance
+      const [processDataResult, openUnitsResult] = await Promise.allSettled([
+        fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro),
+        fetchOpenUnitsForProcess(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+      ]);
+
+      // Processar resultado dos andamentos
+      if (processDataResult.status === 'fulfilled') {
+        const processData = processDataResult.value;
+        if ('error' in processData && typeof processData.error === 'string') {
+          let errorTitle = "Erro ao buscar dados do processo";
+          let errorDescription = processData.error;
+          if (processData.status === 422) { errorTitle = "Erro de Validação (422)"; errorDescription = `Verifique o 'Número do Processo' e 'Unidade'.`; }
+          else if (processData.status === 404) { errorTitle = "Processo Não Encontrado (404)"; errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro}.`; }
+          else if (processData.status === 401) { errorTitle = "Falha na Autenticação (401)"; errorDescription = `Credenciais inválidas. Faça login novamente.`; handleLogout(); }
+          else if (processData.status === 500) { errorTitle = "Erro Interno no Servidor SEI (500)"; errorDescription = `Tente novamente mais tarde.`;}
+          toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
+          setRawProcessData(null);
+          return;
+        } else if (!('error' in processData) && processData.Andamentos && Array.isArray(processData.Andamentos)) {
+          // Dados de andamentos carregados com sucesso
+          setRawProcessData(processData);
+          toast({ title: "Dados do Processo Carregados", description: `Total ${processData.Andamentos.length} andamentos carregados.` });
+          
+          // Buscar resumo em background (não bloqueia o fluxo)
+          fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+            .then(summaryResult => {
+              if ('error' in summaryResult) {
+                toast({ title: "Erro ao Gerar Resumo", description: summaryResult.error, variant: "destructive", duration: 9000 });
+                setProcessSummary(null);
+              } else {
+                setProcessSummary(summaryResult.summary.replace(/[#*]/g, ''));
+                toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
+              }
+            })
+            .catch(error => {
+              toast({ title: "Erro ao Gerar Resumo", description: "Erro inesperado ao gerar resumo.", variant: "destructive", duration: 7000 });
               setProcessSummary(null);
-            } else {
-              setProcessSummary(summaryResult.summary.replace(/[#*]/g, ''));
-              toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
-            }
-          })
-          .catch(error => {
-            toast({ title: "Erro ao Gerar Resumo", description: "Erro inesperado ao gerar resumo.", variant: "destructive", duration: 7000 });
-            setProcessSummary(null);
-          });
+            });
+        } else {
+          toast({ title: "Erro Desconhecido (Andamentos)", description: "Resposta inesperada ao buscar andamentos.", variant: "destructive" });
+          setRawProcessData(null);
+        }
       } else {
-        toast({ title: "Erro Desconhecido (Andamentos)", description: "Resposta inesperada ao buscar andamentos.", variant: "destructive" });
+        // Erro na requisição de andamentos
+        toast({ title: "Erro Inesperado", description: "Erro ao buscar dados do processo.", variant: "destructive", duration: 7000 });
         setRawProcessData(null);
+      }
+
+      // Processar resultado das unidades abertas (em paralelo!)
+      if (openUnitsResult.status === 'fulfilled') {
+        const openUnits = openUnitsResult.value;
+        if ('error' in openUnits) {
+          setOpenUnitsInProcess([]);
+          if (openUnits.status === 401) {
+            toast({ title: "Sessão Expirada ou Inválida", description: "Por favor, faça login novamente.", variant: "destructive" });
+            handleLogout();
+          }
+        } else {
+          setOpenUnitsInProcess(openUnits);
+          // Toast separado para unidades abertas (aparecerá primeiro se for mais rápido!)
+          console.log(`Unidades abertas carregadas: ${openUnits.length}`);
+        }
+      } else {
+        // Erro na requisição de unidades abertas
+        setOpenUnitsInProcess([]);
+        console.warn("Erro ao buscar unidades abertas:", openUnitsResult.reason);
       }
 
     } catch (error) {
       toast({ title: "Erro Inesperado", description: error instanceof Error ? error.message : "Erro ao buscar dados.", variant: "destructive", duration: 7000 });
-      setRawProcessData(null); setProcessSummary(null);
+      setRawProcessData(null); 
+      setOpenUnitsInProcess([]);
+      setProcessSummary(null);
     } finally {
       setIsLoading(false);
     }
@@ -496,6 +507,21 @@ export default function Home() {
               <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
               <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
               <div className="flex items-center"><CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />Tempo: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
+              {openUnitsInProcess !== null && (
+                <div className="flex items-center">
+                  {openUnitsInProcess.length === 0 ? (
+                    <>
+                      <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                      Status: <span className="font-medium ml-1 text-green-600">Concluído</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="mr-2 h-4 w-4 text-yellow-600" />
+                      Status: <span className="font-medium ml-1 text-yellow-600">Em andamento ({openUnitsInProcess.length} unidade{openUnitsInProcess.length !== 1 ? 's' : ''} aberta{openUnitsInProcess.length !== 1 ? 's' : ''})</span>
+                    </>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

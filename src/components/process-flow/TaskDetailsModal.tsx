@@ -42,10 +42,67 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
     setIsLoadingDocumentSummary(false);
 
     if (task && isOpen) {
-      // Extract document number for potential document summary
-      const docNumberMatch = task.Descricao.match(/\b(\d{8,9})\b/);
-      if (docNumberMatch && docNumberMatch[1]) {
-        setExtractedDocumentNumber(docNumberMatch[1]);
+      // Extract document number with multiple flexible patterns
+      const patterns = [
+        // Padrão original (8-9 dígitos isolados) - mais confiável
+        { name: 'isolado', regex: /\b(\d{8,9})\b/, priority: 1 },
+        
+        // Com prefixos comuns (DOC, DOCUMENTO, ANEXO, etc.)
+        { name: 'prefixo_doc', regex: /(?:DOC|DOCUMENTO|ANEXO|PROCESS)[O]?[:\s#-]*(\d{7,10})/i, priority: 2 },
+        
+        // Protocolo ou número de processo
+        { name: 'protocolo', regex: /(?:PROTOCOLO|PROCESSO|SEI)[:\s#-]*(\d{7,10})/i, priority: 2 },
+        
+        // Entre parênteses ou colchetes
+        { name: 'parenteses', regex: /[\(\[](\d{7,10})[\)\]]/, priority: 3 },
+        
+        // Precedido por "nº", "n°", "num", "número"
+        { name: 'numero', regex: /(?:n[ºo°]?|num|número)[:\s]*(\d{7,10})/i, priority: 3 },
+        
+        // Qualquer sequência de 7-10 dígitos (menos confiável)
+        { name: 'generico', regex: /(\d{7,10})(?=\s|$|[^\d])/g, priority: 4 }
+      ];
+
+      let bestMatch = null;
+      let bestPriority = 999;
+
+      for (const pattern of patterns) {
+        const matches = pattern.regex.global ? 
+          [...task.Descricao.matchAll(pattern.regex)] : 
+          [task.Descricao.match(pattern.regex)];
+
+        for (const match of matches) {
+          if (match && match[1] && pattern.priority < bestPriority) {
+            // Validações adicionais
+            const number = match[1];
+            
+            // Rejeitar números muito pequenos (menos de 7 dígitos)
+            if (number.length < 7) continue;
+            
+            // Rejeitar números muito grandes (mais de 12 dígitos)  
+            if (number.length > 12) continue;
+            
+            // Rejeitar padrões óbvios de data (formato YYYYMMDD ou DDMMYYYY)
+            if (number.length === 8) {
+              const year = parseInt(number.substring(0, 4));
+              const year2 = parseInt(number.substring(4, 8));
+              if ((year >= 1990 && year <= 2030) || (year2 >= 1990 && year2 <= 2030)) {
+                console.log(`Rejeitando possível data: ${number}`);
+                continue;
+              }
+            }
+
+            bestMatch = number;
+            bestPriority = pattern.priority;
+            console.log(`Número do documento extraído (${pattern.name}): ${number} da descrição: "${task.Descricao.substring(0, 100)}..."`);
+          }
+        }
+      }
+
+      if (bestMatch) {
+        setExtractedDocumentNumber(bestMatch);
+      } else {
+        console.log(`Nenhum número de documento encontrado na descrição: "${task.Descricao}"`);
       }
     }
   }, [task, isOpen]);

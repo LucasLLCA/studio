@@ -15,12 +15,7 @@ export const INITIAL_X_OFFSET = NODE_RADIUS + 30;
 export const INITIAL_Y_OFFSET = VERTICAL_LANE_SPACING / 2; 
 
 export const SYMBOLIC_TASK_COLORS: Record<string, string> = {
-  'CONCLUSAO-PROCESSO-UNIDADE': 'hsl(120, 60%, 45%)',     // Verde
-  'CONCLUSAO-AUTOMATICA-UNIDADE': 'hsl(120, 60%, 70%)', // Verde claro
-  'PROCESSO-REMETIDO-UNIDADE': 'hsl(30, 35%, 40%)',      // Marrom
-  'PROCESSO-RECEBIDO-UNIDADE': 'hsl(210, 70%, 55%)',     // Azul
-  'REABERTURA-PROCESSO-UNIDADE': 'hsl(270, 50%, 60%)',   // Roxo
-  'GERACAO-PROCEDIMENTO': 'hsl(30, 80%, 55%)',          // Laranja
+  'GERACAO-PROCEDIMENTO': 'hsl(30, 80%, 55%)',          // Laranja - único nó colorido
   'ACOES-DIVERSAS-AGRUPADAS': 'hsl(var(--muted))',       // Cinza para nós agrupados
 };
 const DEFAULT_TASK_COLOR = 'hsl(var(--muted))';         // Cinza
