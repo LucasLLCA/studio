@@ -226,12 +226,6 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
                     )}
                     Gerar Resumo do Documento
                   </Button>
-                  {isLoadingDocumentSummary && (
-                     <div className="flex items-center text-sm text-muted-foreground mt-2">
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Buscando resumo do documento...
-                     </div>
-                  )}
                   {documentSummaryError && (
                     <p className="text-sm text-destructive flex items-center mt-2"><AlertCircle className="h-4 w-4 mr-1" /> {documentSummaryError}</p>
                   )}
