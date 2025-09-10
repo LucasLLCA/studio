@@ -3,7 +3,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials, Andamento, Documento } from '@/types/process-flow';
-import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare, Activity, Home as HomeIcon, CheckCircle, Clock } from 'lucide-react';
+import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare, Activity, Home as HomeIcon, CheckCircle, Clock, ExternalLink } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,6 +86,7 @@ export default function Home() {
   const [loadingMessage, setLoadingMessage] = useState<string>("Processando dados...");
   const [isSummarizedView, setIsSummarizedView] = useState<boolean>(false);
   const [openUnitsInProcess, setOpenUnitsInProcess] = useState<UnidadeAberta[] | null>(null);
+  const [processLinkAcesso, setProcessLinkAcesso] = useState<string | null>(null);
   const [documents, setDocuments] = useState<Documento[] | null>(null);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState<boolean>(false);
 
@@ -182,6 +183,7 @@ export default function Home() {
     setLoadingMessage("Processando arquivo JSON...");
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
+    setProcessLinkAcesso(null);
     setDocuments(null);
     setIsLoadingDocuments(false);
     setProcessSummary(null);
@@ -203,7 +205,7 @@ export default function Home() {
           }
         }
       } catch (error) {
-        setRawProcessData(null); setOpenUnitsInProcess(null); setDocuments(null);
+        setRawProcessData(null); setOpenUnitsInProcess(null); setProcessLinkAcesso(null); setDocuments(null);
         toast({ title: "Erro ao processar JSON", description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.", variant: "destructive" });
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -238,6 +240,7 @@ export default function Home() {
     setLoadingMessage("Buscando dados do processo...");
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
+    setProcessLinkAcesso(null);
     setDocuments(null);
     setIsLoadingDocuments(false);
     setProcessSummary(null);
@@ -278,22 +281,29 @@ export default function Home() {
       .then(unitsData => {
         if ('error' in unitsData) {
           setOpenUnitsInProcess([]);
+          setProcessLinkAcesso(null);
           console.warn("Erro ao buscar unidades abertas:", unitsData.error);
           if (unitsData.status === 401) {
             toast({ title: "Sessão Expirada ou Inválida", description: "Por favor, faça login novamente.", variant: "destructive" });
             handleLogout();
           }
-        } else if (Array.isArray(unitsData)) {
+        } else if (unitsData.unidades && Array.isArray(unitsData.unidades)) {
           // RENDERIZA SIDEBAR IMEDIATAMENTE
-          setOpenUnitsInProcess(unitsData);
-          console.log(`Unidades abertas carregadas: ${unitsData.length}`);
+          setOpenUnitsInProcess(unitsData.unidades);
+          setProcessLinkAcesso(unitsData.linkAcesso || null);
+          console.log(`Unidades abertas carregadas: ${unitsData.unidades.length}`);
+          if (unitsData.linkAcesso) {
+            console.log(`LinkAcesso capturado: ${unitsData.linkAcesso}`);
+          }
         } else {
           setOpenUnitsInProcess([]);
+          setProcessLinkAcesso(null);
           console.warn("Resposta inesperada ao buscar unidades abertas:", unitsData);
         }
       })
       .catch(error => {
         setOpenUnitsInProcess([]);
+        setProcessLinkAcesso(null);
         console.warn("Erro ao buscar unidades abertas:", error);
       });
 
@@ -358,7 +368,7 @@ export default function Home() {
 
   const handleLogout = () => {
     persistLogout();
-    setRawProcessData(null); setOpenUnitsInProcess(null); setDocuments(null); setProcessSummary(null); setApiSearchPerformed(false); setProcessCreationInfo(null);
+    setRawProcessData(null); setOpenUnitsInProcess(null); setProcessLinkAcesso(null); setDocuments(null); setProcessSummary(null); setApiSearchPerformed(false); setProcessCreationInfo(null);
     toast({ title: "Logout realizado." });
   };
 
@@ -369,6 +379,7 @@ export default function Home() {
   const handleBackToHome = () => {
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
+    setProcessLinkAcesso(null);
     setDocuments(null);
     setProcessSummary(null);
     setApiSearchPerformed(false);
@@ -523,6 +534,20 @@ export default function Home() {
               <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
               <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
               <div className="flex items-center"><CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />Tempo: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
+              {processLinkAcesso && (
+                <div className="flex items-center">
+                  <ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
+                  Link: 
+                  <a 
+                    href={processLinkAcesso} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="font-medium ml-1 text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Abrir no SEI
+                  </a>
+                </div>
+              )}
               {openUnitsInProcess !== null && (
                 <div className="flex items-center">
                   {openUnitsInProcess.length === 0 ? (

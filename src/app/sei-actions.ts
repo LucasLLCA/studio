@@ -296,7 +296,7 @@ export async function fetchOpenUnitsForProcess(
   credentials: LoginCredentials,
   protocoloProcedimento: string,
   unidadeOrigemConsulta: string
-): Promise<UnidadeAberta[] | ApiError> {
+): Promise<{unidades: UnidadeAberta[], linkAcesso?: string} | ApiError> {
   if (!SEI_API_BASE_URL) {
     console.error("[SEI API Consulta] SEI API Base URL environment variable is not set.");
     return { error: "Configuração do servidor incompleta para acessar a API SEI.", status: 500 };
@@ -353,13 +353,19 @@ export async function fetchOpenUnitsForProcess(
       return { error: `Falha ao buscar unidades com processo aberto na API SEI: ${response.status}`, details: errorDetails, status: response.status };
     }
 
-    const data = await response.json() as { UnidadesProcedimentoAberto?: UnidadeAberta[] };
+    const data = await response.json() as { UnidadesProcedimentoAberto?: UnidadeAberta[], LinkAcesso?: string };
 
 
     if (data && data.UnidadesProcedimentoAberto) {
-      return data.UnidadesProcedimentoAberto;
+      return { 
+        unidades: data.UnidadesProcedimentoAberto, 
+        linkAcesso: data.LinkAcesso 
+      };
     } else if (data && !data.UnidadesProcedimentoAberto) {
-      return [];
+      return { 
+        unidades: [], 
+        linkAcesso: data.LinkAcesso 
+      };
     } else {
       console.error("[SEI API Consulta] Estrutura de dados inválida recebida da API de consulta SEI:", data);
       return { error: "Formato de dados inesperado da API de consulta SEI.", details: data, status: 500 };

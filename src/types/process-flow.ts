@@ -140,6 +140,11 @@ export interface SEILoginApiResponse {
     Sigla: string;
     Descricao: string;
   }>;
+  Unidades?: Array<{
+    Id: string;
+    Sigla: string;
+    Descricao: string;
+  }>;
   // For error messages directly from SEI API on failed login
   Message?: string; 
 }
