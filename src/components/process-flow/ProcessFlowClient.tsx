@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { ProcessedFlowData, ProcessedAndamento, LoginCredentials } from '@/types/process-flow';
+import type { ProcessedFlowData, ProcessedAndamento, LoginCredentials, Documento } from '@/types/process-flow';
 import { ProcessFlowDiagram } from './ProcessFlowDiagram';
 import React from 'react';
 
@@ -12,6 +12,8 @@ interface ProcessFlowClientProps {
   loginCredentials: LoginCredentials | null;
   isAuthenticated: boolean;
   selectedUnidadeFiltro: string | undefined;
+  processNumber?: string;
+  documents?: Documento[] | null;
 }
 
 export function ProcessFlowClient({ 
@@ -20,6 +22,8 @@ export function ProcessFlowClient({
   loginCredentials,
   isAuthenticated,
   selectedUnidadeFiltro,
+  processNumber,
+  documents,
 }: ProcessFlowClientProps) {
   if (!processedFlowData || !processedFlowData.tasks || processedFlowData.tasks.length === 0) {
     // This case should ideally be handled by the parent component (page.tsx) before rendering ProcessFlowClient
@@ -38,6 +42,8 @@ export function ProcessFlowClient({
         loginCredentials={loginCredentials}
         isAuthenticated={isAuthenticated}
         selectedUnidadeFiltro={selectedUnidadeFiltro}
+        processNumber={processNumber}
+        documents={documents}
       />
     </div>
   );

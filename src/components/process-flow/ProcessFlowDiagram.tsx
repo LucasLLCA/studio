@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { ProcessedAndamento, Connection, LoginCredentials } from '@/types/process-flow';
+import type { ProcessedAndamento, Connection, LoginCredentials, Documento } from '@/types/process-flow';
 import { TaskNode } from './TaskNode';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import React, { useState, useRef, useEffect } from 'react';
@@ -19,6 +19,8 @@ interface ProcessFlowDiagramProps {
   loginCredentials: LoginCredentials | null;
   isAuthenticated: boolean;
   selectedUnidadeFiltro: string | undefined;
+  processNumber?: string;
+  documents?: Documento[] | null;
 }
 
 export function ProcessFlowDiagram({ 
@@ -31,6 +33,8 @@ export function ProcessFlowDiagram({
   loginCredentials,
   isAuthenticated,
   selectedUnidadeFiltro,
+  processNumber,
+  documents,
 }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -275,6 +279,8 @@ export function ProcessFlowDiagram({
         loginCredentials={loginCredentials}
         isAuthenticated={isAuthenticated}
         selectedUnidadeFiltro={selectedUnidadeFiltro}
+        processNumber={processNumber}
+        documents={documents}
       />
     </div>
   );

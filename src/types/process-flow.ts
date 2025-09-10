@@ -153,3 +153,41 @@ export interface ClientLoginResponse {
   status?: number;
   details?: any; // To pass through any additional error details from SEI API
 }
+
+// Document interfaces
+export interface DocumentoSerie {
+  IdSerie: string;
+  Nome: string;
+  Aplicabilidade?: string;
+}
+
+export interface DocumentoUnidadeElaboradora {
+  IdUnidade: string;
+  Sigla: string;
+  Descricao: string;
+}
+
+export interface Documento {
+  IdProcedimento: string;
+  ProcedimentoFormatado: string;
+  IdDocumento: string;
+  DocumentoFormatado: string;
+  LinkAcesso: string;
+  Serie: DocumentoSerie;
+  Numero: string;
+  Descricao?: string;
+  Data: string;
+  UnidadeElaboradora: DocumentoUnidadeElaboradora;
+}
+
+export interface DocumentosInfo {
+  Pagina: number;
+  TotalPaginas: number;
+  QuantidadeItens: number;
+  TotalItens: number;
+}
+
+export interface DocumentosResponse {
+  Info: DocumentosInfo;
+  Documentos: Documento[];
+}

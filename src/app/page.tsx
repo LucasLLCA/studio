@@ -2,7 +2,7 @@
 "use client";
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
-import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials, Andamento } from '@/types/process-flow';
+import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, LoginCredentials, Andamento, Documento } from '@/types/process-flow';
 import { Upload, FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare, Activity, Home as HomeIcon, CheckCircle, Clock } from 'lucide-react';
 import React, { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, loginToSEI, checkSEIApiHealth, checkSummaryApiHealth } from './sei-actions';
+import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, fetchDocumentsFromSEI, loginToSEI, checkSEIApiHealth, checkSummaryApiHealth } from './sei-actions';
 import type { HealthCheckResponse } from './sei-actions';
 import ApiHealthCheck from '@/components/ApiHealthCheck';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -86,6 +86,8 @@ export default function Home() {
   const [loadingMessage, setLoadingMessage] = useState<string>("Processando dados...");
   const [isSummarizedView, setIsSummarizedView] = useState<boolean>(false);
   const [openUnitsInProcess, setOpenUnitsInProcess] = useState<UnidadeAberta[] | null>(null);
+  const [documents, setDocuments] = useState<Documento[] | null>(null);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState<boolean>(false);
 
   const [processSummary, setProcessSummary] = useState<string | null>(null);
 
@@ -180,6 +182,8 @@ export default function Home() {
     setLoadingMessage("Processando arquivo JSON...");
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
+    setDocuments(null);
+    setIsLoadingDocuments(false);
     setProcessSummary(null);
     setApiSearchPerformed(false); 
     setProcessCreationInfo(null);
@@ -199,7 +203,7 @@ export default function Home() {
           }
         }
       } catch (error) {
-        setRawProcessData(null); setOpenUnitsInProcess(null);
+        setRawProcessData(null); setOpenUnitsInProcess(null); setDocuments(null);
         toast({ title: "Erro ao processar JSON", description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.", variant: "destructive" });
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -234,19 +238,16 @@ export default function Home() {
     setLoadingMessage("Buscando dados do processo...");
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
+    setDocuments(null);
+    setIsLoadingDocuments(false);
     setProcessSummary(null);
     setProcessCreationInfo(null);
 
-    try {
-      // 🚀 EXECUTAR REQUISIÇÕES EM PARALELO para melhor performance
-      const [processDataResult, openUnitsResult] = await Promise.allSettled([
-        fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro),
-        fetchOpenUnitsForProcess(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
-      ]);
+    // 🚀 REQUISIÇÕES VERDADEIRAMENTE INDEPENDENTES - cada uma renderiza assim que termina
 
-      // Processar resultado dos andamentos
-      if (processDataResult.status === 'fulfilled') {
-        const processData = processDataResult.value;
+    // 1. ANDAMENTOS (crítico - deve terminar primeiro para mostrar o fluxo)
+    fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+      .then(processData => {
         if ('error' in processData && typeof processData.error === 'string') {
           let errorTitle = "Erro ao buscar dados do processo";
           let errorDescription = processData.error;
@@ -256,65 +257,79 @@ export default function Home() {
           else if (processData.status === 500) { errorTitle = "Erro Interno no Servidor SEI (500)"; errorDescription = `Tente novamente mais tarde.`;}
           toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
           setRawProcessData(null);
-          return;
         } else if (!('error' in processData) && processData.Andamentos && Array.isArray(processData.Andamentos)) {
-          // Dados de andamentos carregados com sucesso
+          // RENDERIZA FLUXO IMEDIATAMENTE assim que andamentos chegam
           setRawProcessData(processData);
-          toast({ title: "Dados do Processo Carregados", description: `Total ${processData.Andamentos.length} andamentos carregados.` });
-          
-          // Buscar resumo em background (não bloqueia o fluxo)
-          fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
-            .then(summaryResult => {
-              if ('error' in summaryResult) {
-                toast({ title: "Erro ao Gerar Resumo", description: summaryResult.error, variant: "destructive", duration: 9000 });
-                setProcessSummary(null);
-              } else {
-                setProcessSummary(summaryResult.summary.replace(/[#*]/g, ''));
-                toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
-              }
-            })
-            .catch(error => {
-              toast({ title: "Erro ao Gerar Resumo", description: "Erro inesperado ao gerar resumo.", variant: "destructive", duration: 7000 });
-              setProcessSummary(null);
-            });
+          toast({ title: "Fluxo do Processo Carregado", description: `${processData.Andamentos.length} andamentos carregados.` });
         } else {
           toast({ title: "Erro Desconhecido (Andamentos)", description: "Resposta inesperada ao buscar andamentos.", variant: "destructive" });
           setRawProcessData(null);
         }
-      } else {
-        // Erro na requisição de andamentos
-        toast({ title: "Erro Inesperado", description: "Erro ao buscar dados do processo.", variant: "destructive", duration: 7000 });
+      })
+      .catch(error => {
+        console.error("Erro ao buscar dados do processo:", error);
         setRawProcessData(null);
-      }
+        toast({ title: "Erro ao Buscar Andamentos", description: "Falha na requisição de andamentos.", variant: "destructive" });
+      })
+      .finally(() => setIsLoading(false)); // Para loading do fluxo principal
 
-      // Processar resultado das unidades abertas (em paralelo!)
-      if (openUnitsResult.status === 'fulfilled') {
-        const openUnits = openUnitsResult.value;
-        if ('error' in openUnits) {
+    // 2. UNIDADES ABERTAS (independente - sidebar atualiza quando termina)
+    fetchOpenUnitsForProcess(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+      .then(unitsData => {
+        if ('error' in unitsData) {
           setOpenUnitsInProcess([]);
-          if (openUnits.status === 401) {
+          console.warn("Erro ao buscar unidades abertas:", unitsData.error);
+          if (unitsData.status === 401) {
             toast({ title: "Sessão Expirada ou Inválida", description: "Por favor, faça login novamente.", variant: "destructive" });
             handleLogout();
           }
+        } else if (Array.isArray(unitsData)) {
+          // RENDERIZA SIDEBAR IMEDIATAMENTE
+          setOpenUnitsInProcess(unitsData);
+          console.log(`Unidades abertas carregadas: ${unitsData.length}`);
         } else {
-          setOpenUnitsInProcess(openUnits);
-          // Toast separado para unidades abertas (aparecerá primeiro se for mais rápido!)
-          console.log(`Unidades abertas carregadas: ${openUnits.length}`);
+          setOpenUnitsInProcess([]);
+          console.warn("Resposta inesperada ao buscar unidades abertas:", unitsData);
         }
-      } else {
-        // Erro na requisição de unidades abertas
+      })
+      .catch(error => {
         setOpenUnitsInProcess([]);
-        console.warn("Erro ao buscar unidades abertas:", openUnitsResult.reason);
-      }
+        console.warn("Erro ao buscar unidades abertas:", error);
+      });
 
-    } catch (error) {
-      toast({ title: "Erro Inesperado", description: error instanceof Error ? error.message : "Erro ao buscar dados.", variant: "destructive", duration: 7000 });
-      setRawProcessData(null); 
-      setOpenUnitsInProcess([]);
-      setProcessSummary(null);
-    } finally {
-      setIsLoading(false);
-    }
+    // 3. DOCUMENTOS (independente - links aparecem quando termina)
+    fetchDocumentsFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+      .then(documentsResponse => {
+        if ('error' in documentsResponse) {
+          setDocuments([]);
+          console.warn("Erro ao buscar documentos:", documentsResponse.error);
+        } else {
+          // ATIVA LINKS DOS DOCUMENTOS IMEDIATAMENTE
+          setDocuments(documentsResponse.Documentos);
+          console.log(`Documentos carregados: ${documentsResponse.Documentos.length}`);
+        }
+      })
+      .catch(error => {
+        setDocuments([]);
+        console.warn("Erro ao buscar documentos:", error);
+      });
+
+    // 4. RESUMO DO PROCESSO (independente - aparece quando IA termina)
+    fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+      .then(summaryResponse => {
+        if ('error' in summaryResponse) {
+          setProcessSummary(null);
+          toast({ title: "Erro ao Gerar Resumo", description: summaryResponse.error, variant: "destructive", duration: 9000 });
+        } else {
+          // MOSTRA RESUMO IMEDIATAMENTE quando IA termina
+          setProcessSummary(summaryResponse.summary.replace(/[#*]/g, ''));
+          toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
+        }
+      })
+      .catch(error => {
+        setProcessSummary(null);
+        console.warn("Erro ao buscar resumo:", error);
+      });
   };
 
 
@@ -343,7 +358,7 @@ export default function Home() {
 
   const handleLogout = () => {
     persistLogout();
-    setRawProcessData(null); setOpenUnitsInProcess(null); setProcessSummary(null); setApiSearchPerformed(false); setProcessCreationInfo(null);
+    setRawProcessData(null); setOpenUnitsInProcess(null); setDocuments(null); setProcessSummary(null); setApiSearchPerformed(false); setProcessCreationInfo(null);
     toast({ title: "Logout realizado." });
   };
 
@@ -354,6 +369,7 @@ export default function Home() {
   const handleBackToHome = () => {
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
+    setDocuments(null);
     setProcessSummary(null);
     setApiSearchPerformed(false);
     setProcessCreationInfo(null);
@@ -609,6 +625,8 @@ export default function Home() {
                 loginCredentials={loginCredentials}
                 isAuthenticated={isAuthenticated}
                 selectedUnidadeFiltro={selectedUnidadeFiltro}
+                processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
+                documents={documents}
               />
             </div>
           </div>

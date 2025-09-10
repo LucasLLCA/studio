@@ -20,7 +20,7 @@ interface ProcessMetadataSidebarProps {
   processNumberPlaceholder?: string;
   openUnitsInProcess: UnidadeAberta[] | null;
   processedFlowData: ProcessedFlowData | null; 
-  onTaskCardClick: (task: ProcessedAndamento) => void; 
+  onTaskCardClick: (task: ProcessedAndamento) => void;
 }
 
 export function ProcessMetadataSidebar({ 
@@ -30,8 +30,6 @@ export function ProcessMetadataSidebar({
   processedFlowData,
   onTaskCardClick,
 }: ProcessMetadataSidebarProps) {
-  
-  const displayProcessNumber = processNumber || processNumberPlaceholder || "Não disponível";
 
   const getOpenUnitsMessage = () => {
     if (!processNumber && !openUnitsInProcess) return "Carregue ou pesquise um processo para ver as unidades em aberto.";

@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { ProcessedAndamento, LoginCredentials } from '@/types/process-flow';
+import type { ProcessedAndamento, LoginCredentials, Documento } from '@/types/process-flow';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import React, { useState, useEffect } from 'react';
 import { formatDisplayDate } from '@/lib/process-flow-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, CheckCircle, User, Briefcase, CalendarClock, FileText, Sparkles, Layers, Loader2, FileSearch } from 'lucide-react';
+import { AlertCircle, CheckCircle, User, Briefcase, CalendarClock, FileText, Sparkles, Layers, Loader2, ExternalLink } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 interface TaskDetailsModalProps {
@@ -26,13 +26,16 @@ interface TaskDetailsModalProps {
   loginCredentials: LoginCredentials | null;
   isAuthenticated: boolean;
   selectedUnidadeFiltro: string | undefined;
+  processNumber?: string;
+  documents?: Documento[] | null;
 }
 
-export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAuthenticated, selectedUnidadeFiltro }: TaskDetailsModalProps) {
+export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAuthenticated, selectedUnidadeFiltro, processNumber, documents }: TaskDetailsModalProps) {
   const [extractedDocumentNumber, setExtractedDocumentNumber] = useState<string | null>(null);
   const [documentSummary, setDocumentSummary] = useState<string | null>(null);
   const [isLoadingDocumentSummary, setIsLoadingDocumentSummary] = useState<boolean>(false);
   const [documentSummaryError, setDocumentSummaryError] = useState<string | null>(null);
+  const [matchedDocument, setMatchedDocument] = useState<Documento | null>(null);
 
   useEffect(() => {
     // Reset document summary states when modal opens or task changes
@@ -40,6 +43,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
     setDocumentSummary(null);
     setDocumentSummaryError(null);
     setIsLoadingDocumentSummary(false);
+    setMatchedDocument(null);
 
     if (task && isOpen) {
       // Extract document number with multiple flexible patterns
@@ -107,6 +111,42 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
     }
   }, [task, isOpen]);
 
+  // Buscar documento correspondente quando número é extraído (busca local)
+  useEffect(() => {
+    if (!extractedDocumentNumber || !documents || documents.length === 0) {
+      setMatchedDocument(null);
+      return;
+    }
+
+    // Buscar documento que corresponde ao número extraído na lista local
+    const matchedDoc = documents.find(doc => 
+      doc.DocumentoFormatado === extractedDocumentNumber ||
+      doc.Numero === extractedDocumentNumber ||
+      doc.DocumentoFormatado.includes(extractedDocumentNumber) ||
+      extractedDocumentNumber.includes(doc.DocumentoFormatado)
+    );
+
+    if (matchedDoc) {
+      setMatchedDocument(matchedDoc);
+      console.log(`Documento correspondente encontrado: ${matchedDoc.DocumentoFormatado} - ${matchedDoc.Serie.Nome}`);
+    } else {
+      setMatchedDocument(null);
+    }
+  }, [extractedDocumentNumber, documents]);
+
+  // Auto-scroll quando o resumo do documento é gerado
+  useEffect(() => {
+    if (documentSummary && !isLoadingDocumentSummary) {
+      // Pequeno delay para garantir que o DOM foi atualizado
+      setTimeout(() => {
+        const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollArea) {
+          scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  }, [documentSummary, isLoadingDocumentSummary]);
+
   const handleFetchDocumentSummary = async () => {
     if (!extractedDocumentNumber || !loginCredentials || !task || !selectedUnidadeFiltro) {
       setDocumentSummaryError("Não é possível buscar o resumo do documento. Dados ausentes.");
@@ -138,7 +178,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[700px] max-h-[95vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold text-primary flex items-center">
              {task.isSummaryNode ? <Layers className="mr-2 h-6 w-6" /> : <FileText className="mr-2 h-6 w-6" />}
@@ -207,31 +247,81 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
             {extractedDocumentNumber && isAuthenticated && (
               <>
                 <Separator className="my-4" />
+                
+                {/* Link do Documento */}
                 <div className="space-y-3">
                   <h3 className="font-medium text-foreground flex items-center">
-                    <FileSearch className="h-5 w-5 mr-2 text-accent" />
-                    Resumo do Documento ({extractedDocumentNumber})
+                    <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                    Documento Identificado ({extractedDocumentNumber})
                   </h3>
-                  <Button
-                    onClick={handleFetchDocumentSummary}
-                    disabled={isLoadingDocumentSummary || !loginCredentials}
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:w-auto"
-                  >
-                    {isLoadingDocumentSummary ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="mr-2 h-4 w-4" />
-                    )}
-                    Gerar Resumo do Documento
-                  </Button>
-                  {documentSummaryError && (
-                    <p className="text-sm text-destructive flex items-center mt-2"><AlertCircle className="h-4 w-4 mr-1" /> {documentSummaryError}</p>
+                  
+                  {matchedDocument && (
+                    <div className="p-3 border rounded-md bg-blue-50/50 border-blue-200">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium text-blue-900">{matchedDocument.Serie.Nome}</div>
+                          <div className="text-sm text-blue-700 mt-1">
+                            Doc: {matchedDocument.DocumentoFormatado} | Nº: {matchedDocument.Numero}
+                          </div>
+                          {matchedDocument.Descricao && (
+                            <div className="text-sm text-muted-foreground mt-1">{matchedDocument.Descricao}</div>
+                          )}
+                          <div className="text-xs text-muted-foreground mt-2">
+                            {matchedDocument.Data} - {matchedDocument.UnidadeElaboradora.Sigla}
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => window.open(matchedDocument.LinkAcesso, '_blank')}
+                          variant="outline"
+                          size="sm"
+                          className="ml-3 flex-shrink-0"
+                        >
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          Abrir
+                        </Button>
+                      </div>
+                      
+                      {/* Botão e resumo do documento */}
+                      <div className="mt-3 pt-3 border-t border-blue-200">
+                        <Button
+                          onClick={handleFetchDocumentSummary}
+                          disabled={isLoadingDocumentSummary || !loginCredentials}
+                          variant="outline"
+                          size="sm"
+                          className="w-full sm:w-auto"
+                        >
+                          {isLoadingDocumentSummary ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="mr-2 h-4 w-4" />
+                          )}
+                          Gerar Resumo do Documento
+                        </Button>
+                        
+                        {documentSummaryError && (
+                          <p className="text-sm text-destructive flex items-center mt-2">
+                            <AlertCircle className="h-4 w-4 mr-1" /> {documentSummaryError}
+                          </p>
+                        )}
+                        
+                        {documentSummary && !isLoadingDocumentSummary && (
+                          <div className="mt-3 p-3 border rounded-md bg-white/80">
+                            <div className="flex items-center mb-2">
+                              <Sparkles className="h-4 w-4 mr-1 text-accent" />
+                              <span className="text-sm font-medium text-foreground">Resumo Gerado</span>
+                            </div>
+                            <div className="border rounded-md bg-muted/20 p-3">
+                              <div className="text-sm text-secondary-foreground whitespace-pre-wrap">{documentSummary}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
-                  {documentSummary && !isLoadingDocumentSummary && (
-                    <div className="mt-2 p-3 border rounded-md bg-secondary/30">
-                        <p className="text-sm text-secondary-foreground whitespace-pre-wrap">{documentSummary}</p>
+                  
+                  {!matchedDocument && extractedDocumentNumber && (
+                    <div className="text-sm text-muted-foreground">
+                      Documento não encontrado na lista de documentos do processo.
                     </div>
                   )}
                 </div>

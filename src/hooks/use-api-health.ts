@@ -12,7 +12,7 @@ interface UseApiHealthReturn {
   refreshHealth: () => Promise<void>;
 }
 
-export function useApiHealth(checkInterval: number = 60000): UseApiHealthReturn {
+export function useApiHealth(): UseApiHealthReturn {
   const [seiApiStatus, setSeiApiStatus] = useState<HealthCheckResponse | null>(null);
   const [summaryApiStatus, setSummaryApiStatus] = useState<HealthCheckResponse | null>(null);
   const [isChecking, setIsChecking] = useState(false);
@@ -39,11 +39,7 @@ export function useApiHealth(checkInterval: number = 60000): UseApiHealthReturn 
 
   useEffect(() => {
     refreshHealth();
-
-    const interval = setInterval(refreshHealth, checkInterval);
-    
-    return () => clearInterval(interval);
-  }, [checkInterval, refreshHealth]);
+  }, [refreshHealth]);
 
   return {
     seiApiStatus,

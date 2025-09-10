@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { ProcessoData, ApiError, ProcessSummaryResponse, LoginCredentials, ClientLoginResponse, UnidadeFiltro, SEILoginApiResponse, UnidadeAberta } from '@/types/process-flow';
+import type { ProcessoData, ApiError, ProcessSummaryResponse, LoginCredentials, ClientLoginResponse, UnidadeFiltro, SEILoginApiResponse, UnidadeAberta, DocumentosResponse } from '@/types/process-flow';
 
 const SEI_API_BASE_URL = process.env.NEXT_PUBLIC_SEI_API_BASE_URL;
 const SUMMARY_API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
@@ -746,5 +746,72 @@ export async function fetchDocumentSummary(
         errorMessage = error.message;
     }
     return { error: errorMessage, details: error instanceof Error ? error.message : String(error), status: 500 };
+  }
+}
+
+export async function fetchDocumentsFromSEI(
+  credentials: LoginCredentials,
+  protocoloProcedimento: string,
+  unidadeId: string,
+  pagina: number = 1,
+  quantidade: number = 10
+): Promise<DocumentosResponse | ApiError> {
+  if (!SEI_API_BASE_URL) {
+    console.error("[SEI API Documents] SEI API Base URL environment variable is not set.");
+    return { error: "Configuração do servidor incompleta para acessar a API SEI.", status: 500 };
+  }
+  if (!credentials) {
+    return { error: "Credenciais de autenticação são obrigatórias.", status: 401 };
+  }
+  if (!protocoloProcedimento || !unidadeId) {
+    return { error: "Número do processo e unidade são obrigatórios para buscar documentos.", status: 400 };
+  }
+
+  const tokenResult = await getAuthToken(credentials);
+  if (typeof tokenResult !== 'string') {
+    return tokenResult;
+  }
+  const token = tokenResult;
+
+  const encodedProtocolo = encodeURIComponent(protocoloProcedimento);
+  const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/documentos?protocolo_procedimento=${encodedProtocolo}&pagina=${pagina}&quantidade=${quantidade}&sinal_geracao=N&sinal_assinaturas=N&sinal_publicacao=N&sinal_campos=N&sinal_completo=N`;
+
+  console.log(`[SEI API Documents] Tentando buscar documentos: ${url}`);
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'token': token,
+        'accept': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      let errorDetails;
+      try {
+        errorDetails = await response.json();
+      } catch (e) {
+        errorDetails = await response.text();
+      }
+      console.error(`[SEI API Documents] Falha ao buscar documentos (URL: ${url}, Status: ${response.status})`, errorDetails);
+      return { error: `Falha ao buscar documentos do processo na API SEI: ${response.status}`, details: errorDetails, status: response.status };
+    }
+
+    const data = await response.json();
+    if (data && data.Info && Array.isArray(data.Documentos)) {
+      return data as DocumentosResponse;
+    } else {
+      console.error(`[SEI API Documents] Estrutura de dados inválida recebida da API SEI:`, data);
+      return {
+        error: "Formato de dados inesperado recebido da API de documentos SEI.",
+        details: data,
+        status: response.status === 200 ? 500 : response.status
+      };
+    }
+  } catch (error) {
+    console.error(`[SEI API Documents] Erro ao buscar documentos:`, error);
+    return { error: `Erro ao conectar com o serviço de documentos da API SEI.`, details: error instanceof Error ? error.message : String(error), status: 500 };
   }
 }
