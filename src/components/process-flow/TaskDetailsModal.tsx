@@ -28,9 +28,10 @@ interface TaskDetailsModalProps {
   selectedUnidadeFiltro: string | undefined;
   processNumber?: string;
   documents?: Documento[] | null;
+  isLoadingDocuments?: boolean;
 }
 
-export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAuthenticated, selectedUnidadeFiltro, processNumber, documents }: TaskDetailsModalProps) {
+export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAuthenticated, selectedUnidadeFiltro, processNumber, documents, isLoadingDocuments }: TaskDetailsModalProps) {
   const [extractedDocumentNumber, setExtractedDocumentNumber] = useState<string | null>(null);
   const [documentSummary, setDocumentSummary] = useState<string | null>(null);
   const [isLoadingDocumentSummary, setIsLoadingDocumentSummary] = useState<boolean>(false);
@@ -319,9 +320,16 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
                     </div>
                   )}
                   
-                  {!matchedDocument && extractedDocumentNumber && (
+                  {!matchedDocument && extractedDocumentNumber && !isLoadingDocuments && (
                     <div className="text-sm text-muted-foreground">
                       Documento não encontrado na lista de documentos do processo.
+                    </div>
+                  )}
+                  
+                  {!matchedDocument && extractedDocumentNumber && isLoadingDocuments && (
+                    <div className="text-sm text-muted-foreground flex items-center">
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Carregando lista de documentos...
                     </div>
                   )}
                 </div>

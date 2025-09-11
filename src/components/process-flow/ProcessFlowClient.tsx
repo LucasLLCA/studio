@@ -14,6 +14,7 @@ interface ProcessFlowClientProps {
   selectedUnidadeFiltro: string | undefined;
   processNumber?: string;
   documents?: Documento[] | null;
+  isLoadingDocuments?: boolean;
 }
 
 export function ProcessFlowClient({ 
@@ -24,6 +25,7 @@ export function ProcessFlowClient({
   selectedUnidadeFiltro,
   processNumber,
   documents,
+  isLoadingDocuments,
 }: ProcessFlowClientProps) {
   if (!processedFlowData || !processedFlowData.tasks || processedFlowData.tasks.length === 0) {
     // This case should ideally be handled by the parent component (page.tsx) before rendering ProcessFlowClient
@@ -44,6 +46,7 @@ export function ProcessFlowClient({
         selectedUnidadeFiltro={selectedUnidadeFiltro}
         processNumber={processNumber}
         documents={documents}
+        isLoadingDocuments={isLoadingDocuments}
       />
     </div>
   );

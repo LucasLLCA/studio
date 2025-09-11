@@ -21,6 +21,7 @@ interface ProcessFlowDiagramProps {
   selectedUnidadeFiltro: string | undefined;
   processNumber?: string;
   documents?: Documento[] | null;
+  isLoadingDocuments?: boolean;
 }
 
 export function ProcessFlowDiagram({ 
@@ -35,6 +36,7 @@ export function ProcessFlowDiagram({
   selectedUnidadeFiltro,
   processNumber,
   documents,
+  isLoadingDocuments,
 }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -44,7 +46,81 @@ export function ProcessFlowDiagram({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 
   const laneEntries = Array.from(laneMap.entries());
-  const LANE_LABEL_AREA_WIDTH = 150; 
+  const LANE_LABEL_AREA_WIDTH = 150;
+  
+  // Função para quebrar texto longo em múltiplas linhas
+  const breakLongText = (text: string, maxLength: number = 12): string[] => {
+    if (text.length <= maxLength) return [text];
+    
+    // Primeiro, tentar quebrar por '/' para preservar identificação das siglas
+    if (text.includes('/')) {
+      const parts = text.split('/');
+      const lines: string[] = [];
+      let currentLine = '';
+      
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const separator = i === 0 ? '' : '/';
+        const newContent = currentLine + separator + part;
+        
+        if (newContent.length <= maxLength || currentLine === '') {
+          currentLine = newContent;
+        } else {
+          if (currentLine) lines.push(currentLine);
+          currentLine = separator + part;
+        }
+      }
+      
+      if (currentLine) lines.push(currentLine);
+      
+      // Verificar se alguma linha ainda está muito longa
+      return lines.flatMap(line => {
+        if (line.length <= maxLength) return line;
+        // Se ainda muito longo, quebrar por espaços/hífens
+        const words = line.split(/[\s-]/);
+        const subLines: string[] = [];
+        let subLine = '';
+        
+        for (const word of words) {
+          if (subLine.length + word.length + 1 <= maxLength || subLine === '') {
+            subLine += (subLine && !subLine.endsWith('/') ? ' ' : '') + word;
+          } else {
+            if (subLine) subLines.push(subLine);
+            subLine = word;
+          }
+        }
+        
+        if (subLine) subLines.push(subLine);
+        return subLines.length > 0 ? subLines : [line];
+      });
+    }
+    
+    // Fallback: quebrar por espaços/hífens como antes
+    const words = text.split(/[\s-]/);
+    const lines: string[] = [];
+    let currentLine = '';
+    
+    for (const word of words) {
+      if (currentLine.length + word.length + 1 <= maxLength) {
+        currentLine += (currentLine ? ' ' : '') + word;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+    
+    if (currentLine) lines.push(currentLine);
+    
+    // Se ainda estiver muito longo, força quebra por caracteres
+    return lines.flatMap(line => {
+      if (line.length <= maxLength) return line;
+      const chunks = [];
+      for (let i = 0; i < line.length; i += maxLength - 1) {
+        chunks.push(line.slice(i, i + maxLength - 1) + (i + maxLength - 1 < line.length ? '-' : ''));
+      }
+      return chunks;
+    });
+  }; 
 
   useEffect(() => {
     if (taskToScrollTo && viewportRef.current) {
@@ -97,8 +173,15 @@ export function ProcessFlowDiagram({
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    const targetTagName = (e.target as HTMLElement).tagName.toLowerCase();
-    if (viewportRef.current && e.button === 0 && (targetTagName === 'svg' || (e.target as HTMLElement).dataset.diagramRoot)) { 
+    const target = e.target as HTMLElement;
+    const targetTagName = target.tagName.toLowerCase();
+    
+    // Não interceptar cliques em elementos interativos (nodos clicáveis)
+    const isInteractiveElement = target.closest('.cursor-pointer') || 
+                                target.classList.contains('cursor-pointer');
+    
+    if (viewportRef.current && e.button === 0 && !isInteractiveElement && 
+        (targetTagName === 'svg' || target.dataset.diagramRoot)) { 
       setIsDragging(true);
       setDragStart({
         x: e.clientX,
@@ -106,8 +189,8 @@ export function ProcessFlowDiagram({
         scrollLeft: viewportRef.current.scrollLeft,
         scrollTop: viewportRef.current.scrollTop,
       });
-      if ((e.target as HTMLElement).dataset.diagramRoot) {
-        (e.target as HTMLElement).style.cursor = 'grabbing';
+      if (target.dataset.diagramRoot) {
+        target.style.cursor = 'grabbing';
       } else if (targetTagName === 'svg') {
         const diagramRoot = viewportRef.current?.querySelector('[data-diagram-root]') as HTMLElement | null;
         if (diagramRoot) diagramRoot.style.cursor = 'grabbing';
@@ -189,22 +272,32 @@ export function ProcessFlowDiagram({
               backgroundColor: 'hsl(var(--card))', 
             }}
           >
-            {laneEntries.map(([sigla, yPos]) => (
-              <div
-                key={`lane-label-${sigla}`}
-                className="flex items-center pl-4 pr-2 text-sm font-semibold text-muted-foreground"
-                style={{
-                  position: 'absolute', 
-                  top: `${yPos - (VERTICAL_LANE_SPACING / 2)}px`, 
-                  height: `${VERTICAL_LANE_SPACING}px`,
-                  width: '100%',
-                  borderRight: '1px solid hsl(var(--border))', 
-                  boxSizing: 'border-box',
-                }}
-              >
-                {sigla}
-              </div>
-            ))}
+            {laneEntries.map(([sigla, yPos]) => {
+              const textLines = breakLongText(sigla);
+              
+              return (
+                <div
+                  key={`lane-label-${sigla}`}
+                  className="flex items-center pl-4 pr-2 text-sm font-semibold text-muted-foreground"
+                  style={{
+                    position: 'absolute', 
+                    top: `${yPos - (VERTICAL_LANE_SPACING / 2)}px`, 
+                    height: `${VERTICAL_LANE_SPACING}px`,
+                    width: '100%',
+                    borderRight: '1px solid hsl(var(--border))', 
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <div className="flex flex-col justify-center leading-tight">
+                    {textLines.map((line, index) => (
+                      <span key={index} className="block">
+                        {line}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Horizontal Timeline Bar */}
@@ -248,6 +341,28 @@ export function ProcessFlowDiagram({
               </marker>
             </defs>
 
+            {/* Linhas divisórias entre raias */}
+            {laneEntries.map(([sigla, yPos], index) => {
+              // Não desenhar linha após a última raia
+              if (index === laneEntries.length - 1) return null;
+              
+              const nextYPos = laneEntries[index + 1][1];
+              const lineY = yPos + (nextYPos - yPos) / 2;
+              
+              return (
+                <line
+                  key={`lane-divider-${sigla}`}
+                  x1="0"
+                  y1={lineY}
+                  x2={svgWidth}
+                  y2={lineY}
+                  stroke="hsl(var(--border))"
+                  strokeWidth="1"
+                  opacity="0.3"
+                />
+              );
+            })}
+
             {connections.map((conn) => (
               <path
                 key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}-${conn.sourceTask.globalSequence}-${conn.targetTask.globalSequence}`}
@@ -281,6 +396,7 @@ export function ProcessFlowDiagram({
         selectedUnidadeFiltro={selectedUnidadeFiltro}
         processNumber={processNumber}
         documents={documents}
+        isLoadingDocuments={isLoadingDocuments}
       />
     </div>
   );

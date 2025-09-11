@@ -83,7 +83,6 @@ export default function Home() {
 
   const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [loadingMessage, setLoadingMessage] = useState<string>("Processando dados...");
   const [isSummarizedView, setIsSummarizedView] = useState<boolean>(false);
   const [openUnitsInProcess, setOpenUnitsInProcess] = useState<UnidadeAberta[] | null>(null);
   const [processLinkAcesso, setProcessLinkAcesso] = useState<string | null>(null);
@@ -91,6 +90,14 @@ export default function Home() {
   const [isLoadingDocuments, setIsLoadingDocuments] = useState<boolean>(false);
 
   const [processSummary, setProcessSummary] = useState<string | null>(null);
+
+  // Estados de carregamento em background
+  const [backgroundLoading, setBackgroundLoading] = useState({
+    andamentos: false,
+    unidades: false,
+    documentos: false,
+    resumo: false
+  });
 
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
@@ -180,7 +187,6 @@ export default function Home() {
       return;
     }
     setIsLoading(true);
-    setLoadingMessage("Processando arquivo JSON...");
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessLinkAcesso(null);
@@ -237,7 +243,6 @@ export default function Home() {
 
     setApiSearchPerformed(true); 
     setIsLoading(true);
-    setLoadingMessage("Buscando dados do processo...");
     setRawProcessData(null);
     setOpenUnitsInProcess(null);
     setProcessLinkAcesso(null);
@@ -245,6 +250,14 @@ export default function Home() {
     setIsLoadingDocuments(false);
     setProcessSummary(null);
     setProcessCreationInfo(null);
+    
+    // Reset estados de background loading
+    setBackgroundLoading({
+      andamentos: true,
+      unidades: true,
+      documentos: true,
+      resumo: true
+    });
 
     // 🚀 REQUISIÇÕES VERDADEIRAMENTE INDEPENDENTES - cada uma renderiza assim que termina
 
@@ -274,7 +287,10 @@ export default function Home() {
         setRawProcessData(null);
         toast({ title: "Erro ao Buscar Andamentos", description: "Falha na requisição de andamentos.", variant: "destructive" });
       })
-      .finally(() => setIsLoading(false)); // Para loading do fluxo principal
+      .finally(() => {
+        setIsLoading(false); // Para loading do fluxo principal
+        setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
+      });
 
     // 2. UNIDADES ABERTAS (independente - sidebar atualiza quando termina)
     fetchOpenUnitsForProcess(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
@@ -305,9 +321,13 @@ export default function Home() {
         setOpenUnitsInProcess([]);
         setProcessLinkAcesso(null);
         console.warn("Erro ao buscar unidades abertas:", error);
+      })
+      .finally(() => {
+        setBackgroundLoading(prev => ({ ...prev, unidades: false }));
       });
 
     // 3. DOCUMENTOS (independente - links aparecem quando termina)
+    console.log(`[DEBUG] Iniciando requisição de DOCUMENTOS às ${new Date().toISOString()}`);
     fetchDocumentsFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
       .then(documentsResponse => {
         if ('error' in documentsResponse) {
@@ -315,6 +335,7 @@ export default function Home() {
           console.warn("Erro ao buscar documentos:", documentsResponse.error);
         } else {
           // ATIVA LINKS DOS DOCUMENTOS IMEDIATAMENTE
+          console.log(`[DEBUG] DOCUMENTOS concluídos às ${new Date().toISOString()}`);
           setDocuments(documentsResponse.Documentos);
           console.log(`Documentos carregados: ${documentsResponse.Documentos.length}`);
         }
@@ -322,9 +343,13 @@ export default function Home() {
       .catch(error => {
         setDocuments([]);
         console.warn("Erro ao buscar documentos:", error);
+      })
+      .finally(() => {
+        setBackgroundLoading(prev => ({ ...prev, documentos: false }));
       });
 
     // 4. RESUMO DO PROCESSO (independente - aparece quando IA termina)
+    console.log(`[DEBUG] Iniciando requisição de RESUMO às ${new Date().toISOString()}`);
     fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
       .then(summaryResponse => {
         if ('error' in summaryResponse) {
@@ -332,6 +357,7 @@ export default function Home() {
           toast({ title: "Erro ao Gerar Resumo", description: summaryResponse.error, variant: "destructive", duration: 9000 });
         } else {
           // MOSTRA RESUMO IMEDIATAMENTE quando IA termina
+          console.log(`[DEBUG] RESUMO concluído às ${new Date().toISOString()}`);
           setProcessSummary(summaryResponse.summary.replace(/[#*]/g, ''));
           toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
         }
@@ -339,6 +365,9 @@ export default function Home() {
       .catch(error => {
         setProcessSummary(null);
         console.warn("Erro ao buscar resumo:", error);
+      })
+      .finally(() => {
+        setBackgroundLoading(prev => ({ ...prev, resumo: false }));
       });
   };
 
@@ -399,6 +428,18 @@ export default function Home() {
       unidade.Descricao.toLowerCase().includes(unidadeSearchTerm.toLowerCase())
     );
   }, [unidadesFiltroList, unidadeSearchTerm]);
+
+  // Lista de tarefas em carregamento para mostrar no feedback
+  const loadingTasks = useMemo(() => {
+    const tasks = [];
+    if (backgroundLoading.andamentos) tasks.push("Buscando andamentos do processo");
+    if (backgroundLoading.unidades) tasks.push("Verificando unidades abertas");
+    if (backgroundLoading.documentos) tasks.push("Carregando documentos");
+    if (backgroundLoading.resumo) tasks.push("Gerando resumo com IA");
+    return tasks;
+  }, [backgroundLoading]);
+
+  const hasBackgroundLoading = Object.values(backgroundLoading).some(loading => loading);
 
   return (
     <div className="flex flex-col min-h-screen bg-background w-full">
@@ -521,71 +562,106 @@ export default function Home() {
             </div>
           </div>
         )}
-        
-        {apiSearchPerformed && processCreationInfo && (
+
+        {/* Feedback de carregamento na página */}
+        {hasBackgroundLoading && apiSearchPerformed && (
           <Card className="mb-4">
-            <CardHeader className="p-2">
-              <CardTitle className="text-md flex items-center text-green-600">
-                <FileText className="mr-2 h-5 w-5" /> Número: {rawProcessData?.Info?.NumeroProcesso || processoNumeroInput}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm pt-2 p-2">
-              <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Unidade: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
-              <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
-              <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
-              <div className="flex items-center"><CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />Tempo: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
-              {processLinkAcesso && (
-                <div className="flex items-center">
-                  <ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
-                  Link: 
-                  <a 
-                    href={processLinkAcesso} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="font-medium ml-1 text-blue-600 hover:text-blue-800 underline"
-                  >
-                    Abrir no SEI
-                  </a>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-4">
+                <Loader2 className="h-8 w-8 text-primary animate-spin flex-shrink-0" />
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold mb-2">Carregando dados...</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {loadingTasks.map((task, index) => (
+                      <div key={index} className="flex items-center space-x-2 text-sm">
+                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse flex-shrink-0"></div>
+                        <span className="text-muted-foreground">{task}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Os resultados aparecerão conforme ficarem prontos
+                  </p>
                 </div>
-              )}
-              {openUnitsInProcess !== null && (
-                <div className="flex items-center">
-                  {openUnitsInProcess.length === 0 ? (
-                    <>
-                      <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                      Status: <span className="font-medium ml-1 text-green-600">Concluído</span>
-                    </>
-                  ) : (
-                    <>
-                      <Clock className="mr-2 h-4 w-4 text-yellow-600" />
-                      Status: <span className="font-medium ml-1 text-yellow-600">Em andamento ({openUnitsInProcess.length} unidade{openUnitsInProcess.length !== 1 ? 's' : ''} aberta{openUnitsInProcess.length !== 1 ? 's' : ''})</span>
-                    </>
-                  )}
-                </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         )}
+        
+        {apiSearchPerformed && (processCreationInfo || processSummary) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            {processCreationInfo && (
+              <Card>
+                <CardHeader className="p-2">
+                  <CardTitle className="text-md flex items-center text-green-600">
+                    <FileText className="mr-2 h-5 w-5" /> Número: {rawProcessData?.Info?.NumeroProcesso || processoNumeroInput}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1 text-sm pt-2 p-2">
+                  <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Unidade: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
+                  <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
+                  <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
+                  <div className="flex items-center"><CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />Tempo: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
+                  {processLinkAcesso && (
+                    <div className="flex items-center">
+                      <ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
+                      Link: 
+                      <a 
+                        href={processLinkAcesso} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="font-medium ml-1 text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Abrir no SEI
+                      </a>
+                    </div>
+                  )}
+                  {openUnitsInProcess !== null && (
+                    <div className="flex items-center">
+                      {openUnitsInProcess.length === 0 ? (
+                        <>
+                          <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                          Status: <span className="font-medium ml-1 text-green-600">Concluído</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="mr-2 h-4 w-4 text-yellow-600" />
+                          Status: <span className="font-medium ml-1 text-yellow-600">Em andamento ({openUnitsInProcess.length} unidade{openUnitsInProcess.length !== 1 ? 's' : ''} aberta{openUnitsInProcess.length !== 1 ? 's' : ''})</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
-        {apiSearchPerformed && processSummary && (
-          <Card className="mb-4">
-            <CardHeader className="p-2">
-                <CardTitle className="text-md flex items-center text-green-600">
-                <BookText className="mr-2 h-5 w-5" /> Entendimento Automatizado (IA)
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col flex-shrink-0 p-2 pt-0">
-                {!processSummary && (
-                <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 text-primary animate-spin" /><p className="ml-2 text-muted-foreground">Gerando...</p></div>
-                )}
-                {processSummary && (
-                <ScrollArea className="max-h-[150px] rounded-md border flex-shrink-0"><div className="p-3"><pre className="text-xs whitespace-pre-wrap break-words font-sans">{processSummary}</pre></div></ScrollArea>
-                )}
-                {!processSummary && apiSearchPerformed && (
-                <div className="flex items-center justify-center p-4 text-muted-foreground"><Info className="mr-2 h-4 w-4" />Nenhum resumo disponível.</div>
-                )}
-            </CardContent>
-          </Card>
+            {(apiSearchPerformed && processSummary) && (
+              <Card>
+                <CardHeader className="p-2">
+                    <CardTitle className="text-md flex items-center text-green-600">
+                    <BookText className="mr-2 h-5 w-5" /> Entendimento Automatizado (IA)
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col flex-shrink-0 p-2 pt-0">
+                    {!processSummary && (
+                    <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 text-primary animate-spin" /><p className="ml-2 text-muted-foreground">Gerando...</p></div>
+                    )}
+                    {processSummary && (
+                    <div className="h-[150px] rounded-md border">
+                      <ScrollArea className="h-full">
+                        <div className="p-3">
+                          <pre className="text-xs whitespace-pre-wrap break-words font-sans">{processSummary}</pre>
+                        </div>
+                      </ScrollArea>
+                    </div>
+                    )}
+                    {!processSummary && apiSearchPerformed && (
+                    <div className="flex items-center justify-center p-4 text-muted-foreground"><Info className="mr-2 h-4 w-4" />Nenhum resumo disponível.</div>
+                    )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
         
         {apiSearchPerformed && rawProcessData && (
@@ -652,18 +728,12 @@ export default function Home() {
                 selectedUnidadeFiltro={selectedUnidadeFiltro}
                 processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
                 documents={documents}
+                isLoadingDocuments={backgroundLoading.documentos}
               />
             </div>
           </div>
         )}
         
-        {isLoading && ( 
-          <div className="flex flex-col items-center justify-center h-full p-10 text-center w-full">
-            <Loader2 className="h-20 w-20 text-primary animate-spin mb-6" />
-            <h2 className="text-xl font-semibold text-foreground mb-2">{loadingMessage}</h2>
-            <p className="text-muted-foreground max-w-md">Aguarde, processamento em andamento...</p>
-          </div>
-        )}
       </main>
       
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="application/json" className="hidden" />
