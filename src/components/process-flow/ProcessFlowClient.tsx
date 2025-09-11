@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { ProcessedFlowData, ProcessedAndamento, LoginCredentials, Documento } from '@/types/process-flow';
+import type { ProcessedFlowData, ProcessedAndamento, Documento } from '@/types/process-flow';
 import { ProcessFlowDiagram } from './ProcessFlowDiagram';
 import React from 'react';
 
@@ -9,7 +9,7 @@ interface ProcessFlowClientProps {
   processedFlowData: ProcessedFlowData | null;
   taskToScrollTo?: ProcessedAndamento | null;
   // onScrollToFirstTask and onScrollToLastTask are removed as buttons are now in page.tsx
-  loginCredentials: LoginCredentials | null;
+  sessionToken: string | null;
   isAuthenticated: boolean;
   selectedUnidadeFiltro: string | undefined;
   processNumber?: string;
@@ -20,7 +20,7 @@ interface ProcessFlowClientProps {
 export function ProcessFlowClient({ 
   processedFlowData, 
   taskToScrollTo, 
-  loginCredentials,
+  sessionToken,
   isAuthenticated,
   selectedUnidadeFiltro,
   processNumber,
@@ -41,7 +41,7 @@ export function ProcessFlowClient({
         svgHeight={processedFlowData.svgHeight}
         laneMap={processedFlowData.laneMap}
         taskToScrollTo={taskToScrollTo}
-        loginCredentials={loginCredentials}
+        sessionToken={sessionToken}
         isAuthenticated={isAuthenticated}
         selectedUnidadeFiltro={selectedUnidadeFiltro}
         processNumber={processNumber}

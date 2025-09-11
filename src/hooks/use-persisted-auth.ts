@@ -5,7 +5,7 @@ import type { LoginCredentials, UnidadeFiltro } from '@/types/process-flow';
 
 interface PersistedAuthData {
   isAuthenticated: boolean;
-  loginCredentials: LoginCredentials | null;
+  sessionToken: string | null; // Apenas token de sessão, não credenciais
   unidadesFiltroList: UnidadeFiltro[];
   selectedUnidadeFiltro: string | undefined;
   timestamp: number;
@@ -23,7 +23,16 @@ export function usePersistedAuth() {
       const stored = localStorage.getItem(AUTH_STORAGE_KEY);
       if (!stored) return null;
       
-      const data: PersistedAuthData = JSON.parse(stored);
+      const rawData = JSON.parse(stored);
+      
+      // Migração apenas se necessário
+      if (rawData.loginCredentials && !rawData.sessionToken) {
+        console.log('[DEBUG] Migração de dados antigos');
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        return null;
+      }
+      
+      const data: PersistedAuthData = rawData;
       
       // Verifica se os dados não expiraram
       const now = Date.now();
@@ -48,9 +57,9 @@ export function usePersistedAuth() {
     return stored?.isAuthenticated || false;
   });
 
-  const [loginCredentials, setLoginCredentials] = useState<LoginCredentials | null>(() => {
+  const [sessionToken, setSessionToken] = useState<string | null>(() => {
     const stored = loadFromStorage();
-    return stored?.loginCredentials || null;
+    return stored?.sessionToken || null;
   });
 
   const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>(() => {
@@ -70,7 +79,7 @@ export function usePersistedAuth() {
     try {
       const current = loadFromStorage() || {
         isAuthenticated: false,
-        loginCredentials: null,
+        sessionToken: null,
         unidadesFiltroList: [],
         selectedUnidadeFiltro: undefined,
         timestamp: Date.now()
@@ -89,26 +98,57 @@ export function usePersistedAuth() {
   }, [loadFromStorage]);
 
   // Função para fazer login
-  const login = useCallback((credentials: LoginCredentials, unidades: UnidadeFiltro[]) => {
+  const login = useCallback((token: string, unidades: UnidadeFiltro[]) => {
+    console.log('[DEBUG] Login iniciado - Token type:', typeof token);
+    console.log('[DEBUG] Login - Token raw value:', token);
+    console.log('[DEBUG] Login - Unidades:', unidades.length);
+    
+    // Tentar converter token para string se necessário
+    let validToken: string;
+    if (typeof token === 'string') {
+      validToken = token;
+    } else if (token && typeof token === 'object') {
+      console.warn('[DEBUG] Token é objeto - tentando converter:', token);
+      validToken = JSON.stringify(token);
+    } else {
+      console.error('[DEBUG] Login FALHOU - Token inválido:', token);
+      return;
+    }
+    
+    console.log('[DEBUG] Login - Token válido:', typeof validToken, validToken.substring(0, 20) + '...');
+    
     setIsAuthenticated(true);
-    setLoginCredentials(credentials);
+    setSessionToken(validToken);
     setUnidadesFiltroList(unidades);
     
-    saveToStorage({
+    const dataToSave = {
       isAuthenticated: true,
-      loginCredentials: credentials,
+      sessionToken: validToken,
       unidadesFiltroList: unidades
+    };
+    
+    console.log('[DEBUG] Login - Salvando dados:', {
+      isAuthenticated: dataToSave.isAuthenticated,
+      tokenLength: dataToSave.sessionToken?.length,
+      unidadesCount: dataToSave.unidadesFiltroList.length
     });
+    
+    saveToStorage(dataToSave);
+    
+    console.log('[DEBUG] Login concluído - isAuthenticated agora deve ser true');
   }, [saveToStorage]);
 
   // Função para fazer logout
   const logout = useCallback(() => {
     setIsAuthenticated(false);
-    setLoginCredentials(null);
+    setSessionToken(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
     
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+    // Limpeza completa do localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
   }, []);
 
   // Função para atualizar unidade selecionada
@@ -117,18 +157,37 @@ export function usePersistedAuth() {
     saveToStorage({ selectedUnidadeFiltro: unidadeId });
   }, [saveToStorage]);
 
+  // Função para forçar logout e limpeza
+  const forceLogout = useCallback(() => {
+    console.log('[DEBUG] Forçando logout e limpeza');
+    setIsAuthenticated(false);
+    setSessionToken(null);
+    setUnidadesFiltroList([]);
+    setSelectedUnidadeFiltro(undefined);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+  }, []);
+
   // Função para limpar dados expirados na inicialização
   useEffect(() => {
     loadFromStorage();
-  }, [loadFromStorage]);
+    
+    // Verificar se sessionToken contém dados corrompidos (credenciais em JSON)
+    if (sessionToken && typeof sessionToken === 'string' && sessionToken.includes('usuario')) {
+      console.warn('[DEBUG] Dados corrompidos detectados no sessionToken - forçando limpeza');
+      forceLogout();
+    }
+  }, [loadFromStorage, sessionToken, forceLogout]);
 
   return {
     isAuthenticated,
-    loginCredentials,
+    sessionToken,
     unidadesFiltroList,
     selectedUnidadeFiltro,
     login,
     logout,
-    updateSelectedUnidade
+    updateSelectedUnidade,
+    forceLogout
   };
 }

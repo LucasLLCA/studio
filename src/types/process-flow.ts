@@ -126,6 +126,11 @@ export interface LoginCredentials {
   orgao: string;
 }
 
+// Para usar token já obtido (mais seguro)
+export interface SessionTokenAuth {
+  sessionToken: string;
+}
+
 // Expected raw response from SEI /orgaos/usuarios/login
 export interface SEILoginApiResponse {
   Token: string;

@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { ProcessedAndamento, Connection, LoginCredentials, Documento } from '@/types/process-flow';
+import type { ProcessedAndamento, Connection, Documento } from '@/types/process-flow';
 import { TaskNode } from './TaskNode';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import React, { useState, useRef, useEffect } from 'react';
@@ -16,7 +16,7 @@ interface ProcessFlowDiagramProps {
   svgHeight: number;
   laneMap: Map<string, number>;
   taskToScrollTo?: ProcessedAndamento | null;
-  loginCredentials: LoginCredentials | null;
+  sessionToken: string | null;
   isAuthenticated: boolean;
   selectedUnidadeFiltro: string | undefined;
   processNumber?: string;
@@ -31,7 +31,7 @@ export function ProcessFlowDiagram({
   svgHeight, 
   laneMap,
   taskToScrollTo,
-  loginCredentials,
+  sessionToken,
   isAuthenticated,
   selectedUnidadeFiltro,
   processNumber,
@@ -286,6 +286,8 @@ export function ProcessFlowDiagram({
                     width: '100%',
                     borderRight: '1px solid hsl(var(--border))', 
                     boxSizing: 'border-box',
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
                 >
                   <div className="flex flex-col justify-center leading-tight">
@@ -391,7 +393,7 @@ export function ProcessFlowDiagram({
         task={selectedTask}
         isOpen={isDetailsModalOpen}
         onClose={handleCloseDetailsModal}
-        loginCredentials={loginCredentials}
+        sessionToken={sessionToken}
         isAuthenticated={isAuthenticated}
         selectedUnidadeFiltro={selectedUnidadeFiltro}
         processNumber={processNumber}

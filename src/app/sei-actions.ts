@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { ProcessoData, ApiError, ProcessSummaryResponse, LoginCredentials, ClientLoginResponse, UnidadeFiltro, SEILoginApiResponse, UnidadeAberta, DocumentosResponse } from '@/types/process-flow';
+import type { ProcessoData, ApiError, ProcessSummaryResponse, LoginCredentials, ClientLoginResponse, UnidadeFiltro, SEILoginApiResponse, UnidadeAberta, DocumentosResponse, SessionTokenAuth } from '@/types/process-flow';
 
 const SEI_API_BASE_URL = process.env.NEXT_PUBLIC_SEI_API_BASE_URL;
 const SUMMARY_API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
@@ -18,16 +18,49 @@ export interface HealthCheckResponse {
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 const TOKEN_CACHE_DURATION = 30 * 60 * 1000; // 30 minutos
 
-// This function now requires credentials to be passed in.
-async function getAuthToken(credentials: LoginCredentials): Promise<string | ApiError> {
+// Esta função aceita credenciais completas ou token de sessão
+async function getAuthToken(auth: LoginCredentials | SessionTokenAuth): Promise<string | ApiError> {
+  console.log('[DEBUG] getAuthToken chamado com tipo:', typeof auth);
+  
   if (!SEI_API_BASE_URL) {
     console.error("[SEI API Auth] SEI API_BASE_URL environment variable is not set.");
     return { error: "Configuração do servidor incompleta: API Base URL não definida.", status: 500 };
   }
-  if (!credentials || !credentials.usuario || !credentials.senha || !credentials.orgao) {
+  
+  // Se já é um token de sessão, retorna diretamente
+  if ('sessionToken' in auth) {
+    console.log("[SEI API Auth] Using provided session token");
+    const token = auth.sessionToken;
+    console.log('[DEBUG] Token type:', typeof token);
+    
+    // Se o token for um objeto (dados corrompidos), tenta obter token real
+    if (typeof token === 'object' && token !== null && 'usuario' in token) {
+      console.warn('[DEBUG] Token corrompido detectado - fazendo login real com credenciais');
+      return await getAuthToken(token as LoginCredentials);
+    }
+    
+    // Se o token é uma string que contém JSON, tentar parsear e fazer login
+    if (typeof token === 'string' && token.startsWith('{') && token.includes('usuario')) {
+      console.warn('[DEBUG] Token é JSON string corrompido - fazendo login real');
+      try {
+        const credentials = JSON.parse(token) as LoginCredentials;
+        return await getAuthToken(credentials);
+      } catch (e) {
+        console.error('[DEBUG] Erro ao parsear token JSON:', e);
+        return { error: "Token corrompido no formato JSON", status: 401 };
+      }
+    }
+    
+    return token;
+  }
+  
+  // Validação para credenciais completas
+  if (!auth || !auth.usuario || !auth.senha || !auth.orgao) {
     console.error("[SEI API Auth] Credentials not provided to getAuthToken.");
     return { error: "Credenciais de autenticação não fornecidas.", status: 400 };
   }
+  
+  const credentials = auth as LoginCredentials;
 
   // Gerar chave única para o cache baseada nas credenciais
   const cacheKey = `${credentials.usuario}-${credentials.orgao}`;
@@ -135,7 +168,10 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
       console.error("[SEI Login Action] Token not returned by login API, even though response was ok. Data:", data);
       return { success: false, error: "Token não retornado pela API de login.", details: data, status: 500 };
     }
+    
     console.log("[SEI Login Action] Login successful, token received.");
+    console.log("[SEI Login Action] Token type:", typeof data.Token);
+    console.log("[SEI Login Action] Token value:", data.Token);
     
 
     const unidades: UnidadeFiltro[] = (data.Unidades || []).map(ua => ({
@@ -150,7 +186,11 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
         console.log(`[SEI Login Action] Mapped ${unidades.length} unidades de acesso.`);
     }
 
-    return { success: true, token: data.Token, unidades };
+    // Garantir que o token seja sempre uma string
+    const tokenToReturn = typeof data.Token === 'string' ? data.Token : String(data.Token);
+    console.log("[SEI Login Action] Token final que será retornado:", typeof tokenToReturn, tokenToReturn);
+
+    return { success: true, token: tokenToReturn, unidades };
 
   } catch (error) {
     console.error("[SEI Login Action] Error during login:", error);
@@ -160,30 +200,49 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
 
 
 async function fetchAndamentosApiCall(
-  credentials: LoginCredentials,
+  auth: LoginCredentials | SessionTokenAuth,
   protocoloProcedimento: string,
   unidadeId: string,
   pagina: number,
   quantidade: number
 ): Promise<ProcessoData | ApiError> {
-  const tokenResult = await getAuthToken(credentials);
+  const tokenResult = await getAuthToken(auth);
   if (typeof tokenResult !== 'string') {
     return tokenResult;
   }
   const token = tokenResult;
+  console.log('[DEBUG] fetchAndamentosApiCall - Token que será usado na requisição:', token);
+  console.log('[DEBUG] fetchAndamentosApiCall - Tipo do token:', typeof token);
+  console.log('[DEBUG] fetchAndamentosApiCall - Token length:', token?.length);
+  
+  if (!token || token === 'undefined' || token === 'null') {
+    console.error('[DEBUG] fetchAndamentosApiCall - Token inválido detectado!');
+    return { error: "Token de autenticação inválido", status: 401 };
+  }
 
-  const encodedProtocolo = encodeURIComponent(protocoloProcedimento);
-  const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/andamentos?protocolo_procedimento=${encodedProtocolo}&sinal_atributos=S&pagina=${pagina}&quantidade=${quantidade}`;
+  const queryParams = new URLSearchParams({
+    protocolo_procedimento: protocoloProcedimento,
+    sinal_atributos: 'S',
+    sinal_resumo: 'N',
+    sinal_datas_protocolo: 'N',
+    sinal_unidade_origem: 'N',
+    pagina: pagina.toString(),
+    quantidade: quantidade.toString()
+  });
+  const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/andamentos?${queryParams.toString()}`;
 
   console.log(`[SEI API Andamentos] Tentando buscar URL: ${url}`);
+
+  const headers = {
+    'token': token,
+    'accept': 'application/json',
+  };
+  console.log('[DEBUG] fetchAndamentosApiCall - Headers OAuth2 corretos:', JSON.stringify(headers));
 
   try {
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'token': token,
-        'accept': 'application/json',
-      },
+      headers,
       cache: 'no-store',
     });
 
@@ -225,7 +284,7 @@ async function fetchAndamentosApiCall(
 }
 
 export async function fetchProcessDataFromSEI(
-  credentials: LoginCredentials,
+  auth: LoginCredentials | SessionTokenAuth,
   protocoloProcedimento: string,
   unidadeId: string
 ): Promise<ProcessoData | ApiError> {
@@ -233,7 +292,7 @@ export async function fetchProcessDataFromSEI(
     console.error("[SEI API Andamentos] SEI API Base URL environment variable is not set.");
     return { error: "Configuração do servidor incompleta para acessar a API SEI.", status: 500 };
   }
-   if (!credentials) {
+   if (!auth) {
     return { error: "Credenciais de autenticação são obrigatórias.", status: 401 };
   }
   if (!protocoloProcedimento || !unidadeId) {
@@ -241,7 +300,7 @@ export async function fetchProcessDataFromSEI(
   }
 
   console.log(`[SEI API Andamentos] Etapa 1: Buscando contagem total de itens para o processo ${protocoloProcedimento}`);
-  const countResponse = await fetchAndamentosApiCall(credentials, protocoloProcedimento, unidadeId, 1, 0);
+  const countResponse = await fetchAndamentosApiCall(auth, protocoloProcedimento, unidadeId, 1, 0);
 
   if ('error' in countResponse) {
     console.error("[SEI API Andamentos] Erro ao buscar contagem de itens:", countResponse);
@@ -271,7 +330,7 @@ export async function fetchProcessDataFromSEI(
   }
 
   console.log(`[SEI API Andamentos] Etapa 2: Buscando todos os ${totalItens} andamentos para o processo ${protocoloProcedimento}`);
-  const allItemsResponse = await fetchAndamentosApiCall(credentials, protocoloProcedimento, unidadeId, 1, totalItens);
+  const allItemsResponse = await fetchAndamentosApiCall(auth, protocoloProcedimento, unidadeId, 1, totalItens);
 
   if ('error' in allItemsResponse) {
      console.error("[SEI API Andamentos] Erro ao buscar todos os andamentos:", allItemsResponse);
@@ -293,7 +352,7 @@ export async function fetchProcessDataFromSEI(
 }
 
 export async function fetchOpenUnitsForProcess(
-  credentials: LoginCredentials,
+  auth: LoginCredentials | SessionTokenAuth,
   protocoloProcedimento: string,
   unidadeOrigemConsulta: string
 ): Promise<{unidades: UnidadeAberta[], linkAcesso?: string} | ApiError> {
@@ -301,14 +360,14 @@ export async function fetchOpenUnitsForProcess(
     console.error("[SEI API Consulta] SEI API Base URL environment variable is not set.");
     return { error: "Configuração do servidor incompleta para acessar a API SEI.", status: 500 };
   }
-   if (!credentials) {
+   if (!auth) {
     return { error: "Credenciais de autenticação são obrigatórias.", status: 401 };
   }
   if (!protocoloProcedimento || !unidadeOrigemConsulta) {
     return { error: "Número do processo e unidade de origem da consulta são obrigatórios para unidades abertas.", status: 400 };
   }
 
-  const tokenResult = await getAuthToken(credentials);
+  const tokenResult = await getAuthToken(auth);
   if (typeof tokenResult !== 'string') {
     return tokenResult;
   }
@@ -326,9 +385,9 @@ export async function fetchOpenUnitsForProcess(
     sinal_ultimo_andamento: 'N',
     sinal_procedimentos_relacionados: 'N',
     sinal_procedimentos_anexados: 'N',
-  }).toString();
+  });
 
-  const url = `${SEI_API_BASE_URL}/unidades/${unidadeOrigemConsulta}/procedimentos/consulta?${queryParams}`;
+  const url = `${SEI_API_BASE_URL}/unidades/${unidadeOrigemConsulta}/procedimentos/consulta?${queryParams.toString()}`;
 
   console.log(`[SEI API Consulta] Tentando buscar URL para unidades abertas: ${url}`);
 
@@ -377,7 +436,7 @@ export async function fetchOpenUnitsForProcess(
 }
 
 export async function fetchProcessSummary(
-  credentials: LoginCredentials,
+  auth: LoginCredentials | SessionTokenAuth,
   protocoloProcedimento: string,
   unidadeId: string
 ): Promise<ProcessSummaryResponse | ApiError> {
@@ -387,11 +446,11 @@ export async function fetchProcessSummary(
   if (!unidadeId) {
     return { error: "ID da Unidade é obrigatório para buscar o resumo.", status: 400 };
   }
-  if (!credentials) {
+  if (!auth) {
     return { error: "Credenciais de autenticação são obrigatórias para buscar o resumo.", status: 401 };
   }
 
-  const tokenResult = await getAuthToken(credentials);
+  const tokenResult = await getAuthToken(auth);
   if (typeof tokenResult !== 'string') {
     console.error("[Summary API - Process] Falha ao obter token para API de resumo do processo:", tokenResult.error);
     return { error: `Falha ao autenticar para buscar resumo do processo: ${tokenResult.error}`, status: tokenResult.status || 401, details: tokenResult.details };
@@ -661,7 +720,7 @@ export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
 
 
 export async function fetchDocumentSummary(
-  credentials: LoginCredentials,
+  auth: LoginCredentials | SessionTokenAuth,
   documentoFormatado: string, // This is the 8-9 digit document number
   unidadeId: string
 ): Promise<ProcessSummaryResponse | ApiError> {
@@ -671,11 +730,11 @@ export async function fetchDocumentSummary(
   if (!unidadeId) {
     return { error: "ID da Unidade é obrigatório para buscar o resumo do documento.", status: 400 };
   }
-  if (!credentials) {
+  if (!auth) {
     return { error: "Credenciais de autenticação são obrigatórias para buscar o resumo do documento.", status: 401 };
   }
 
-  const tokenResult = await getAuthToken(credentials);
+  const tokenResult = await getAuthToken(auth);
   if (typeof tokenResult !== 'string') {
     console.error("[Summary API - Document] Falha ao obter token para API de resumo do documento:", tokenResult.error);
     return { error: `Falha ao autenticar para buscar resumo do documento: ${tokenResult.error}`, status: tokenResult.status || 401, details: tokenResult.details };
@@ -756,7 +815,7 @@ export async function fetchDocumentSummary(
 }
 
 export async function fetchDocumentsFromSEI(
-  credentials: LoginCredentials,
+  auth: LoginCredentials | SessionTokenAuth,
   protocoloProcedimento: string,
   unidadeId: string,
   pagina: number = 1,
@@ -766,21 +825,30 @@ export async function fetchDocumentsFromSEI(
     console.error("[SEI API Documents] SEI API Base URL environment variable is not set.");
     return { error: "Configuração do servidor incompleta para acessar a API SEI.", status: 500 };
   }
-  if (!credentials) {
+  if (!auth) {
     return { error: "Credenciais de autenticação são obrigatórias.", status: 401 };
   }
   if (!protocoloProcedimento || !unidadeId) {
     return { error: "Número do processo e unidade são obrigatórios para buscar documentos.", status: 400 };
   }
 
-  const tokenResult = await getAuthToken(credentials);
+  const tokenResult = await getAuthToken(auth);
   if (typeof tokenResult !== 'string') {
     return tokenResult;
   }
   const token = tokenResult;
 
-  const encodedProtocolo = encodeURIComponent(protocoloProcedimento);
-  const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/documentos?protocolo_procedimento=${encodedProtocolo}&pagina=${pagina}&quantidade=${quantidade}&sinal_geracao=N&sinal_assinaturas=N&sinal_publicacao=N&sinal_campos=N&sinal_completo=N`;
+  const queryParams = new URLSearchParams({
+    protocolo_procedimento: protocoloProcedimento,
+    pagina: pagina.toString(),
+    quantidade: quantidade.toString(),
+    sinal_geracao: 'N',
+    sinal_assinaturas: 'N',
+    sinal_publicacao: 'N',
+    sinal_campos: 'N',
+    sinal_completo: 'N'
+  });
+  const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/documentos?${queryParams.toString()}`;
 
   console.log(`[SEI API Documents] Tentando buscar documentos: ${url}`);
 

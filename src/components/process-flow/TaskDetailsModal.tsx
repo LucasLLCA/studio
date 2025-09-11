@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { ProcessedAndamento, LoginCredentials, Documento } from '@/types/process-flow';
+import type { ProcessedAndamento, Documento } from '@/types/process-flow';
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,7 @@ interface TaskDetailsModalProps {
   task: ProcessedAndamento | null;
   isOpen: boolean;
   onClose: () => void;
-  loginCredentials: LoginCredentials | null;
+  sessionToken: string | null;
   isAuthenticated: boolean;
   selectedUnidadeFiltro: string | undefined;
   processNumber?: string;
@@ -31,7 +31,7 @@ interface TaskDetailsModalProps {
   isLoadingDocuments?: boolean;
 }
 
-export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAuthenticated, selectedUnidadeFiltro, processNumber, documents, isLoadingDocuments }: TaskDetailsModalProps) {
+export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthenticated, selectedUnidadeFiltro, processNumber, documents, isLoadingDocuments }: TaskDetailsModalProps) {
   const [extractedDocumentNumber, setExtractedDocumentNumber] = useState<string | null>(null);
   const [documentSummary, setDocumentSummary] = useState<string | null>(null);
   const [isLoadingDocumentSummary, setIsLoadingDocumentSummary] = useState<boolean>(false);
@@ -149,7 +149,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
   }, [documentSummary, isLoadingDocumentSummary]);
 
   const handleFetchDocumentSummary = async () => {
-    if (!extractedDocumentNumber || !loginCredentials || !task || !selectedUnidadeFiltro) {
+    if (!extractedDocumentNumber || !sessionToken || !task || !selectedUnidadeFiltro) {
       setDocumentSummaryError("Não é possível buscar o resumo do documento. Dados ausentes.");
       return;
     }
@@ -159,7 +159,9 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
     setDocumentSummaryError(null);
 
     try {
-      const result = await fetchDocumentSummary(loginCredentials, extractedDocumentNumber, selectedUnidadeFiltro!);
+      // Criar objeto com token de sessão para API
+      const sessionAuth = { sessionToken: sessionToken! };
+      const result = await fetchDocumentSummary(sessionAuth, extractedDocumentNumber, selectedUnidadeFiltro!);
       if ('error' in result) {
         setDocumentSummaryError(result.error || "Erro desconhecido ao buscar resumo do documento.");
       } else {
@@ -286,7 +288,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, loginCredentials, isAu
                       <div className="mt-3 pt-3 border-t border-blue-200">
                         <Button
                           onClick={handleFetchDocumentSummary}
-                          disabled={isLoadingDocumentSummary || !loginCredentials}
+                          disabled={isLoadingDocumentSummary || !sessionToken}
                           variant="outline"
                           size="sm"
                           className="w-full sm:w-auto"

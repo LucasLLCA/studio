@@ -148,7 +148,7 @@ export default function LoginPage() {
       
       if (response.success && response.token) {
         const unidadesRecebidas = response.unidades || [];
-        persistLogin(data, unidadesRecebidas);
+        persistLogin(response.token, unidadesRecebidas);
         
         toast({
           title: "Login realizado com sucesso!",
@@ -409,7 +409,7 @@ export default function LoginPage() {
                 disabled={isLoading}
               >
                 <SelectTrigger className="form-input" style={{ background: '#f9fafb', border: '1px solid #d1d5db' }}>
-                  <SelectValue placeholder="Ex: SEAD-PI" />
+                  <SelectValue placeholder="Selecione um Órgão" />
                 </SelectTrigger>
                 <SelectContent>
                   {ORGAOS.map((orgao) => (

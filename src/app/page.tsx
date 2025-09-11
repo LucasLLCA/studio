@@ -32,18 +32,11 @@ import {
 import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, fetchDocumentsFromSEI, loginToSEI, checkSEIApiHealth, checkSummaryApiHealth } from './sei-actions';
 import type { HealthCheckResponse } from './sei-actions';
 import ApiHealthCheck from '@/components/ApiHealthCheck';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -73,7 +66,7 @@ export default function Home() {
   // Hook de autenticação persistente
   const {
     isAuthenticated,
-    loginCredentials,
+    sessionToken,
     unidadesFiltroList,
     selectedUnidadeFiltro,
     login: persistLogin,
@@ -83,11 +76,10 @@ export default function Home() {
 
   const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isSummarizedView, setIsSummarizedView] = useState<boolean>(false);
+  const [isSummarizedView, setIsSummarizedView] = useState<boolean>(true);
   const [openUnitsInProcess, setOpenUnitsInProcess] = useState<UnidadeAberta[] | null>(null);
   const [processLinkAcesso, setProcessLinkAcesso] = useState<string | null>(null);
   const [documents, setDocuments] = useState<Documento[] | null>(null);
-  const [isLoadingDocuments, setIsLoadingDocuments] = useState<boolean>(false);
 
   const [processSummary, setProcessSummary] = useState<string | null>(null);
 
@@ -122,12 +114,13 @@ export default function Home() {
     setCurrentYear(new Date().getFullYear());
   }, []);
 
-  // Redirect to login if not authenticated
+  // Redirect to login page if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !sessionToken) {
+      console.log('[DEBUG] Usuário não autenticado - redirecionando para login');
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, sessionToken, router]);
 
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
     if (!rawProcessData || !rawProcessData.Andamentos) {
@@ -191,7 +184,6 @@ export default function Home() {
     setOpenUnitsInProcess(null);
     setProcessLinkAcesso(null);
     setDocuments(null);
-    setIsLoadingDocuments(false);
     setProcessSummary(null);
     setApiSearchPerformed(false); 
     setProcessCreationInfo(null);
@@ -228,7 +220,7 @@ export default function Home() {
 
 
   const handleSearchClick = async () => {
-    if (!isAuthenticated || !loginCredentials) {
+    if (!isAuthenticated || !sessionToken) {
       toast({ title: "Não Autenticado", description: "Por favor, faça login para pesquisar.", variant: "destructive" });
       return;
     }
@@ -247,7 +239,6 @@ export default function Home() {
     setOpenUnitsInProcess(null);
     setProcessLinkAcesso(null);
     setDocuments(null);
-    setIsLoadingDocuments(false);
     setProcessSummary(null);
     setProcessCreationInfo(null);
     
@@ -261,8 +252,16 @@ export default function Home() {
 
     // 🚀 REQUISIÇÕES VERDADEIRAMENTE INDEPENDENTES - cada uma renderiza assim que termina
 
+    // Debug: Verificar sessionToken
+    console.log('[DEBUG] sessionToken no handleSearchClick:', sessionToken);
+    console.log('[DEBUG] isAuthenticated:', isAuthenticated);
+    
+    // Criar objeto com token de sessão para APIs
+    const sessionAuth = { sessionToken: sessionToken || '' };
+    console.log('[DEBUG] sessionAuth criado:', sessionAuth);
+
     // 1. ANDAMENTOS (crítico - deve terminar primeiro para mostrar o fluxo)
-    fetchProcessDataFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+    fetchProcessDataFromSEI(sessionAuth, processoNumeroInput, selectedUnidadeFiltro)
       .then(processData => {
         if ('error' in processData && typeof processData.error === 'string') {
           let errorTitle = "Erro ao buscar dados do processo";
@@ -293,7 +292,7 @@ export default function Home() {
       });
 
     // 2. UNIDADES ABERTAS (independente - sidebar atualiza quando termina)
-    fetchOpenUnitsForProcess(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+    fetchOpenUnitsForProcess(sessionAuth, processoNumeroInput, selectedUnidadeFiltro)
       .then(unitsData => {
         if ('error' in unitsData) {
           setOpenUnitsInProcess([]);
@@ -328,7 +327,7 @@ export default function Home() {
 
     // 3. DOCUMENTOS (independente - links aparecem quando termina)
     console.log(`[DEBUG] Iniciando requisição de DOCUMENTOS às ${new Date().toISOString()}`);
-    fetchDocumentsFromSEI(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+    fetchDocumentsFromSEI(sessionAuth, processoNumeroInput, selectedUnidadeFiltro)
       .then(documentsResponse => {
         if ('error' in documentsResponse) {
           setDocuments([]);
@@ -350,7 +349,7 @@ export default function Home() {
 
     // 4. RESUMO DO PROCESSO (independente - aparece quando IA termina)
     console.log(`[DEBUG] Iniciando requisição de RESUMO às ${new Date().toISOString()}`);
-    fetchProcessSummary(loginCredentials, processoNumeroInput, selectedUnidadeFiltro)
+    fetchProcessSummary(sessionAuth, processoNumeroInput, selectedUnidadeFiltro)
       .then(summaryResponse => {
         if ('error' in summaryResponse) {
           setProcessSummary(null);
@@ -376,9 +375,25 @@ export default function Home() {
     setIsLoggingIn(true); setLoginError(null);
     try {
       const response = await loginToSEI(data);
+      console.log('[DEBUG] Resposta do loginToSEI:', {
+        success: response.success,
+        tokenType: typeof response.token,
+        token: response.token,
+        unidades: response.unidades?.length
+      });
+      
       if (response.success && response.token) {
         const unidadesRecebidas = response.unidades || [];
-        persistLogin(data, unidadesRecebidas);
+        console.log('[DEBUG] Chamando persistLogin com token:', typeof response.token, response.token);
+        
+        // Verificação adicional: garantir que token é string
+        if (typeof response.token !== 'string') {
+          console.error('[DEBUG] Token da API não é string!', response.token);
+          setLoginError('Erro interno: token inválido recebido da API');
+          return;
+        }
+        
+        persistLogin(response.token, unidadesRecebidas);
         if (unidadesRecebidas.length > 0) toast({ title: "Login bem-sucedido!", description: `${unidadesRecebidas.length} unidades carregadas.` });
         else toast({ title: "Login Bem-sucedido", description: "Nenhuma unidade de acesso retornada.", variant: "default", duration: 7000 });
         setIsLoginDialogOpen(false); methods.reset();
@@ -399,6 +414,7 @@ export default function Home() {
     persistLogout();
     setRawProcessData(null); setOpenUnitsInProcess(null); setProcessLinkAcesso(null); setDocuments(null); setProcessSummary(null); setApiSearchPerformed(false); setProcessCreationInfo(null);
     toast({ title: "Logout realizado." });
+    router.push('/login');
   };
 
   const handleTaskCardClick = (task: ProcessedAndamento) => setTaskToScrollTo(task);
@@ -563,8 +579,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* Feedback de carregamento na página */}
-        {hasBackgroundLoading && apiSearchPerformed && (
+        {/* Feedback de carregamento na página quando não há dados */}
+        {hasBackgroundLoading && apiSearchPerformed && !rawProcessData && (
           <Card className="mb-4">
             <CardContent className="p-4">
               <div className="flex items-center space-x-4">
@@ -588,7 +604,7 @@ export default function Home() {
           </Card>
         )}
         
-        {apiSearchPerformed && (processCreationInfo || processSummary) && (
+        {apiSearchPerformed && processCreationInfo && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
             {processCreationInfo && (
               <Card>
@@ -631,11 +647,31 @@ export default function Home() {
                       )}
                     </div>
                   )}
+                  
+                  {/* Feedback de carregamento dentro do card de informações gerais */}
+                  {hasBackgroundLoading && apiSearchPerformed && (
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="flex items-start space-x-2">
+                        <Loader2 className="h-4 w-4 text-primary animate-spin flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <h4 className="text-xs font-medium mb-1 text-green-600">Atualizando dados...</h4>
+                          <div className="space-y-0.5">
+                            {loadingTasks.map((task, index) => (
+                              <div key={index} className="flex items-center space-x-1.5 text-xs">
+                                <div className="w-1 h-1 bg-primary rounded-full animate-pulse flex-shrink-0"></div>
+                                <span className="text-muted-foreground">{task}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
 
-            {(apiSearchPerformed && processSummary) && (
+            {apiSearchPerformed && (
               <Card>
                 <CardHeader className="p-2">
                     <CardTitle className="text-md flex items-center text-green-600">
@@ -643,21 +679,26 @@ export default function Home() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col flex-shrink-0 p-2 pt-0">
-                    {!processSummary && (
-                    <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 text-primary animate-spin" /><p className="ml-2 text-muted-foreground">Gerando...</p></div>
+                    {processSummary ? (
+                      <div className="h-[150px] rounded-md border">
+                        <ScrollArea className="h-full">
+                          <div className="p-3">
+                            <pre className="text-xs whitespace-pre-wrap break-words font-sans">{processSummary}</pre>
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    ) : backgroundLoading.resumo ? (
+                      <div className="flex items-center justify-center p-4">
+                        <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                        <p className="ml-2 text-muted-foreground">Gerando resumo...</p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center p-4 text-muted-foreground">
+                        <Info className="mr-2 h-4 w-4" />
+                        Nenhum resumo disponível.
+                      </div>
                     )}
-                    {processSummary && (
-                    <div className="h-[150px] rounded-md border">
-                      <ScrollArea className="h-full">
-                        <div className="p-3">
-                          <pre className="text-xs whitespace-pre-wrap break-words font-sans">{processSummary}</pre>
-                        </div>
-                      </ScrollArea>
-                    </div>
-                    )}
-                    {!processSummary && apiSearchPerformed && (
-                    <div className="flex items-center justify-center p-4 text-muted-foreground"><Info className="mr-2 h-4 w-4" />Nenhum resumo disponível.</div>
-                    )}
+                  
                 </CardContent>
               </Card>
             )}
@@ -665,71 +706,70 @@ export default function Home() {
         )}
         
         {apiSearchPerformed && rawProcessData && (
-          <div className="flex flex-1 mt-4 overflow-hidden">
-            <div
-              className={cn(
-                "transition-all duration-300 ease-in-out border-r bg-card flex flex-col", 
-                isUnitsSidebarOpen ? "w-[22rem] p-1 opacity-100" : "w-0 p-0 opacity-0" 
-              )}
-            >
-              {isUnitsSidebarOpen && (
-                <ScrollArea className="flex-1">
-                  <Accordion type="single" collapsible defaultValue="open-units" className="w-full">
-                    <AccordionItem value="open-units" className="border-b-0">
-                      <AccordionTrigger className="text-base font-semibold hover:no-underline px-2 py-3 justify-start sticky top-0 bg-card z-10">
-                         <span className="flex items-center">
-                           <Briefcase className="mr-2 h-5 w-5 text-muted-foreground" />
-                           Unidades com Processo Aberto
-                         </span>
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-0 pl-2 pr-2 pb-2">
-                        <ProcessMetadataSidebar
-                          processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
-                          openUnitsInProcess={openUnitsInProcess}
-                          processedFlowData={processedFlowData}
-                          onTaskCardClick={handleTaskCardClick}
-                        />
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                </ScrollArea>
-              )}
+          <div className="flex flex-1 mt-4 overflow-hidden flex-col">
+            {/* Barra de botões */}
+            <div className="w-full flex justify-between items-center mb-4 px-4 py-2 bg-muted/50 rounded-lg border">
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" onClick={() => setIsUnitsSidebarOpen(!isUnitsSidebarOpen)} aria-label={isUnitsSidebarOpen ? "Fechar painel de metadados" : "Abrir painel de metadados"}>
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button onClick={handleScrollToFirstTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length} aria-label="Ir para o início do fluxo">
+                  <ChevronsLeft className="mr-2 h-4 w-4" /> Início
+                </Button>
+                <Button onClick={handleScrollToLastTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length} aria-label="Ir para o fim do fluxo">
+                  <ChevronsRight className="mr-2 h-4 w-4" /> Fim
+                </Button>
+                <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" aria-label="Mostrar legenda de cores">
+                      <HelpCircle className="mr-2 h-4 w-4" /> Legenda
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <ProcessFlowLegend />
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
 
-            <div className="flex-1 flex flex-col p-4 overflow-hidden">
-              {apiSearchPerformed && rawProcessData && (
-                <div className="flex justify-end space-x-2 mb-2">
-                  <Button variant="outline" size="sm" onClick={() => setIsUnitsSidebarOpen(!isUnitsSidebarOpen)} aria-label={isUnitsSidebarOpen ? "Fechar painel de metadados" : "Abrir painel de metadados"}>
-                    <Menu className="h-4 w-4" />
-                  </Button>
-                  <Button onClick={handleScrollToFirstTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length} aria-label="Ir para o início do fluxo">
-                    <ChevronsLeft className="mr-2 h-4 w-4" /> Início
-                  </Button>
-                  <Button onClick={handleScrollToLastTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length} aria-label="Ir para o fim do fluxo">
-                    <ChevronsRight className="mr-2 h-4 w-4" /> Fim
-                  </Button>
-                  <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" aria-label="Mostrar legenda de cores">
-                        <HelpCircle className="mr-2 h-4 w-4" /> Legenda
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                      <ProcessFlowLegend />
-                    </DialogContent>
-                  </Dialog>
+            {/* Seção de unidades em aberto e fluxo lado a lado */}
+            <div className="flex flex-1 gap-4 overflow-hidden">
+              {/* Seção de unidades em aberto */}
+              {isUnitsSidebarOpen && (
+                <div className="w-[22rem] flex-shrink-0">
+                  <div className="bg-card border rounded-lg p-4 h-full">
+                    <div className="flex items-center mb-3">
+                      <Briefcase className="mr-2 h-5 w-5 text-muted-foreground" />
+                      <h3 className="text-base font-semibold">Unidades com Processo Aberto</h3>
+                    </div>
+                    <div className="overflow-auto h-[calc(100%-2.5rem)]">
+                      <ProcessMetadataSidebar
+                        processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
+                        openUnitsInProcess={openUnitsInProcess}
+                        processedFlowData={processedFlowData}
+                        onTaskCardClick={handleTaskCardClick}
+                      />
+                      
+                    </div>
+                  </div>
                 </div>
               )}
-              <ProcessFlowClient
-                processedFlowData={processedFlowData}
-                taskToScrollTo={taskToScrollTo}
-                loginCredentials={loginCredentials}
-                isAuthenticated={isAuthenticated}
-                selectedUnidadeFiltro={selectedUnidadeFiltro}
-                processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
-                documents={documents}
-                isLoadingDocuments={backgroundLoading.documentos}
-              />
+
+              {/* Fluxo do processo */}
+              <div className="flex-1 overflow-hidden">
+                <ProcessFlowClient
+                  processedFlowData={processedFlowData}
+                  taskToScrollTo={taskToScrollTo}
+                  sessionToken={sessionToken}
+                  isAuthenticated={isAuthenticated}
+                  selectedUnidadeFiltro={selectedUnidadeFiltro}
+                  processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
+                  documents={documents}
+                  isLoadingDocuments={backgroundLoading.documentos}
+                />
+              </div>
             </div>
           </div>
         )}
