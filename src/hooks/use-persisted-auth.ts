@@ -140,6 +140,7 @@ export function usePersistedAuth() {
 
   // Função para fazer logout
   const logout = useCallback(() => {
+    console.log('[DEBUG] usePersistedAuth.logout - Iniciando...');
     setIsAuthenticated(false);
     setSessionToken(null);
     setUnidadesFiltroList([]);
@@ -148,7 +149,9 @@ export function usePersistedAuth() {
     // Limpeza completa do localStorage
     if (typeof window !== 'undefined') {
       localStorage.removeItem(AUTH_STORAGE_KEY);
+      console.log('[DEBUG] localStorage limpo');
     }
+    console.log('[DEBUG] usePersistedAuth.logout - Concluído');
   }, []);
 
   // Função para atualizar unidade selecionada

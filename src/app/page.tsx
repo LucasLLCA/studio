@@ -118,7 +118,11 @@ export default function Home() {
   useEffect(() => {
     if (!isAuthenticated && !sessionToken) {
       console.log('[DEBUG] Usuário não autenticado - redirecionando para login');
-      router.push('/login');
+      // Pequeno delay para permitir que o toast seja mostrado
+      const timer = setTimeout(() => {
+        router.push('/login');
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [isAuthenticated, sessionToken, router]);
 
@@ -411,10 +415,23 @@ export default function Home() {
   };
 
   const handleLogout = () => {
+    console.log('[DEBUG] Iniciando logout...');
+    // Primeiro, limpamos os dados da página
+    setRawProcessData(null); 
+    setOpenUnitsInProcess(null); 
+    setProcessLinkAcesso(null); 
+    setDocuments(null); 
+    setProcessSummary(null); 
+    setApiSearchPerformed(false); 
+    setProcessCreationInfo(null);
+    
+    // Depois fazemos o logout (que vai disparar o useEffect)
     persistLogout();
-    setRawProcessData(null); setOpenUnitsInProcess(null); setProcessLinkAcesso(null); setDocuments(null); setProcessSummary(null); setApiSearchPerformed(false); setProcessCreationInfo(null);
+    
     toast({ title: "Logout realizado." });
-    router.push('/login');
+    
+    // Redirecionamento manual não é mais necessário - o useEffect vai cuidar disso
+    console.log('[DEBUG] Logout concluído, useEffect vai redirecionar...');
   };
 
   const handleTaskCardClick = (task: ProcessedAndamento) => setTaskToScrollTo(task);
