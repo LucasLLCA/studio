@@ -19,7 +19,7 @@ const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 const TOKEN_CACHE_DURATION = 30 * 60 * 1000; // 30 minutos
 
 // Esta função aceita credenciais completas ou token de sessão
-async function getAuthToken(auth: LoginCredentials | SessionTokenAuth): Promise<string | ApiError> {
+export async function getAuthToken(auth: LoginCredentials | SessionTokenAuth): Promise<string | ApiError> {
   console.log('[DEBUG] getAuthToken chamado com tipo:', typeof auth);
   
   if (!SEI_API_BASE_URL) {
@@ -283,6 +283,83 @@ async function fetchAndamentosApiCall(
   }
 }
 
+// Versão com token já resolvido para evitar múltiplas chamadas getAuthToken
+async function fetchAndamentosApiCallWithToken(
+  token: string,
+  protocoloProcedimento: string,
+  unidadeId: string,
+  pagina: number,
+  quantidade: number
+): Promise<ProcessoData | ApiError> {
+  console.log('[DEBUG] fetchAndamentosApiCallWithToken - usando token pré-resolvido');
+  
+  if (!token || token === 'undefined' || token === 'null') {
+    console.error('[DEBUG] fetchAndamentosApiCallWithToken - Token inválido!');
+    return { error: "Token de autenticação inválido", status: 401 };
+  }
+
+  const queryParams = new URLSearchParams({
+    protocolo_procedimento: protocoloProcedimento,
+    sinal_atributos: 'S',
+    sinal_resumo: 'N',
+    sinal_datas_protocolo: 'N',
+    sinal_unidade_origem: 'N',
+    pagina: pagina.toString(),
+    quantidade: quantidade.toString()
+  });
+  const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/andamentos?${queryParams.toString()}`;
+
+  console.log(`[SEI API Andamentos] Tentando buscar URL: ${url}`);
+
+  const headers = {
+    'token': token,
+    'accept': 'application/json',
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      let errorDetails;
+      try {
+        errorDetails = await response.json();
+      } catch (e) {
+        errorDetails = await response.text();
+      }
+      console.error(`[SEI API Andamentos] Falha ao buscar dados do processo (URL: ${url}, Status: ${response.status})`, errorDetails);
+      return { error: `Falha ao buscar dados do processo na API SEI (pagina ${pagina}, quantidade ${quantidade}): ${response.status}`, details: errorDetails, status: response.status };
+    }
+
+    const data = await response.json();
+    if (data && data.Info && (data.Andamentos !== undefined || (quantidade === 0 && data.Andamentos === undefined))) {
+      if (!data.Info.NumeroProcesso && protocoloProcedimento) {
+        data.Info.NumeroProcesso = protocoloProcedimento;
+      }
+      if (quantidade > 0 && !Array.isArray(data.Andamentos)) {
+         console.warn(`[SEI API Andamentos] 'Andamentos' não é um array na resposta para ${protocoloProcedimento}, mas quantidade=${quantidade} > 0. Tratando como lista vazia. Resposta:`, data);
+        data.Andamentos = [];
+      } else if (data.Andamentos === undefined && quantidade === 0) {
+        data.Andamentos = [];
+      }
+      return data as ProcessoData;
+    } else {
+      console.error(`[SEI API Andamentos] Estrutura de dados inválida recebida da API SEI (pagina ${pagina}, quantidade ${quantidade}), mesmo com status OK:`, data);
+      return {
+        error: "Formato de dados inesperado recebido da API de andamentos SEI.",
+        details: data,
+        status: response.status === 200 ? 500 : response.status
+      };
+    }
+  } catch (error) {
+    console.error(`[SEI API Andamentos] Erro ao buscar dados do processo (pagina ${pagina}, quantidade ${quantidade}):`, error);
+    return { error: `Erro ao conectar com o serviço de dados do processo da API SEI (pagina ${pagina}, quantidade ${quantidade}).`, details: error instanceof Error ? error.message : String(error), status: 500 };
+  }
+}
+
 export async function fetchProcessDataFromSEI(
   auth: LoginCredentials | SessionTokenAuth,
   protocoloProcedimento: string,
@@ -299,8 +376,15 @@ export async function fetchProcessDataFromSEI(
     return { error: "Número do processo e unidade são obrigatórios para buscar andamentos.", status: 400 };
   }
 
+  // Obter token apenas uma vez
+  const tokenResult = await getAuthToken(auth);
+  if (typeof tokenResult !== 'string') {
+    return tokenResult;
+  }
+  const token = tokenResult;
+
   console.log(`[SEI API Andamentos] Etapa 1: Buscando contagem total de itens para o processo ${protocoloProcedimento}`);
-  const countResponse = await fetchAndamentosApiCall(auth, protocoloProcedimento, unidadeId, 1, 0);
+  const countResponse = await fetchAndamentosApiCallWithToken(token, protocoloProcedimento, unidadeId, 1, 0);
 
   if ('error' in countResponse) {
     console.error("[SEI API Andamentos] Erro ao buscar contagem de itens:", countResponse);
@@ -330,7 +414,74 @@ export async function fetchProcessDataFromSEI(
   }
 
   console.log(`[SEI API Andamentos] Etapa 2: Buscando todos os ${totalItens} andamentos para o processo ${protocoloProcedimento}`);
-  const allItemsResponse = await fetchAndamentosApiCall(auth, protocoloProcedimento, unidadeId, 1, totalItens);
+  const allItemsResponse = await fetchAndamentosApiCallWithToken(token, protocoloProcedimento, unidadeId, 1, totalItens);
+
+  if ('error' in allItemsResponse) {
+     console.error("[SEI API Andamentos] Erro ao buscar todos os andamentos:", allItemsResponse);
+    return allItemsResponse;
+  }
+
+  const finalProcessoData: ProcessoData = {
+    Info: {
+      Pagina: 1,
+      TotalPaginas: 1,
+      QuantidadeItens: allItemsResponse.Andamentos?.length || 0,
+      TotalItens: totalItens,
+      NumeroProcesso: allItemsResponse.Info?.NumeroProcesso || protocoloProcedimento,
+    },
+    Andamentos: allItemsResponse.Andamentos || [],
+  };
+
+  return finalProcessoData;
+
+}
+
+// Versão que recebe token já resolvido
+export async function fetchProcessDataFromSEIWithToken(
+  token: string,
+  protocoloProcedimento: string,
+  unidadeId: string
+): Promise<ProcessoData | ApiError> {
+  if (!SEI_API_BASE_URL) {
+    console.error("[SEI API Andamentos] SEI API Base URL environment variable is not set.");
+    return { error: "Configuração do servidor incompleta para acessar a API SEI.", status: 500 };
+  }
+  if (!protocoloProcedimento || !unidadeId) {
+    return { error: "Número do processo e unidade são obrigatórios para buscar andamentos.", status: 400 };
+  }
+
+  console.log(`[SEI API Andamentos] Etapa 1: Buscando contagem total de itens para o processo ${protocoloProcedimento}`);
+  const countResponse = await fetchAndamentosApiCallWithToken(token, protocoloProcedimento, unidadeId, 1, 0);
+
+  if ('error' in countResponse) {
+    console.error("[SEI API Andamentos] Erro ao buscar contagem de itens:", countResponse);
+    return countResponse;
+  }
+
+  const totalItens = countResponse.Info?.TotalItens;
+
+  if (typeof totalItens !== 'number' || totalItens < 0) {
+    console.error("[SEI API Andamentos] TotalItens não é um número válido ou está ausente na resposta da contagem:", countResponse.Info);
+    return { error: "Não foi possível obter a contagem total de andamentos da API SEI.", details: countResponse.Info, status: 500 };
+  }
+
+  if (totalItens === 0) {
+    console.log(`[SEI API Andamentos] Processo ${protocoloProcedimento} não possui andamentos registrados na unidade ${unidadeId} (API SEI).`);
+    return {
+      Info: {
+        ...countResponse.Info,
+        Pagina: 1,
+        TotalPaginas: 1,
+        QuantidadeItens: 0,
+        TotalItens: 0,
+        NumeroProcesso: countResponse.Info?.NumeroProcesso || protocoloProcedimento,
+      },
+      Andamentos: [],
+    };
+  }
+
+  console.log(`[SEI API Andamentos] Etapa 2: Buscando todos os ${totalItens} andamentos para o processo ${protocoloProcedimento}`);
+  const allItemsResponse = await fetchAndamentosApiCallWithToken(token, protocoloProcedimento, unidadeId, 1, totalItens);
 
   if ('error' in allItemsResponse) {
      console.error("[SEI API Andamentos] Erro ao buscar todos os andamentos:", allItemsResponse);
@@ -372,6 +523,22 @@ export async function fetchOpenUnitsForProcess(
     return tokenResult;
   }
   const token = tokenResult;
+
+  return fetchOpenUnitsForProcessWithToken(token, protocoloProcedimento, unidadeOrigemConsulta);
+}
+
+export async function fetchOpenUnitsForProcessWithToken(
+  token: string,
+  protocoloProcedimento: string,
+  unidadeOrigemConsulta: string
+): Promise<{unidades: UnidadeAberta[], linkAcesso?: string} | ApiError> {
+  if (!SEI_API_BASE_URL) {
+    console.error("[SEI API Consulta] SEI API Base URL environment variable is not set.");
+    return { error: "Configuração do servidor incompleta para acessar a API SEI.", status: 500 };
+  }
+  if (!protocoloProcedimento || !unidadeOrigemConsulta) {
+    return { error: "Número do processo e unidade de origem da consulta são obrigatórios para unidades abertas.", status: 400 };
+  }
 
   const queryParams = new URLSearchParams({
     protocolo_procedimento: protocoloProcedimento,
@@ -457,6 +624,23 @@ export async function fetchProcessSummary(
   }
   const token = tokenResult;
 
+  return fetchProcessSummaryWithToken(token, protocoloProcedimento, unidadeId);
+}
+
+export async function fetchProcessSummaryWithToken(
+  token: string,
+  protocoloProcedimento: string,
+  unidadeId: string
+): Promise<ProcessSummaryResponse | ApiError> {
+  console.log(`[DEBUG] RESUMO WithToken iniciando às ${new Date().toISOString()}`);
+  
+  if (!protocoloProcedimento) {
+    return { error: "Número do processo é obrigatório para buscar o resumo.", status: 400 };
+  }
+  if (!unidadeId) {
+    return { error: "ID da Unidade é obrigatório para buscar o resumo.", status: 400 };
+  }
+
   const formattedProcessNumber = protocoloProcedimento.replace(/[.\/-]/g, "");
   
   const summaryApiUrl = `${SUMMARY_API_BASE_URL}/processo/resumo-completo/${formattedProcessNumber}?token=${encodeURIComponent(token)}&id_unidade=${encodeURIComponent(unidadeId)}`;
@@ -464,6 +648,7 @@ export async function fetchProcessSummary(
   if (!process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL) {
     console.warn("[Summary API - Process] NEXT_PUBLIC_SUMMARY_API_BASE_URL não está definida. Usando fallback.");
   }
+  console.log(`[DEBUG] RESUMO fazendo HTTP fetch às ${new Date().toISOString()}`);
   console.log(`[Summary API - Process] Buscando resumo de processo: ${summaryApiUrl}`);
 
   try {
@@ -838,6 +1023,26 @@ export async function fetchDocumentsFromSEI(
   }
   const token = tokenResult;
 
+  return fetchDocumentsFromSEIWithToken(token, protocoloProcedimento, unidadeId, pagina, quantidade);
+}
+
+export async function fetchDocumentsFromSEIWithToken(
+  token: string,
+  protocoloProcedimento: string,
+  unidadeId: string,
+  pagina: number = 1,
+  quantidade: number = 10
+): Promise<DocumentosResponse | ApiError> {
+  console.log(`[DEBUG] DOCUMENTOS WithToken iniciando às ${new Date().toISOString()}`);
+  
+  if (!SEI_API_BASE_URL) {
+    console.error("[SEI API Documents] SEI API Base URL environment variable is not set.");
+    return { error: "Configuração do servidor incompleta para acessar a API SEI.", status: 500 };
+  }
+  if (!protocoloProcedimento || !unidadeId) {
+    return { error: "Número do processo e unidade são obrigatórios para buscar documentos.", status: 400 };
+  }
+
   const queryParams = new URLSearchParams({
     protocolo_procedimento: protocoloProcedimento,
     pagina: pagina.toString(),
@@ -850,6 +1055,7 @@ export async function fetchDocumentsFromSEI(
   });
   const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/documentos?${queryParams.toString()}`;
 
+  console.log(`[DEBUG] DOCUMENTOS fazendo HTTP fetch às ${new Date().toISOString()}`);
   console.log(`[SEI API Documents] Tentando buscar documentos: ${url}`);
 
   try {

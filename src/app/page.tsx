@@ -32,7 +32,7 @@ import {
 import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, fetchDocumentsFromSEI, loginToSEI, checkSEIApiHealth, checkSummaryApiHealth } from './sei-actions';
+import { fetchProcessDataFromSEI, fetchOpenUnitsForProcess, fetchProcessSummary, fetchDocumentsFromSEI, loginToSEI, checkSEIApiHealth, checkSummaryApiHealth, fetchProcessDataFromSEIWithToken, fetchOpenUnitsForProcessWithToken, fetchProcessSummaryWithToken, fetchDocumentsFromSEIWithToken, getAuthToken } from './sei-actions';
 import type { HealthCheckResponse } from './sei-actions';
 import ApiHealthCheck from '@/components/ApiHealthCheck';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -168,8 +168,6 @@ export default function Home() {
   }, [rawProcessData]);
 
 
-  // useEffect removido - agora as requisições executam em paralelo no handleSearchClick
-
 
   const handleFileUploadClick = () => {
     fileInputRef.current?.click();
@@ -254,124 +252,147 @@ export default function Home() {
       resumo: true
     });
 
-    // 🚀 REQUISIÇÕES VERDADEIRAMENTE INDEPENDENTES - cada uma renderiza assim que termina
-
+    // 🚀 REQUISIÇÕES PARALELAS USANDO SESSIONTOKEN DIRETO - EVITANDO GETAUTHTOKEN
+    console.log(`[DEBUG] Iniciando paralelização DIRETA às ${new Date().toISOString()}`);
+    
     // Debug: Verificar sessionToken
     console.log('[DEBUG] sessionToken no handleSearchClick:', sessionToken);
     console.log('[DEBUG] isAuthenticated:', isAuthenticated);
     
-    // Criar objeto com token de sessão para APIs
-    const sessionAuth = { sessionToken: sessionToken || '' };
-    console.log('[DEBUG] sessionAuth criado:', sessionAuth);
+    // Usar sessionToken diretamente - está disponível e validado
+    const token = sessionToken || '';
+    if (!token) {
+      console.error('[DEBUG] Token de sessão não disponível');
+      toast({ title: "Erro de Autenticação", description: "Token de sessão não disponível.", variant: "destructive" });
+      setIsLoading(false);
+      setBackgroundLoading({ andamentos: false, unidades: false, documentos: false, resumo: false });
+      return;
+    }
 
-    // 1. ANDAMENTOS (crítico - deve terminar primeiro para mostrar o fluxo)
-    fetchProcessDataFromSEI(sessionAuth, processoNumeroInput, selectedUnidadeFiltro)
-      .then(processData => {
-        if ('error' in processData && typeof processData.error === 'string') {
-          let errorTitle = "Erro ao buscar dados do processo";
-          let errorDescription = processData.error;
-          if (processData.status === 422) { errorTitle = "Erro de Validação (422)"; errorDescription = `Verifique o 'Número do Processo' e 'Unidade'.`; }
-          else if (processData.status === 404) { errorTitle = "Processo Não Encontrado (404)"; errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro}.`; }
-          else if (processData.status === 401) { errorTitle = "Falha na Autenticação (401)"; errorDescription = `Credenciais inválidas. Faça login novamente.`; handleLogout(); }
-          else if (processData.status === 500) { errorTitle = "Erro Interno no Servidor SEI (500)"; errorDescription = `Tente novamente mais tarde.`;}
-          toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
-          setRawProcessData(null);
-        } else if (!('error' in processData) && processData.Andamentos && Array.isArray(processData.Andamentos)) {
-          // RENDERIZA FLUXO IMEDIATAMENTE assim que andamentos chegam
-          setRawProcessData(processData);
-          toast({ title: "Fluxo do Processo Carregado", description: `${processData.Andamentos.length} andamentos carregados.` });
-        } else {
-          toast({ title: "Erro Desconhecido (Andamentos)", description: "Resposta inesperada ao buscar andamentos.", variant: "destructive" });
-          setRawProcessData(null);
+    console.log(`[DEBUG] Usando token direto: ${token.substring(0, 20)}...`);
+
+    // Criar todas as promises com priorização para otimizar UX
+    console.log(`[DEBUG] Iniciando requisições paralelas às ${new Date().toISOString()}`);
+    
+    const startCreation = performance.now();
+    
+    const andamentosPromise = fetchProcessDataFromSEIWithToken(token, processoNumeroInput, selectedUnidadeFiltro);
+    const unidadesPromise = fetchOpenUnitsForProcessWithToken(token, processoNumeroInput, selectedUnidadeFiltro);
+    const resumoPromise = fetchProcessSummaryWithToken(token, processoNumeroInput, selectedUnidadeFiltro);
+    const documentosPromise = fetchDocumentsFromSEIWithToken(token, processoNumeroInput, selectedUnidadeFiltro);
+    
+    const creationTime = performance.now() - startCreation;
+    console.log(`[DEBUG] Todas as 4 promises criadas em ${creationTime.toFixed(3)}ms`);
+
+    // Handlers para processar cada resultado
+    const handleAndamentosResult = (processData: any) => {
+      if ('error' in processData && typeof processData.error === 'string') {
+        let errorTitle = "Erro ao buscar dados do processo";
+        let errorDescription = processData.error;
+        if (processData.status === 422) { errorTitle = "Erro de Validação (422)"; errorDescription = `Verifique o 'Número do Processo' e 'Unidade'.`; }
+        else if (processData.status === 404) { errorTitle = "Processo Não Encontrado (404)"; errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro}.`; }
+        else if (processData.status === 401) { errorTitle = "Falha na Autenticação (401)"; errorDescription = `Credenciais inválidas. Faça login novamente.`; handleLogout(); }
+        else if (processData.status === 500) { errorTitle = "Erro Interno no Servidor SEI (500)"; errorDescription = `Tente novamente mais tarde.`;}
+        toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
+        setRawProcessData(null);
+      } else if (!('error' in processData) && processData.Andamentos && Array.isArray(processData.Andamentos)) {
+        console.log(`[DEBUG] ANDAMENTOS concluídos às ${new Date().toISOString()}`);
+        setRawProcessData(processData);
+        toast({ title: "Fluxo do Processo Carregado", description: `${processData.Andamentos.length} andamentos carregados.` });
+      } else {
+        toast({ title: "Erro Desconhecido (Andamentos)", description: "Resposta inesperada ao buscar andamentos.", variant: "destructive" });
+        setRawProcessData(null);
+      }
+      setIsLoading(false);
+      setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
+    };
+
+    const handleUnidadesResult = (unitsData: any) => {
+      if ('error' in unitsData) {
+        setOpenUnitsInProcess([]);
+        setProcessLinkAcesso(null);
+        console.warn("Erro ao buscar unidades abertas:", unitsData.error);
+        if (unitsData.status === 401) {
+          toast({ title: "Sessão Expirada ou Inválida", description: "Por favor, faça login novamente.", variant: "destructive" });
+          handleLogout();
         }
-      })
+      } else if (unitsData.unidades && Array.isArray(unitsData.unidades)) {
+        console.log(`[DEBUG] UNIDADES concluídas às ${new Date().toISOString()}`);
+        setOpenUnitsInProcess(unitsData.unidades);
+        setProcessLinkAcesso(unitsData.linkAcesso || null);
+        console.log(`Unidades abertas carregadas: ${unitsData.unidades.length}`);
+        if (unitsData.linkAcesso) {
+          console.log(`LinkAcesso capturado: ${unitsData.linkAcesso}`);
+        }
+      } else {
+        setOpenUnitsInProcess([]);
+        setProcessLinkAcesso(null);
+        console.warn("Resposta inesperada ao buscar unidades abertas:", unitsData);
+      }
+      setBackgroundLoading(prev => ({ ...prev, unidades: false }));
+    };
+
+    const handleDocumentosResult = (documentsResponse: any) => {
+      if ('error' in documentsResponse) {
+        setDocuments([]);
+        console.warn("Erro ao buscar documentos:", documentsResponse.error);
+      } else {
+        console.log(`[DEBUG] DOCUMENTOS concluídos às ${new Date().toISOString()}`);
+        setDocuments(documentsResponse.Documentos);
+        console.log(`Documentos carregados: ${documentsResponse.Documentos.length}`);
+      }
+      setBackgroundLoading(prev => ({ ...prev, documentos: false }));
+    };
+
+    const handleResumoResult = (summaryResponse: any) => {
+      if ('error' in summaryResponse) {
+        setProcessSummary(null);
+        toast({ title: "Erro ao Gerar Resumo", description: summaryResponse.error, variant: "destructive", duration: 9000 });
+      } else {
+        console.log(`[DEBUG] RESUMO concluído às ${new Date().toISOString()}`);
+        setProcessSummary(summaryResponse.summary.replace(/[#*]/g, ''));
+        toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
+      }
+      setBackgroundLoading(prev => ({ ...prev, resumo: false }));
+    };
+
+    // Conectar handlers imediatamente às promises criadas
+    andamentosPromise
+      .then(handleAndamentosResult)
       .catch(error => {
         console.error("Erro ao buscar dados do processo:", error);
         setRawProcessData(null);
         toast({ title: "Erro ao Buscar Andamentos", description: "Falha na requisição de andamentos.", variant: "destructive" });
-      })
-      .finally(() => {
-        setIsLoading(false); // Para loading do fluxo principal
+        setIsLoading(false);
         setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
       });
 
-    // 2. UNIDADES ABERTAS (independente - sidebar atualiza quando termina)
-    fetchOpenUnitsForProcess(sessionAuth, processoNumeroInput, selectedUnidadeFiltro)
-      .then(unitsData => {
-        if ('error' in unitsData) {
-          setOpenUnitsInProcess([]);
-          setProcessLinkAcesso(null);
-          console.warn("Erro ao buscar unidades abertas:", unitsData.error);
-          if (unitsData.status === 401) {
-            toast({ title: "Sessão Expirada ou Inválida", description: "Por favor, faça login novamente.", variant: "destructive" });
-            handleLogout();
-          }
-        } else if (unitsData.unidades && Array.isArray(unitsData.unidades)) {
-          // RENDERIZA SIDEBAR IMEDIATAMENTE
-          setOpenUnitsInProcess(unitsData.unidades);
-          setProcessLinkAcesso(unitsData.linkAcesso || null);
-          console.log(`Unidades abertas carregadas: ${unitsData.unidades.length}`);
-          if (unitsData.linkAcesso) {
-            console.log(`LinkAcesso capturado: ${unitsData.linkAcesso}`);
-          }
-        } else {
-          setOpenUnitsInProcess([]);
-          setProcessLinkAcesso(null);
-          console.warn("Resposta inesperada ao buscar unidades abertas:", unitsData);
-        }
-      })
+    unidadesPromise
+      .then(handleUnidadesResult)
       .catch(error => {
         setOpenUnitsInProcess([]);
         setProcessLinkAcesso(null);
         console.warn("Erro ao buscar unidades abertas:", error);
-      })
-      .finally(() => {
         setBackgroundLoading(prev => ({ ...prev, unidades: false }));
       });
 
-    // 3. DOCUMENTOS (independente - links aparecem quando termina)
-    console.log(`[DEBUG] Iniciando requisição de DOCUMENTOS às ${new Date().toISOString()}`);
-    fetchDocumentsFromSEI(sessionAuth, processoNumeroInput, selectedUnidadeFiltro)
-      .then(documentsResponse => {
-        if ('error' in documentsResponse) {
-          setDocuments([]);
-          console.warn("Erro ao buscar documentos:", documentsResponse.error);
-        } else {
-          // ATIVA LINKS DOS DOCUMENTOS IMEDIATAMENTE
-          console.log(`[DEBUG] DOCUMENTOS concluídos às ${new Date().toISOString()}`);
-          setDocuments(documentsResponse.Documentos);
-          console.log(`Documentos carregados: ${documentsResponse.Documentos.length}`);
-        }
-      })
+    documentosPromise
+      .then(handleDocumentosResult)
       .catch(error => {
         setDocuments([]);
         console.warn("Erro ao buscar documentos:", error);
-      })
-      .finally(() => {
         setBackgroundLoading(prev => ({ ...prev, documentos: false }));
       });
 
-    // 4. RESUMO DO PROCESSO (independente - aparece quando IA termina)
-    console.log(`[DEBUG] Iniciando requisição de RESUMO às ${new Date().toISOString()}`);
-    fetchProcessSummary(sessionAuth, processoNumeroInput, selectedUnidadeFiltro)
-      .then(summaryResponse => {
-        if ('error' in summaryResponse) {
-          setProcessSummary(null);
-          toast({ title: "Erro ao Gerar Resumo", description: summaryResponse.error, variant: "destructive", duration: 9000 });
-        } else {
-          // MOSTRA RESUMO IMEDIATAMENTE quando IA termina
-          console.log(`[DEBUG] RESUMO concluído às ${new Date().toISOString()}`);
-          setProcessSummary(summaryResponse.summary.replace(/[#*]/g, ''));
-          toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
-        }
-      })
+    resumoPromise
+      .then(handleResumoResult)
       .catch(error => {
         setProcessSummary(null);
         console.warn("Erro ao buscar resumo:", error);
-      })
-      .finally(() => {
         setBackgroundLoading(prev => ({ ...prev, resumo: false }));
       });
+
+    console.log(`[DEBUG] Handlers conectados às promises`);
   };
 
 
@@ -596,29 +617,31 @@ export default function Home() {
           </div>
         )}
 
-        {/* Feedback de carregamento na página quando não há dados */}
+        {/* Feedback de carregamento centralizado na tela quando não há dados */}
         {hasBackgroundLoading && apiSearchPerformed && !rawProcessData && (
-          <Card className="mb-4">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-4">
-                <Loader2 className="h-8 w-8 text-primary animate-spin flex-shrink-0" />
-                <div className="flex-1">
-                  <h3 className="text-base font-semibold mb-2">Carregando dados...</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {loadingTasks.map((task, index) => (
-                      <div key={index} className="flex items-center space-x-2 text-sm">
-                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse flex-shrink-0"></div>
-                        <span className="text-muted-foreground">{task}</span>
-                      </div>
-                    ))}
+          <div className="flex flex-col items-center justify-center flex-1 min-h-[400px]">
+            <Card className="w-full max-w-md">
+              <CardContent className="p-6">
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <Loader2 className="h-12 w-12 text-primary animate-spin" />
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3">Carregando dados...</h3>
+                    <div className="space-y-2">
+                      {loadingTasks.map((task, index) => (
+                        <div key={index} className="flex items-center justify-center space-x-2 text-sm">
+                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse flex-shrink-0"></div>
+                          <span className="text-muted-foreground">{task}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      Os resultados aparecerão conforme ficarem prontos
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Os resultados aparecerão conforme ficarem prontos
-                  </p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         )}
         
         {apiSearchPerformed && processCreationInfo && (
@@ -700,7 +723,7 @@ export default function Home() {
                       <div className="h-[150px] rounded-md border">
                         <ScrollArea className="h-full">
                           <div className="p-3">
-                            <pre className="text-xs whitespace-pre-wrap break-words font-sans">{processSummary}</pre>
+                            <pre className="text-sm whitespace-pre-wrap break-words font-sans">{processSummary}</pre>
                           </div>
                         </ScrollArea>
                       </div>
