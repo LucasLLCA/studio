@@ -177,7 +177,7 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.type !== "application/json") {
-      toast({ title: "Erro ao carregar arquivo", description: "Por favor, selecione um arquivo JSON.", variant: "destructive" });
+      toast({ title: "Arquivo não selecionado", description: "Por favor, selecione um arquivo JSON válido para carregar os dados do processo.", variant: "destructive" });
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -201,19 +201,19 @@ export default function Home() {
             setProcessoNumeroInput(jsonData.Info?.NumeroProcesso || processoNumeroInput || "");
             toast({ title: "Sucesso!", description: `Arquivo JSON "${file.name}" carregado e processado.` });
           } else {
-            throw new Error("Formato JSON inválido. Estrutura esperada (Info, Andamentos) não encontrada.");
+            throw new Error("O arquivo selecionado não possui o formato esperado. Certifique-se de que seja um arquivo JSON exportado do sistema SEI com as seções 'Info' e 'Andamentos'.");
           }
         }
       } catch (error) {
         setRawProcessData(null); setOpenUnitsInProcess(null); setProcessLinkAcesso(null); setDocuments(null);
-        toast({ title: "Erro ao processar JSON", description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido.", variant: "destructive" });
+        toast({ title: "Falha ao processar arquivo", description: error instanceof Error ? error.message : "Não foi possível processar o arquivo. Verifique se é um arquivo JSON válido.", variant: "destructive" });
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = "";
         setIsLoading(false);
       }
     };
     reader.onerror = () => {
-      toast({ title: "Erro ao ler arquivo", description: "Não foi possível ler o arquivo selecionado.", variant: "destructive" });
+      toast({ title: "Falha na leitura do arquivo", description: "O arquivo selecionado não pôde ser lido. Tente selecionar outro arquivo ou verifique se não está corrompido.", variant: "destructive" });
       if (fileInputRef.current) fileInputRef.current.value = "";
       setIsLoading(false);
     };
@@ -223,15 +223,15 @@ export default function Home() {
 
   const handleSearchClick = async () => {
     if (!isAuthenticated || !sessionToken) {
-      toast({ title: "Não Autenticado", description: "Por favor, faça login para pesquisar.", variant: "destructive" });
+      toast({ title: "Acesso não autorizado", description: "Você precisa estar logado para pesquisar processos. Faça login e tente novamente.", variant: "destructive" });
       return;
     }
     if (!processoNumeroInput) {
-      toast({ title: "Entrada Inválida", description: "Por favor, insira o número do processo.", variant: "destructive" });
+      toast({ title: "Número do processo obrigatório", description: "Digite o número do processo que deseja consultar (ex: 12345678901234567890).", variant: "destructive" });
       return;
     }
     if (!selectedUnidadeFiltro) {
-      toast({ title: "Entrada Inválida", description: "Por favor, selecione uma unidade.", variant: "destructive" });
+      toast({ title: "Unidade não selecionada", description: "Selecione a unidade onde o processo está tramitando para prosseguir com a consulta.", variant: "destructive" });
       return;
     }
 
@@ -263,7 +263,7 @@ export default function Home() {
     const token = sessionToken || '';
     if (!token) {
       console.error('[DEBUG] Token de sessão não disponível');
-      toast({ title: "Erro de Autenticação", description: "Token de sessão não disponível.", variant: "destructive" });
+      toast({ title: "Sessão expirada", description: "Sua sessão expirou. Faça login novamente para continuar.", variant: "destructive" });
       setIsLoading(false);
       setBackgroundLoading({ andamentos: false, unidades: false, documentos: false, resumo: false });
       return;
@@ -289,18 +289,18 @@ export default function Home() {
       if ('error' in processData && typeof processData.error === 'string') {
         let errorTitle = "Erro ao buscar dados do processo";
         let errorDescription = processData.error;
-        if (processData.status === 422) { errorTitle = "Erro de Validação (422)"; errorDescription = `Verifique o 'Número do Processo' e 'Unidade'.`; }
-        else if (processData.status === 404) { errorTitle = "Processo Não Encontrado (404)"; errorDescription = `Processo não encontrado na unidade ${selectedUnidadeFiltro}.`; }
-        else if (processData.status === 401) { errorTitle = "Falha na Autenticação (401)"; errorDescription = `Credenciais inválidas. Faça login novamente.`; handleLogout(); }
-        else if (processData.status === 500) { errorTitle = "Erro Interno no Servidor SEI (500)"; errorDescription = `Tente novamente mais tarde.`;}
+        if (processData.status === 422) { errorTitle = "Dados inválidos"; errorDescription = `Verifique se o número do processo está correto e se a unidade selecionada é a correta. O número deve ter 20 dígitos.`; }
+        else if (processData.status === 404) { errorTitle = "Processo não localizado"; errorDescription = `O processo informado não foi encontrado na unidade '${selectedUnidadeFiltro}'. Verifique se o processo existe ou se está na unidade correta.`; }
+        else if (processData.status === 401) { errorTitle = "Sessão expirada"; errorDescription = `Sua sessão no sistema expirou. Você será redirecionado para fazer login novamente.`; handleLogout(); }
+        else if (processData.status === 500) { errorTitle = "Erro no servidor SEI"; errorDescription = `O sistema SEI está temporariamente indisponível. Aguarde alguns minutos e tente novamente.`;}
         toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
         setRawProcessData(null);
       } else if (!('error' in processData) && processData.Andamentos && Array.isArray(processData.Andamentos)) {
         console.log(`[DEBUG] ANDAMENTOS concluídos às ${new Date().toISOString()}`);
         setRawProcessData(processData);
-        toast({ title: "Fluxo do Processo Carregado", description: `${processData.Andamentos.length} andamentos carregados.` });
+        toast({ title: "Processo carregado com sucesso", description: `Encontrados ${processData.Andamentos.length} andamentos para visualização.` });
       } else {
-        toast({ title: "Erro Desconhecido (Andamentos)", description: "Resposta inesperada ao buscar andamentos.", variant: "destructive" });
+        toast({ title: "Formato de dados inesperado", description: "Os dados recebidos não estão no formato esperado. Entre em contato com o suporte técnico.", variant: "destructive" });
         setRawProcessData(null);
       }
       setIsLoading(false);
@@ -313,7 +313,7 @@ export default function Home() {
         setProcessLinkAcesso(null);
         console.warn("Erro ao buscar unidades abertas:", unitsData.error);
         if (unitsData.status === 401) {
-          toast({ title: "Sessão Expirada ou Inválida", description: "Por favor, faça login novamente.", variant: "destructive" });
+          toast({ title: "Sessão expirada", description: "Sua sessão no sistema expirou. Você será redirecionado para fazer login novamente.", variant: "destructive" });
           handleLogout();
         }
       } else if (unitsData.unidades && Array.isArray(unitsData.unidades)) {

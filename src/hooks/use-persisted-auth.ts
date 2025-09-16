@@ -45,7 +45,7 @@ export function usePersistedAuth() {
       
       return data;
     } catch (error) {
-      console.warn('Erro ao carregar dados de autenticação:', error);
+      console.warn('Erro ao carregar dados de autenticação salvos:', error);
       localStorage.removeItem(AUTH_STORAGE_KEY);
       return null;
     }
@@ -93,7 +93,7 @@ export function usePersistedAuth() {
 
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
     } catch (error) {
-      console.warn('Erro ao salvar dados de autenticação:', error);
+      console.warn('Erro ao salvar dados de autenticação no armazenamento local:', error);
     }
   }, [loadFromStorage]);
 

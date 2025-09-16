@@ -150,7 +150,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
 
   const handleFetchDocumentSummary = async () => {
     if (!extractedDocumentNumber || !sessionToken || !task || !selectedUnidadeFiltro) {
-      setDocumentSummaryError("Não é possível buscar o resumo do documento. Dados ausentes.");
+      setDocumentSummaryError("Não foi possível carregar o resumo do documento. Verifique se você está logado e se o documento é válido.");
       return;
     }
 
@@ -163,13 +163,13 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
       const sessionAuth = { sessionToken: sessionToken! };
       const result = await fetchDocumentSummary(sessionAuth, extractedDocumentNumber, selectedUnidadeFiltro!);
       if ('error' in result) {
-        setDocumentSummaryError(result.error || "Erro desconhecido ao buscar resumo do documento.");
+        setDocumentSummaryError(result.error || "Não foi possível obter o resumo do documento. Tente novamente ou verifique se o documento existe.");
       } else {
         setDocumentSummary(result.summary);
       }
     } catch (err) {
       console.error("Error fetching document summary:", err);
-      setDocumentSummaryError("Falha crítica ao buscar resumo do documento.");
+      setDocumentSummaryError("Ocorreu um erro inesperado ao buscar o resumo. Verifique sua conexão e tente novamente.");
     } finally {
       setIsLoadingDocumentSummary(false);
     }

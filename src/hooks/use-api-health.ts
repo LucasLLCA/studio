@@ -31,7 +31,7 @@ export function useApiHealth(): UseApiHealthReturn {
       setSummaryApiStatus(summaryHealth);
       setLastCheck(new Date());
     } catch (error) {
-      console.error('Erro ao verificar health das APIs:', error);
+      console.error('Erro ao verificar status de saúde das APIs:', error);
     } finally {
       setIsChecking(false);
     }

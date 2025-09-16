@@ -160,15 +160,15 @@ export default function LoginPage() {
         reset();
       } else {
         toast({
-          title: "Erro de Login",
-          description: response.error || "Falha no login.",
+          title: "Falha na autenticação",
+          description: response.error || "Verifique suas credenciais e tente novamente. Se o problema persistir, entre em contato com o suporte.",
           variant: "destructive",
         });
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Erro desconhecido.";
+      const errorMsg = error instanceof Error ? error.message : "Ocorreu um erro inesperado. Verifique sua conexão com a internet e tente novamente.";
       toast({
-        title: "Erro de Login",
+        title: "Erro de conexão",
         description: errorMsg,
         variant: "destructive",
       });
