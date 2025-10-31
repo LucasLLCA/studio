@@ -15,17 +15,19 @@ interface ProcessFlowClientProps {
   processNumber?: string;
   documents?: Documento[] | null;
   isLoadingDocuments?: boolean;
+  filteredLaneUnits?: string[];
 }
 
-export function ProcessFlowClient({ 
-  processedFlowData, 
-  taskToScrollTo, 
+export function ProcessFlowClient({
+  processedFlowData,
+  taskToScrollTo,
   sessionToken,
   isAuthenticated,
   selectedUnidadeFiltro,
   processNumber,
   documents,
   isLoadingDocuments,
+  filteredLaneUnits = [],
 }: ProcessFlowClientProps) {
   if (!processedFlowData || !processedFlowData.tasks || processedFlowData.tasks.length === 0) {
     // This case should ideally be handled by the parent component (page.tsx) before rendering ProcessFlowClient
@@ -34,7 +36,7 @@ export function ProcessFlowClient({
   
   return (
     <div className="h-full flex flex-col w-full">
-      <ProcessFlowDiagram 
+      <ProcessFlowDiagram
         tasks={processedFlowData.tasks}
         connections={processedFlowData.connections}
         svgWidth={processedFlowData.svgWidth}
@@ -47,6 +49,7 @@ export function ProcessFlowClient({
         processNumber={processNumber}
         documents={documents}
         isLoadingDocuments={isLoadingDocuments}
+        filteredLaneUnits={filteredLaneUnits}
       />
     </div>
   );

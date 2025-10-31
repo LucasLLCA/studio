@@ -29,6 +29,11 @@ import {
   DialogClose,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -101,6 +106,7 @@ export default function Home() {
   const [processCreationInfo, setProcessCreationInfo] = useState<ProcessCreationInfo | null>(null);
   const [isUnitsSidebarOpen, setIsUnitsSidebarOpen] = useState(true);
   const [unidadeSearchTerm, setUnidadeSearchTerm] = useState<string>("");
+  const [selectedLaneUnits, setSelectedLaneUnits] = useState<string[]>([]);
 
 
   const methods = useForm<LoginFormValues>({
@@ -495,6 +501,12 @@ export default function Home() {
 
   const hasBackgroundLoading = Object.values(backgroundLoading).some(loading => loading);
 
+  // Extrair lista de unidades únicas que aparecem no processo
+  const availableLaneUnits = useMemo(() => {
+    if (!processedFlowData?.laneMap) return [];
+    return Array.from(processedFlowData.laneMap.keys()).sort();
+  }, [processedFlowData]);
+
   return (
     <div className="flex flex-col min-h-screen bg-background w-full">
       {/* Barra de controles no topo */}
@@ -761,6 +773,72 @@ export default function Home() {
                 <Button onClick={handleScrollToLastTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length} aria-label="Ir para o fim do fluxo">
                   <ChevronsRight className="mr-2 h-4 w-4" /> Fim
                 </Button>
+
+                {/* Filtro de Unidades */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={!processedFlowData?.tasks.length} aria-label="Filtrar unidades">
+                      <GanttChartSquare className="mr-2 h-4 w-4" />
+                      Filtrar Raias
+                      {selectedLaneUnits.length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                          {selectedLaneUnits.length}
+                        </span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80" align="end">
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-medium text-sm mb-2">Filtrar Raias por Unidade</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Selecione as unidades para reorganizá-las no topo
+                        </p>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedLaneUnits(availableLaneUnits)}
+                        >
+                          Todas
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedLaneUnits([])}
+                        >
+                          Limpar
+                        </Button>
+                      </div>
+                      <ScrollArea className="h-[300px]">
+                        <div className="space-y-2">
+                          {availableLaneUnits.map((unit) => (
+                            <div key={unit} className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id={`unit-${unit}`}
+                                checked={selectedLaneUnits.includes(unit)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedLaneUnits([...selectedLaneUnits, unit]);
+                                  } else {
+                                    setSelectedLaneUnits(selectedLaneUnits.filter(u => u !== unit));
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                              />
+                              <Label htmlFor={`unit-${unit}`} className="text-sm cursor-pointer flex-1">
+                                {unit}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
                 <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" aria-label="Mostrar legenda de cores">
@@ -791,7 +869,7 @@ export default function Home() {
                         processedFlowData={processedFlowData}
                         onTaskCardClick={handleTaskCardClick}
                       />
-                      
+
                     </div>
                   </div>
                 </div>
@@ -808,6 +886,7 @@ export default function Home() {
                   processNumber={processoNumeroInput || (rawProcessData?.Info?.NumeroProcesso)}
                   documents={documents}
                   isLoadingDocuments={backgroundLoading.documentos}
+                  filteredLaneUnits={selectedLaneUnits}
                 />
               </div>
             </div>

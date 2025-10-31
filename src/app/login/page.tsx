@@ -16,90 +16,13 @@ import { Loader2, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ORGAOS_PIAUI } from '@/config/constants';
 
 const loginSchema = z.object({
   usuario: z.string().min(1, "Email é obrigatório."),
   senha: z.string().min(1, "Senha é obrigatória."),
   orgao: z.string().min(1, "Orgão é obrigatório."),
 });
-
-const ORGAOS = [
-  "GOV-PI",
-  "SEAD-PI",
-  "ETIPI-PI",
-  "PGE-PI",
-  "SEFAZ-PI",
-  "CGE-PI",
-  "VICEGOV-PI",
-  "INTERPI-PI",
-  "SEDUC-PI",
-  "FUESPI-PI",
-  "SEPLAN-PI",
-  "EMGERPI-PI",
-  "SSP-PI",
-  "PM-PI",
-  "CBMEPI-PI",
-  "SEMARH-PI",
-  "DETRAN-PI",
-  "AGESPISA-PI",
-  "SEJUS-PI",
-  "SECULT-PI",
-  "BADESPI-PI",
-  "PIAUIPREV-PI",
-  "JUCEPI-PI",
-  "SEMPI-PI",
-  "SASC-PI",
-  "IMEPI-PI",
-  "COJUV-PI",
-  "SDE-PI",
-  "EMATER-PI",
-  "PC-PI",
-  "SEGOV-PI",
-  "ISBPI-PI",
-  "IDEPI-PI",
-  "GAMIL-PI",
-  "SEINFRA-PI",
-  "SESAPI-PI",
-  "CENDFOL-PI",
-  "SEFIR-PI",
-  "SEID-PI",
-  "ADH-PI",
-  "CCOM-PI",
-  "SAF-PI",
-  "SEAGRO-PI",
-  "FUNDESPI-PI",
-  "FAPEPI-PI",
-  "SETUR-PI",
-  "DPE-PI",
-  "DER-PI",
-  "ADAPI-PI",
-  "SETRANS-PI",
-  "SIDERPI-PI",
-  "SECID-PI",
-  "CFLP-PI",
-  "SEDEC-PI",
-  "FEPISERH-PI",
-  "INVESTEPIAUI-PI",
-  "FUNART-PI",
-  "IASPI-PI",
-  "AGRESPI-PI",
-  "CVCI-PI",
-  "FUAPI-PI",
-  "SUPRES-PI",
-  "ZPE",
-  "SADA-PI",
-  "CDTER-PI",
-  "SERES-PI",
-  "PORTO-PI",
-  "GASPISA-PI",
-  "SECEPI-PI",
-  "PIAUILINK-PI",
-  "SIA-PI",
-  "PIT-PI",
-  "REABILITAR-PI",
-  "MUNICIPIO-PI",
-  "ALEPI-PI"
-];
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
@@ -412,7 +335,7 @@ export default function LoginPage() {
                   <SelectValue placeholder="Selecione um Órgão" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ORGAOS.map((orgao) => (
+                  {ORGAOS_PIAUI.map((orgao) => (
                     <SelectItem key={orgao} value={orgao}>
                       {orgao}
                     </SelectItem>
