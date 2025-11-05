@@ -134,6 +134,7 @@ export interface SessionTokenAuth {
 // Expected raw response from SEI /orgaos/usuarios/login
 export interface SEILoginApiResponse {
   Token: string;
+  IdUnidadeAtual?: string; // ID da unidade atual para requisições
   Login?: { 
     IdLogin?: string;
     Nome?: string; // Assuming Nome might be available
@@ -158,6 +159,7 @@ export interface SEILoginApiResponse {
 export interface ClientLoginResponse {
   success: boolean;
   token?: string;
+  idUnidadeAtual?: string; // ID da unidade atual para requisições
   unidades?: UnidadeFiltro[]; // Uses UnidadeFiltro for consistency with Select
   error?: string;
   status?: number;

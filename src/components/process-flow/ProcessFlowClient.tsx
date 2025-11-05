@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { ProcessedFlowData, ProcessedAndamento, Documento } from '@/types/process-flow';
+import type { ProcessedFlowData, ProcessedAndamento, Documento, UnidadeAberta } from '@/types/process-flow';
 import { ProcessFlowDiagram } from './ProcessFlowDiagram';
 import React from 'react';
 
@@ -16,6 +16,7 @@ interface ProcessFlowClientProps {
   documents?: Documento[] | null;
   isLoadingDocuments?: boolean;
   filteredLaneUnits?: string[];
+  openUnitsInProcess?: UnidadeAberta[] | null;
 }
 
 export function ProcessFlowClient({
@@ -28,6 +29,7 @@ export function ProcessFlowClient({
   documents,
   isLoadingDocuments,
   filteredLaneUnits = [],
+  openUnitsInProcess,
 }: ProcessFlowClientProps) {
   if (!processedFlowData || !processedFlowData.tasks || processedFlowData.tasks.length === 0) {
     // This case should ideally be handled by the parent component (page.tsx) before rendering ProcessFlowClient
@@ -50,6 +52,7 @@ export function ProcessFlowClient({
         documents={documents}
         isLoadingDocuments={isLoadingDocuments}
         filteredLaneUnits={filteredLaneUnits}
+        openUnitsInProcess={openUnitsInProcess}
       />
     </div>
   );

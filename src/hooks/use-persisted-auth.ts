@@ -6,6 +6,7 @@ import type { LoginCredentials, UnidadeFiltro } from '@/types/process-flow';
 interface PersistedAuthData {
   isAuthenticated: boolean;
   sessionToken: string | null; // Apenas token de sessão, não credenciais
+  idUnidadeAtual: string | null; // ID da unidade atual para requisições
   unidadesFiltroList: UnidadeFiltro[];
   selectedUnidadeFiltro: string | undefined;
   timestamp: number;
@@ -62,6 +63,11 @@ export function usePersistedAuth() {
     return stored?.sessionToken || null;
   });
 
+  const [idUnidadeAtual, setIdUnidadeAtual] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.idUnidadeAtual || null;
+  });
+
   const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>(() => {
     const stored = loadFromStorage();
     return stored?.unidadesFiltroList || [];
@@ -80,6 +86,7 @@ export function usePersistedAuth() {
       const current = loadFromStorage() || {
         isAuthenticated: false,
         sessionToken: null,
+        idUnidadeAtual: null,
         unidadesFiltroList: [],
         selectedUnidadeFiltro: undefined,
         timestamp: Date.now()
@@ -98,7 +105,7 @@ export function usePersistedAuth() {
   }, [loadFromStorage]);
 
   // Função para fazer login
-  const login = useCallback((token: string, unidades: UnidadeFiltro[]) => {
+  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string) => {
     console.log('[DEBUG] Login iniciado - Token type:', typeof token);
     console.log('[DEBUG] Login - Token raw value:', token);
     console.log('[DEBUG] Login - Unidades:', unidades.length);
@@ -119,11 +126,13 @@ export function usePersistedAuth() {
     
     setIsAuthenticated(true);
     setSessionToken(validToken);
+    setIdUnidadeAtual(idUnidadeAtual || null);
     setUnidadesFiltroList(unidades);
     
     const dataToSave = {
       isAuthenticated: true,
       sessionToken: validToken,
+      idUnidadeAtual: idUnidadeAtual || null,
       unidadesFiltroList: unidades
     };
     
@@ -143,6 +152,7 @@ export function usePersistedAuth() {
     console.log('[DEBUG] usePersistedAuth.logout - Iniciando...');
     setIsAuthenticated(false);
     setSessionToken(null);
+    setIdUnidadeAtual(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
     
@@ -165,6 +175,7 @@ export function usePersistedAuth() {
     console.log('[DEBUG] Forçando logout e limpeza');
     setIsAuthenticated(false);
     setSessionToken(null);
+    setIdUnidadeAtual(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
     if (typeof window !== 'undefined') {
@@ -186,6 +197,7 @@ export function usePersistedAuth() {
   return {
     isAuthenticated,
     sessionToken,
+    idUnidadeAtual,
     unidadesFiltroList,
     selectedUnidadeFiltro,
     login,

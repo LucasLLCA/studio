@@ -152,6 +152,13 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
 
     const data = JSON.parse(responseText) as SEILoginApiResponse;
 
+    console.log('[DEBUG] Resposta da API SEI no login:', {
+      hasToken: !!data.Token,
+      hasIdUnidadeAtual: !!data.IdUnidadeAtual,
+      idUnidadeAtual: data.IdUnidadeAtual,
+      unidadesCount: data.Unidades?.length || 0
+    });
+
     if (!data.Token) {
       return { success: false, error: "Token não retornado pela API de login.", details: data, status: 500 };
     }
@@ -164,7 +171,21 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
 
     const tokenToReturn = typeof data.Token === 'string' ? data.Token : String(data.Token);
 
-    return { success: true, token: tokenToReturn, unidades };
+    // Se não há IdUnidadeAtual na resposta, usar a primeira unidade disponível
+    const idUnidadeAtual = data.IdUnidadeAtual || (unidades.length > 0 ? unidades[0].Id : undefined);
+
+    console.log('[DEBUG] IdUnidadeAtual determinado:', {
+      fromAPI: data.IdUnidadeAtual,
+      fallback: unidades.length > 0 ? unidades[0].Id : undefined,
+      final: idUnidadeAtual
+    });
+
+    return { 
+      success: true, 
+      token: tokenToReturn, 
+      unidades,
+      idUnidadeAtual 
+    };
 
   } catch (error) {
     return {

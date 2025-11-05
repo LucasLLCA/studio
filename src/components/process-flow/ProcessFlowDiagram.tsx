@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { ProcessedAndamento, Connection, Documento } from '@/types/process-flow';
+import type { ProcessedAndamento, Connection, Documento, UnidadeAberta } from '@/types/process-flow';
 import { TaskNode } from './TaskNode';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import React, { useState, useRef, useEffect } from 'react';
@@ -23,6 +23,7 @@ interface ProcessFlowDiagramProps {
   documents?: Documento[] | null;
   isLoadingDocuments?: boolean;
   filteredLaneUnits?: string[];
+  openUnitsInProcess?: UnidadeAberta[] | null;
 }
 
 export function ProcessFlowDiagram({
@@ -39,6 +40,7 @@ export function ProcessFlowDiagram({
   documents,
   isLoadingDocuments,
   filteredLaneUnits = [],
+  openUnitsInProcess,
 }: ProcessFlowDiagramProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -74,6 +76,12 @@ export function ProcessFlowDiagram({
   );
 
   const LANE_LABEL_AREA_WIDTH = 150;
+
+  // Função para verificar se uma unidade está com processo aberto
+  const isUnitOpen = (sigla: string): boolean => {
+    if (!openUnitsInProcess || openUnitsInProcess.length === 0) return false;
+    return openUnitsInProcess.some(unit => unit.Unidade.Sigla === sigla);
+  };
   
   // Função para quebrar texto longo em múltiplas linhas
   const breakLongText = (text: string, maxLength: number = 12): string[] => {
@@ -442,11 +450,14 @@ export function ProcessFlowDiagram({
             >
               {laneEntries.map(([sigla, yPos]) => {
                 const textLines = breakLongText(sigla);
+                const unitIsOpen = isUnitOpen(sigla);
 
                 return (
                   <div
                     key={`lane-label-${sigla}`}
-                    className="flex items-center pl-4 pr-2 text-sm font-semibold text-muted-foreground"
+                    className={`flex items-center pl-4 pr-2 text-sm font-semibold ${
+                      unitIsOpen ? 'text-red-600' : 'text-muted-foreground'
+                    }`}
                     style={{
                       position: 'absolute',
                       top: `${yPos - (VERTICAL_LANE_SPACING / 2)}px`,
@@ -456,6 +467,7 @@ export function ProcessFlowDiagram({
                       boxSizing: 'border-box',
                       display: 'flex',
                       alignItems: 'center',
+                      backgroundColor: unitIsOpen ? 'rgba(239, 68, 68, 0.1)' : 'hsl(var(--card))',
                     }}
                   >
                     <div className="flex flex-col justify-center leading-tight">
