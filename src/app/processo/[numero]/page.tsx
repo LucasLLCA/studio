@@ -31,6 +31,7 @@ export default function ProcessoPage() {
   const [selectedMinhaUnidade, setSelectedMinhaUnidade] = useState<string>('');
   const [selectedUnidadeFavorita, setSelectedUnidadeFavorita] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [searchTermAbertas, setSearchTermAbertas] = useState<string>('');
   const [userClearedSelection, setUserClearedSelection] = useState<boolean>(false);
 
   const handleGoBack = () => {
@@ -171,6 +172,17 @@ export default function ProcessoPage() {
     );
   }, [unidadesFiltroList, searchTerm]);
 
+  // Filtrar unidades abertas baseado no termo de busca
+  const filteredUnidadesAbertas = useMemo(() => {
+    if (!searchTermAbertas || !unidadesAbertas) return unidadesAbertas || [];
+    const term = searchTermAbertas.toLowerCase();
+    return unidadesAbertas.filter(unidadeAberta =>
+      unidadeAberta.Unidade.Sigla.toLowerCase().includes(term) ||
+      unidadeAberta.Unidade.Descricao.toLowerCase().includes(term) ||
+      (unidadeAberta.UsuarioAtribuicao?.Nome && unidadeAberta.UsuarioAtribuicao.Nome.toLowerCase().includes(term))
+    );
+  }, [unidadesAbertas, searchTermAbertas]);
+
   // Determinar unidade favorita - deve ser a unidade com o mesmo ID de idUnidadeAtual
   const unidadeFavorita = idUnidadeAtual ? unidadesFiltroList?.find(u => u.Id === idUnidadeAtual) : null;
 
@@ -182,15 +194,17 @@ export default function ProcessoPage() {
     }
   }, [unidadeFavorita, isInitializing, selectedUnidadeFavorita, selectedUnidadeAberta, selectedMinhaUnidade, userClearedSelection]);
 
-  // Mostrar loading durante inicialização
-  if (isInitializing) {
+  // Mostrar loading durante inicialização ou carregamento das unidades abertas
+  if (isInitializing || isLoadingUnidadesAbertas) {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-center min-h-[50vh]">
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">Carregando dados de autenticação...</p>
+              <p className="text-muted-foreground">
+                {isInitializing ? 'Carregando dados de autenticação...' : 'Carregando unidades em aberto...'}
+              </p>
             </div>
           </div>
         </div>
@@ -290,33 +304,47 @@ export default function ProcessoPage() {
                     </span>
                   )}
                 </label>
-                {isLoadingUnidadesAbertas ? (
-                  <div className="flex items-center justify-center p-4 border rounded-md bg-gray-50">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
-                    <span className="text-sm text-muted-foreground">Carregando unidades...</span>
-                  </div>
-                ) : unidadesAbertas && unidadesAbertas.length > 0 ? (
-                  <div className="max-h-48 overflow-y-auto border rounded-md bg-white">
-                    {unidadesAbertas.map((unidadeAberta, index) => (
-                      <div
-                        key={index}
-                        onClick={() => {
-                          if (!selectedMinhaUnidade && !selectedUnidadeFavorita) {
-                            setSelectedUnidadeAberta(unidadeAberta.Unidade.IdUnidade);
-                            setUserClearedSelection(false);
-                          }
-                        }}
-                        className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
-                          selectedUnidadeAberta === unidadeAberta.Unidade.IdUnidade ? 'bg-green-50 border-l-4 border-green-500' : ''
-                        } ${selectedMinhaUnidade || selectedUnidadeFavorita ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        <div className="font-medium text-sm">{unidadeAberta.Unidade.Sigla}</div>
-                        <div className="text-xs text-gray-600">{unidadeAberta.Unidade.Descricao}</div>
-                        {unidadeAberta.UsuarioAtribuicao?.Nome && (
-                          <div className="text-xs text-gray-500 mt-1">({unidadeAberta.UsuarioAtribuicao.Nome})</div>
-                        )}
-                      </div>
-                    ))}
+                {unidadesAbertas && unidadesAbertas.length > 0 ? (
+                  <div>
+                    <div className="relative mb-2">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        type="text"
+                        placeholder="Buscar unidade..."
+                        value={searchTermAbertas}
+                        onChange={(e) => setSearchTermAbertas(e.target.value)}
+                        disabled={!!(selectedMinhaUnidade || selectedUnidadeFavorita)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto border rounded-md bg-white">
+                      {filteredUnidadesAbertas.length > 0 ? (
+                        filteredUnidadesAbertas.map((unidadeAberta, index) => (
+                          <div
+                            key={index}
+                            onClick={() => {
+                              if (!selectedMinhaUnidade && !selectedUnidadeFavorita) {
+                                setSelectedUnidadeAberta(unidadeAberta.Unidade.IdUnidade);
+                                setUserClearedSelection(false);
+                              }
+                            }}
+                            className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
+                              selectedUnidadeAberta === unidadeAberta.Unidade.IdUnidade ? 'bg-green-50 border-l-4 border-green-500' : ''
+                            } ${selectedMinhaUnidade || selectedUnidadeFavorita ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <div className="font-medium text-sm">{unidadeAberta.Unidade.Sigla}</div>
+                            <div className="text-xs text-gray-600">{unidadeAberta.Unidade.Descricao}</div>
+                            {unidadeAberta.UsuarioAtribuicao?.Nome && (
+                              <div className="text-xs text-gray-500 mt-1">({unidadeAberta.UsuarioAtribuicao.Nome})</div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center text-sm text-muted-foreground p-3">
+                          Nenhuma unidade encontrada
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center text-sm text-muted-foreground p-3 border rounded-md bg-gray-50">
@@ -360,7 +388,7 @@ export default function ProcessoPage() {
                               }
                             }}
                             className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
-                              selectedMinhaUnidade === unidade.Id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                              selectedMinhaUnidade === unidade.Id ? 'bg-green-50 border-l-4 border-green-500' : ''
                             } ${selectedUnidadeAberta || selectedUnidadeFavorita ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             <div className="font-medium text-sm">{unidade.Sigla}</div>
@@ -396,7 +424,7 @@ export default function ProcessoPage() {
                         }
                       }}
                       className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
-                        selectedUnidadeFavorita === unidadeFavorita.Id ? 'bg-yellow-50 border-l-4 border-yellow-500' : ''
+                        selectedUnidadeFavorita === unidadeFavorita.Id ? 'bg-green-50 border-l-4 border-green-500' : ''
                       } ${selectedUnidadeAberta || selectedMinhaUnidade ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <div className="font-medium text-sm">⭐ {unidadeFavorita.Sigla}</div>
