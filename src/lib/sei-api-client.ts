@@ -152,10 +152,14 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
 
     const data = JSON.parse(responseText) as SEILoginApiResponse;
 
+    // CORREÇÃO: IdUnidadeAtual vem em data.Login.IdUnidadeAtual, não em data.IdUnidadeAtual
+    const idUnidadeAtualFromAPI = data.Login?.IdUnidadeAtual;
+
     console.log('[DEBUG] Resposta da API SEI no login:', {
       hasToken: !!data.Token,
-      hasIdUnidadeAtual: !!data.IdUnidadeAtual,
-      idUnidadeAtual: data.IdUnidadeAtual,
+      hasLogin: !!data.Login,
+      hasIdUnidadeAtual: !!idUnidadeAtualFromAPI,
+      idUnidadeAtual: idUnidadeAtualFromAPI,
       unidadesCount: data.Unidades?.length || 0
     });
 
@@ -171,12 +175,11 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
 
     const tokenToReturn = typeof data.Token === 'string' ? data.Token : String(data.Token);
 
-    // Se não há IdUnidadeAtual na resposta, usar a primeira unidade disponível
-    const idUnidadeAtual = data.IdUnidadeAtual || (unidades.length > 0 ? unidades[0].Id : undefined);
+    // Usar o IdUnidadeAtual da API (de dentro de Login)
+    const idUnidadeAtual = idUnidadeAtualFromAPI;
 
     console.log('[DEBUG] IdUnidadeAtual determinado:', {
-      fromAPI: data.IdUnidadeAtual,
-      fallback: unidades.length > 0 ? unidades[0].Id : undefined,
+      fromAPI: idUnidadeAtualFromAPI,
       final: idUnidadeAtual
     });
 

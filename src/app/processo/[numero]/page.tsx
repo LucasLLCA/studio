@@ -1,11 +1,12 @@
 "use client";
 
 import { useParams, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Search } from 'lucide-react';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { fetchOpenUnitsForProcessWithToken } from '@/app/sei-actions';
 import type { UnidadeAberta } from '@/types/process-flow';
@@ -14,8 +15,11 @@ import { useToast } from '@/hooks/use-toast';
 export default function ProcessoPage() {
   const params = useParams();
   const router = useRouter();
+  // Decodificar o número do processo da URL
   const numeroProcesso = decodeURIComponent(params.numero as string);
   const { toast } = useToast();
+
+  console.log('[DEBUG] Número do processo decodificado:', numeroProcesso);
 
   const { isAuthenticated, sessionToken, idUnidadeAtual, unidadesFiltroList, updateSelectedUnidade } = usePersistedAuth();
   
@@ -27,6 +31,7 @@ export default function ProcessoPage() {
   const [selectedUnidadeAberta, setSelectedUnidadeAberta] = useState<string>('');
   const [selectedMinhaUnidade, setSelectedMinhaUnidade] = useState<string>('');
   const [selectedUnidadeFavorita, setSelectedUnidadeFavorita] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   const handleGoBack = () => {
     router.push('/');
@@ -67,49 +72,66 @@ export default function ProcessoPage() {
         }
       }
 
-      // Usar fallback se idUnidadeAtual estiver null mas temos unidades
-      const idUnidadeParaUsar = idUnidadeAtual || (unidadesFiltroList && unidadesFiltroList.length > 0 ? unidadesFiltroList[0].Id : null);
-      
-      console.log('[DEBUG] IdUnidade determinado para uso:', {
-        original: idUnidadeAtual,
-        fallback: unidadesFiltroList && unidadesFiltroList.length > 0 ? unidadesFiltroList[0].Id : null,
-        final: idUnidadeParaUsar
+      console.log('[DEBUG] Verificando requisitos para buscar unidades:', {
+        isAuthenticated,
+        hasSessionToken: !!sessionToken,
+        idUnidadeAtual: idUnidadeAtual,
+        unidadesDisponiveis: unidadesFiltroList?.length || 0
       });
 
-      if (!isAuthenticated || !sessionToken || !idUnidadeParaUsar) {
-        console.log('[DEBUG] Falha na verificação de autenticação:', {
-          isAuthenticated,
-          sessionToken: sessionToken ? 'exists' : 'missing',
-          idUnidadeParaUsar: idUnidadeParaUsar ? 'exists' : 'missing'
-        });
-        toast({ 
-          title: "Acesso não autorizado", 
-          description: "Você precisa estar logado para ver as unidades.", 
-          variant: "destructive" 
+      if (!isAuthenticated || !sessionToken) {
+        console.log('[DEBUG] Falha na verificação de autenticação');
+        toast({
+          title: "Acesso não autorizado",
+          description: "Você precisa estar logado para ver as unidades.",
+          variant: "destructive"
         });
         router.push('/');
         return;
       }
 
+      // Usar idUnidadeAtual se disponível, caso contrário usar a primeira unidade da lista
+      const idParaBuscarUnidades = idUnidadeAtual || (Array.isArray(unidadesFiltroList) && unidadesFiltroList.length > 0 ? unidadesFiltroList[0]?.Id : null);
+
+      if (!idParaBuscarUnidades) {
+        console.log('[DEBUG] Nenhuma unidade disponível para fazer a requisição');
+        toast({
+          title: "Unidade não encontrada",
+          description: "Não foi possível determinar uma unidade para buscar as informações do processo.",
+          variant: "destructive"
+        });
+        setIsLoadingUnidadesAbertas(false);
+        setIsInitializing(false);
+        return;
+      }
+
       setIsLoadingUnidadesAbertas(true);
-      
+
       try {
         console.log('[DEBUG] Buscando unidades abertas com:', {
           numeroProcesso,
-          idUnidadeParaUsar,
+          idParaBuscarUnidades,
           sessionTokenLength: sessionToken.length
         });
-        
-        const result = await fetchOpenUnitsForProcessWithToken(sessionToken, numeroProcesso, idUnidadeParaUsar);
+
+        const result = await fetchOpenUnitsForProcessWithToken(sessionToken, numeroProcesso, idParaBuscarUnidades);
         
         console.log('[DEBUG] Resultado da requisição de unidades abertas:', result);
         
         if ('error' in result) {
           console.error('[DEBUG] Erro ao buscar unidades abertas:', result.error);
-          toast({ 
-            title: "Erro ao buscar unidades", 
-            description: result.error, 
-            variant: "destructive" 
+
+          // Melhorar mensagem para erro 422
+          let errorMessage = result.error;
+          if (result.error.includes('422')) {
+            errorMessage = `O processo "${numeroProcesso}" não foi encontrado ou a unidade utilizada não tem acesso a ele. Verifique se o número está correto.`;
+          }
+
+          toast({
+            title: "Erro ao buscar unidades",
+            description: errorMessage,
+            variant: "destructive",
+            duration: 7000
           });
           setUnidadesAbertas([]);
         } else {
@@ -139,6 +161,16 @@ export default function ProcessoPage() {
     return () => clearTimeout(timer);
   }, [isAuthenticated, sessionToken, idUnidadeAtual, numeroProcesso, router, toast]);
 
+  // Filtrar unidades baseado no termo de busca
+  const filteredUnidades = useMemo(() => {
+    if (!searchTerm || !unidadesFiltroList) return unidadesFiltroList || [];
+    const term = searchTerm.toLowerCase();
+    return unidadesFiltroList.filter(unidade =>
+      unidade.Sigla.toLowerCase().includes(term) ||
+      unidade.Descricao.toLowerCase().includes(term)
+    );
+  }, [unidadesFiltroList, searchTerm]);
+
   // Mostrar loading durante inicialização
   if (isInitializing) {
     return (
@@ -155,9 +187,8 @@ export default function ProcessoPage() {
     );
   }
 
-  // Determinar unidade favorita
-  const idParaUsar = idUnidadeAtual || (unidadesFiltroList && unidadesFiltroList.length > 0 ? unidadesFiltroList[0].Id : null);
-  const unidadeFavorita = unidadesFiltroList?.find(u => u.Id === idParaUsar);
+  // Determinar unidade favorita - deve ser a unidade com o mesmo ID de idUnidadeAtual
+  const unidadeFavorita = idUnidadeAtual ? unidadesFiltroList?.find(u => u.Id === idUnidadeAtual) : null;
 
   // Verificar qual seleção está ativa
   const hasSelection = selectedUnidadeAberta || selectedMinhaUnidade || selectedUnidadeFavorita;
@@ -186,8 +217,8 @@ export default function ProcessoPage() {
     // Atualizar a unidade selecionada no estado persistente
     updateSelectedUnidade(unidadeIdSelecionada);
 
-    // Navegar de volta para a home com o número do processo
-    router.push(`/?processo=${encodeURIComponent(numeroProcesso)}`);
+    // Navegar para a página de visualização do processo
+    router.push(`/processo/${encodeURIComponent(numeroProcesso)}/visualizar`);
   };
 
   return (
@@ -294,22 +325,43 @@ export default function ProcessoPage() {
                   )}
                 </label>
                 {unidadesFiltroList && unidadesFiltroList.length > 0 ? (
-                  <Select
-                    value={selectedMinhaUnidade}
-                    onValueChange={setSelectedMinhaUnidade}
-                    disabled={!!(selectedUnidadeAberta || selectedUnidadeFavorita)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione uma de suas unidades" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {unidadesFiltroList.map((unidade) => (
-                        <SelectItem key={unidade.Id} value={unidade.Id}>
-                          {unidade.Sigla} - {unidade.Descricao}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div>
+                    <div className="relative mb-2">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        type="text"
+                        placeholder="Buscar unidade..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        disabled={!!(selectedUnidadeAberta || selectedUnidadeFavorita)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto border rounded-md bg-white">
+                      {filteredUnidades.length > 0 ? (
+                        filteredUnidades.map((unidade) => (
+                          <div
+                            key={unidade.Id}
+                            onClick={() => {
+                              if (!selectedUnidadeAberta && !selectedUnidadeFavorita) {
+                                setSelectedMinhaUnidade(unidade.Id);
+                              }
+                            }}
+                            className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
+                              selectedMinhaUnidade === unidade.Id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                            } ${selectedUnidadeAberta || selectedUnidadeFavorita ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <div className="font-medium text-sm">{unidade.Sigla}</div>
+                            <div className="text-xs text-gray-600">{unidade.Descricao}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center text-sm text-muted-foreground p-3">
+                          Nenhuma unidade encontrada
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ) : (
                   <div className="text-center text-sm text-muted-foreground p-3 border rounded-md bg-gray-50">
                     Nenhuma unidade disponível

@@ -134,10 +134,18 @@ export interface SessionTokenAuth {
 // Expected raw response from SEI /orgaos/usuarios/login
 export interface SEILoginApiResponse {
   Token: string;
-  IdUnidadeAtual?: string; // ID da unidade atual para requisições
-  Login?: { 
+  IdUnidadeAtual?: string; // ID da unidade atual para requisições (deprecated, use Login.IdUnidadeAtual)
+  Login?: {
+    IdUsuario?: string;
+    IdSistema?: string;
+    IdContexto?: string;
     IdLogin?: string;
-    Nome?: string; // Assuming Nome might be available
+    IdUltimoCargoAssinatura?: string;
+    UltimoCargoAssinatura?: string;
+    HashAgente?: string;
+    IdUnidadeAtual?: string; // ID da unidade atual do usuário
+    Sigla?: string;
+    Nome?: string;
   };
   // This is an assumption based on the requirement to load units from login.
   // The actual SEI API might have a different structure or require a separate call.

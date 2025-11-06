@@ -71,13 +71,23 @@ export default function LoginPage() {
       
       if (response.success && response.token) {
         const unidadesRecebidas = response.unidades || [];
-        persistLogin(response.token, unidadesRecebidas);
-        
+        const idUnidadeAtual = response.idUnidadeAtual;
+
+        console.log('[DEBUG] Dados do login:', {
+          hasToken: !!response.token,
+          hasIdUnidadeAtual: !!idUnidadeAtual,
+          idUnidadeAtual: idUnidadeAtual,
+          unidadesCount: unidadesRecebidas.length
+        });
+
+        // Passar o idUnidadeAtual para o persistLogin
+        persistLogin(response.token, unidadesRecebidas, idUnidadeAtual);
+
         toast({
           title: "Login realizado com sucesso!",
           description: `${unidadesRecebidas.length} unidades carregadas.`,
         });
-        
+
         // Redirect to home page
         router.push('/');
         reset();
