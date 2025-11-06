@@ -5,7 +5,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Loader2, Search } from 'lucide-react';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { fetchOpenUnitsForProcessWithToken } from '@/app/sei-actions';
@@ -32,6 +31,7 @@ export default function ProcessoPage() {
   const [selectedMinhaUnidade, setSelectedMinhaUnidade] = useState<string>('');
   const [selectedUnidadeFavorita, setSelectedUnidadeFavorita] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [userClearedSelection, setUserClearedSelection] = useState<boolean>(false);
 
   const handleGoBack = () => {
     router.push('/');
@@ -171,6 +171,17 @@ export default function ProcessoPage() {
     );
   }, [unidadesFiltroList, searchTerm]);
 
+  // Determinar unidade favorita - deve ser a unidade com o mesmo ID de idUnidadeAtual
+  const unidadeFavorita = idUnidadeAtual ? unidadesFiltroList?.find(u => u.Id === idUnidadeAtual) : null;
+
+  // Pré-selecionar unidade favorita quando a página carregar
+  useEffect(() => {
+    if (unidadeFavorita && !isInitializing && !selectedUnidadeFavorita && !selectedUnidadeAberta && !selectedMinhaUnidade && !userClearedSelection) {
+      console.log('[DEBUG] Pré-selecionando unidade favorita:', unidadeFavorita.Id);
+      setSelectedUnidadeFavorita(unidadeFavorita.Id);
+    }
+  }, [unidadeFavorita, isInitializing, selectedUnidadeFavorita, selectedUnidadeAberta, selectedMinhaUnidade, userClearedSelection]);
+
   // Mostrar loading durante inicialização
   if (isInitializing) {
     return (
@@ -187,9 +198,6 @@ export default function ProcessoPage() {
     );
   }
 
-  // Determinar unidade favorita - deve ser a unidade com o mesmo ID de idUnidadeAtual
-  const unidadeFavorita = idUnidadeAtual ? unidadesFiltroList?.find(u => u.Id === idUnidadeAtual) : null;
-
   // Verificar qual seleção está ativa
   const hasSelection = selectedUnidadeAberta || selectedMinhaUnidade || selectedUnidadeFavorita;
 
@@ -197,6 +205,7 @@ export default function ProcessoPage() {
     setSelectedUnidadeAberta('');
     setSelectedMinhaUnidade('');
     setSelectedUnidadeFavorita('');
+    setUserClearedSelection(true);
   };
 
   const handleAcessarProcesso = () => {
@@ -276,8 +285,8 @@ export default function ProcessoPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Unidades em aberto
                   {unidadesAbertas && unidadesAbertas.length > 0 && (
-                    <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
-                      {unidadesAbertas.length}
+                    <span className="ml-2 text-sm font-semibold text-green-700">
+                      ({unidadesAbertas.length})
                     </span>
                   )}
                 </label>
@@ -287,26 +296,28 @@ export default function ProcessoPage() {
                     <span className="text-sm text-muted-foreground">Carregando unidades...</span>
                   </div>
                 ) : unidadesAbertas && unidadesAbertas.length > 0 ? (
-                  <Select
-                    value={selectedUnidadeAberta}
-                    onValueChange={setSelectedUnidadeAberta}
-                    disabled={!!(selectedMinhaUnidade || selectedUnidadeFavorita)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione uma unidade em aberto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {unidadesAbertas.map((unidadeAberta, index) => (
-                        <SelectItem
-                          key={index}
-                          value={unidadeAberta.Unidade.IdUnidade}
-                        >
-                          {unidadeAberta.Unidade.Sigla} - {unidadeAberta.Unidade.Descricao}
-                          {unidadeAberta.UsuarioAtribuicao?.Nome && ` (${unidadeAberta.UsuarioAtribuicao.Nome})`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="max-h-48 overflow-y-auto border rounded-md bg-white">
+                    {unidadesAbertas.map((unidadeAberta, index) => (
+                      <div
+                        key={index}
+                        onClick={() => {
+                          if (!selectedMinhaUnidade && !selectedUnidadeFavorita) {
+                            setSelectedUnidadeAberta(unidadeAberta.Unidade.IdUnidade);
+                            setUserClearedSelection(false);
+                          }
+                        }}
+                        className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
+                          selectedUnidadeAberta === unidadeAberta.Unidade.IdUnidade ? 'bg-green-50 border-l-4 border-green-500' : ''
+                        } ${selectedMinhaUnidade || selectedUnidadeFavorita ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <div className="font-medium text-sm">{unidadeAberta.Unidade.Sigla}</div>
+                        <div className="text-xs text-gray-600">{unidadeAberta.Unidade.Descricao}</div>
+                        {unidadeAberta.UsuarioAtribuicao?.Nome && (
+                          <div className="text-xs text-gray-500 mt-1">({unidadeAberta.UsuarioAtribuicao.Nome})</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="text-center text-sm text-muted-foreground p-3 border rounded-md bg-gray-50">
                     Nenhuma unidade em aberto encontrada
@@ -319,8 +330,8 @@ export default function ProcessoPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Minhas unidades
                   {unidadesFiltroList && unidadesFiltroList.length > 0 && (
-                    <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
-                      {unidadesFiltroList.length}
+                    <span className="ml-2 text-sm font-semibold text-blue-700">
+                      ({unidadesFiltroList.length})
                     </span>
                   )}
                 </label>
@@ -345,6 +356,7 @@ export default function ProcessoPage() {
                             onClick={() => {
                               if (!selectedUnidadeAberta && !selectedUnidadeFavorita) {
                                 setSelectedMinhaUnidade(unidade.Id);
+                                setUserClearedSelection(false);
                               }
                             }}
                             className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
@@ -375,20 +387,22 @@ export default function ProcessoPage() {
                   Minha unidade favorita
                 </label>
                 {unidadeFavorita ? (
-                  <Select
-                    value={selectedUnidadeFavorita}
-                    onValueChange={setSelectedUnidadeFavorita}
-                    disabled={!!(selectedUnidadeAberta || selectedMinhaUnidade)}
-                  >
-                    <SelectTrigger className="w-full border-green-300 bg-green-50">
-                      <SelectValue placeholder="Selecionar unidade favorita" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={unidadeFavorita.Id}>
-                        ⭐ {unidadeFavorita.Sigla} - {unidadeFavorita.Descricao}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="max-h-48 overflow-y-auto border rounded-md bg-white">
+                    <div
+                      onClick={() => {
+                        if (!selectedUnidadeAberta && !selectedMinhaUnidade) {
+                          setSelectedUnidadeFavorita(unidadeFavorita.Id);
+                          setUserClearedSelection(false);
+                        }
+                      }}
+                      className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
+                        selectedUnidadeFavorita === unidadeFavorita.Id ? 'bg-yellow-50 border-l-4 border-yellow-500' : ''
+                      } ${selectedUnidadeAberta || selectedMinhaUnidade ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <div className="font-medium text-sm">⭐ {unidadeFavorita.Sigla}</div>
+                      <div className="text-xs text-gray-600">{unidadeFavorita.Descricao}</div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="text-center text-sm text-muted-foreground p-3 border rounded-md bg-gray-50">
                     Nenhuma unidade favorita definida
@@ -399,6 +413,7 @@ export default function ProcessoPage() {
               <Button
                 className="w-full bg-green-600 hover:bg-green-700 text-white mt-6"
                 onClick={handleAcessarProcesso}
+                disabled={!hasSelection}
               >
                 Acessar processo
               </Button>
