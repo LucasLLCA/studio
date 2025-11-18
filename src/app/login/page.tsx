@@ -373,12 +373,6 @@ export default function LoginPage() {
           </form>
         </div>
         
-        <div className="footer">
-          <p>© 2025 Visualizador de Processos. Todos os direitos reservados.</p>
-          <p style={{ marginTop: '4px' }}>
-            Nota: As credenciais de login são armazenadas no navegador para manter a sessão.
-          </p>
-        </div>
       </div>
     </>
   );

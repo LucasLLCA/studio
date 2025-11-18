@@ -313,11 +313,11 @@ export default function VisualizarProcessoPage() {
   const loadingTasks = useMemo(() => {
     const tasks = [];
     if (backgroundLoading.andamentos) tasks.push("Buscando andamentos do processo");
-    if (backgroundLoading.unidades) tasks.push("Verificando unidades abertas");
+    if (isLoadingOpenUnits) tasks.push("Verificando unidades abertas");
     if (backgroundLoading.documentos) tasks.push("Carregando documentos");
     if (backgroundLoading.resumo) tasks.push("Gerando resumo com IA");
     return tasks;
-  }, [backgroundLoading]);
+  }, [backgroundLoading, isLoadingOpenUnits]);
 
   const hasBackgroundLoading = Object.values(backgroundLoading).some(loading => loading);
 
@@ -734,16 +734,6 @@ export default function VisualizarProcessoPage() {
         </DialogContent>
       </Dialog>
 
-      <footer className="p-3 border-t border-border text-center text-xs text-muted-foreground">
-        <div className="flex items-center justify-center space-x-1 mb-2">
-          <Sparkles className="h-3 w-3 text-accent" />
-          <span>IA por SoberaniA</span>
-        </div>
-        © {currentYear !== null ? currentYear : new Date().getFullYear()} Visualizador de Processos. Todos os direitos reservados.
-        <p className="text-xs text-muted-foreground/80 mt-1">
-          Nota: Para fins de prototipagem, as credenciais de login são armazenadas temporariamente no estado do cliente. Em produção, utilize métodos de autenticação mais seguros.
-        </p>
-      </footer>
     </div>
   );
 }
