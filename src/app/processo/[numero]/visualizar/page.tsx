@@ -33,7 +33,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { fetchProcessDataFromSEIWithToken, fetchOpenUnitsForProcessWithToken, fetchProcessSummaryWithToken, fetchDocumentsFromSEIWithToken } from '@/app/sei-actions';
+import { fetchProcessDataFromSEIWithToken, fetchProcessSummaryWithToken, fetchDocumentsFromSEIWithToken } from '@/app/sei-actions';
+import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import ApiHealthCheck from '@/components/ApiHealthCheck';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -67,8 +68,6 @@ export default function VisualizarProcessoPage() {
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSummarizedView, setIsSummarizedView] = useState<boolean>(true);
-  const [openUnitsInProcess, setOpenUnitsInProcess] = useState<UnidadeAberta[] | null>(null);
-  const [processLinkAcesso, setProcessLinkAcesso] = useState<string | null>(null);
   const [documents, setDocuments] = useState<Documento[] | null>(null);
 
   const [processSummary, setProcessSummary] = useState<string | null>(null);
@@ -76,10 +75,24 @@ export default function VisualizarProcessoPage() {
   // Estados de carregamento em background
   const [backgroundLoading, setBackgroundLoading] = useState({
     andamentos: false,
-    unidades: false,
     documentos: false,
     resumo: false
   });
+
+  // Hook do React Query para buscar unidades em aberto com cache de 2h
+  const {
+    data: openUnitsData,
+    isLoading: isLoadingOpenUnits,
+  } = useOpenUnits({
+    processo: numeroProcesso,
+    unidadeOrigem: selectedUnidadeFiltro || '',
+    token: sessionToken || '',
+    enabled: isAuthenticated && !!sessionToken && !!selectedUnidadeFiltro,
+  });
+
+  // Dados das unidades em aberto (do cache do React Query)
+  const openUnitsInProcess = openUnitsData?.unidades || null;
+  const processLinkAcesso = openUnitsData?.linkAcesso || null;
 
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
   const [isApiStatusModalOpen, setIsApiStatusModalOpen] = useState(false);
@@ -167,16 +180,13 @@ export default function VisualizarProcessoPage() {
     const loadProcessData = async () => {
       setIsLoading(true);
       setRawProcessData(null);
-      setOpenUnitsInProcess(null);
-      setProcessLinkAcesso(null);
       setDocuments(null);
       setProcessSummary(null);
       setProcessCreationInfo(null);
 
-      // Reset estados de background loading
+      // Reset estados de background loading (unidades agora é gerenciado pelo React Query)
       setBackgroundLoading({
         andamentos: true,
-        unidades: true,
         documentos: true,
         resumo: true
       });
@@ -188,7 +198,7 @@ export default function VisualizarProcessoPage() {
         console.error('[DEBUG] Token de sessão não disponível');
         toast({ title: "Sessão expirada", description: "Sua sessão expirou. Faça login novamente para continuar.", variant: "destructive" });
         setIsLoading(false);
-        setBackgroundLoading({ andamentos: false, unidades: false, documentos: false, resumo: false });
+        setBackgroundLoading({ andamentos: false, documentos: false, resumo: false });
         return;
       }
 
@@ -197,12 +207,11 @@ export default function VisualizarProcessoPage() {
       const startCreation = performance.now();
 
       const andamentosPromise = fetchProcessDataFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro);
-      const unidadesPromise = fetchOpenUnitsForProcessWithToken(token, numeroProcesso, selectedUnidadeFiltro);
       const resumoPromise = fetchProcessSummaryWithToken(token, numeroProcesso, selectedUnidadeFiltro);
       const documentosPromise = fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro);
 
       const creationTime = performance.now() - startCreation;
-      console.log(`[DEBUG] Todas as 4 promises criadas em ${creationTime.toFixed(3)}ms`);
+      console.log(`[DEBUG] Todas as 3 promises criadas em ${creationTime.toFixed(3)}ms (unidades via React Query)`);
 
       // Handlers para processar cada resultado
       const handleAndamentosResult = (processData: any) => {
@@ -225,31 +234,6 @@ export default function VisualizarProcessoPage() {
         }
         setIsLoading(false);
         setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
-      };
-
-      const handleUnidadesResult = (unitsData: any) => {
-        if ('error' in unitsData) {
-          setOpenUnitsInProcess([]);
-          setProcessLinkAcesso(null);
-          console.warn("Erro ao buscar unidades abertas:", unitsData.error);
-          if (unitsData.status === 401) {
-            toast({ title: "Sessão expirada", description: "Sua sessão no sistema expirou. Você será redirecionado para fazer login novamente.", variant: "destructive" });
-            handleLogout();
-          }
-        } else if (unitsData.unidades && Array.isArray(unitsData.unidades)) {
-          console.log(`[DEBUG] UNIDADES concluídas às ${new Date().toISOString()}`);
-          setOpenUnitsInProcess(unitsData.unidades);
-          setProcessLinkAcesso(unitsData.linkAcesso || null);
-          console.log(`Unidades abertas carregadas: ${unitsData.unidades.length}`);
-          if (unitsData.linkAcesso) {
-            console.log(`LinkAcesso capturado: ${unitsData.linkAcesso}`);
-          }
-        } else {
-          setOpenUnitsInProcess([]);
-          setProcessLinkAcesso(null);
-          console.warn("Resposta inesperada ao buscar unidades abertas:", unitsData);
-        }
-        setBackgroundLoading(prev => ({ ...prev, unidades: false }));
       };
 
       const handleDocumentosResult = (documentsResponse: any) => {
@@ -285,15 +269,6 @@ export default function VisualizarProcessoPage() {
           toast({ title: "Erro ao Buscar Andamentos", description: "Falha na requisição de andamentos.", variant: "destructive" });
           setIsLoading(false);
           setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
-        });
-
-      unidadesPromise
-        .then(handleUnidadesResult)
-        .catch(error => {
-          setOpenUnitsInProcess([]);
-          setProcessLinkAcesso(null);
-          console.warn("Erro ao buscar unidades abertas:", error);
-          setBackgroundLoading(prev => ({ ...prev, unidades: false }));
         });
 
       documentosPromise

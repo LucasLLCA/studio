@@ -7,8 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Loader2, Search } from 'lucide-react';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { fetchOpenUnitsForProcessWithToken } from '@/app/sei-actions';
-import type { UnidadeAberta } from '@/types/process-flow';
+import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ProcessoPage() {
@@ -21,9 +20,7 @@ export default function ProcessoPage() {
   console.log('[DEBUG] Número do processo decodificado:', numeroProcesso);
 
   const { isAuthenticated, sessionToken, idUnidadeAtual, unidadesFiltroList, updateSelectedUnidade } = usePersistedAuth();
-  
-  const [unidadesAbertas, setUnidadesAbertas] = useState<UnidadeAberta[] | null>(null);
-  const [isLoadingUnidadesAbertas, setIsLoadingUnidadesAbertas] = useState(false);
+
   const [isInitializing, setIsInitializing] = useState(true);
 
   // Estados para as seleções
@@ -34,133 +31,67 @@ export default function ProcessoPage() {
   const [searchTermAbertas, setSearchTermAbertas] = useState<string>('');
   const [userClearedSelection, setUserClearedSelection] = useState<boolean>(false);
 
+  // Determinar unidade para buscar (idUnidadeAtual ou primeira da lista)
+  const idParaBuscarUnidades = idUnidadeAtual || (Array.isArray(unidadesFiltroList) && unidadesFiltroList.length > 0 ? unidadesFiltroList[0]?.Id : '');
+
+  // Hook do React Query para buscar unidades em aberto com cache de 2h
+  const {
+    data: openUnitsData,
+    isLoading: isLoadingUnidadesAbertas,
+    isError: hasError,
+    error: queryError,
+  } = useOpenUnits({
+    processo: numeroProcesso,
+    unidadeOrigem: idParaBuscarUnidades,
+    token: sessionToken || '',
+    enabled: !isInitializing && isAuthenticated && !!sessionToken && !!idParaBuscarUnidades,
+  });
+
+  const unidadesAbertas = openUnitsData?.unidades || null;
+
   const handleGoBack = () => {
     router.push('/');
   };
 
-  // Buscar unidades em aberto quando a página carregar
+  // Aguardar um pouco para garantir que o localStorage foi carregado
   useEffect(() => {
-    const fetchUnidadesAbertas = async () => {
-      // Aguardar um pouco para garantir que o estado foi carregado do localStorage
-      if (typeof window === 'undefined') return;
-      
-      console.log('[DEBUG] Verificando autenticação na página de seleção:', {
-        isAuthenticated,
-        hasSessionToken: !!sessionToken,
-        hasIdUnidadeAtual: !!idUnidadeAtual,
-        sessionTokenLength: sessionToken?.length,
-        idUnidadeAtual,
-        numeroProcesso,
-        unidadesFiltroListLength: unidadesFiltroList?.length
-      });
-
-      // Verificar localStorage diretamente
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('sei_auth_data');
-        console.log('[DEBUG] localStorage sei_auth_data:', stored ? 'exists' : 'not found');
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            console.log('[DEBUG] localStorage parsed:', {
-              isAuthenticated: parsed.isAuthenticated,
-              hasToken: !!parsed.sessionToken,
-              hasIdUnidadeAtual: !!parsed.idUnidadeAtual,
-              idUnidadeAtual: parsed.idUnidadeAtual
-            });
-          } catch (e) {
-            console.log('[DEBUG] Erro ao parsear localStorage:', e);
-          }
-        }
-      }
-
-      console.log('[DEBUG] Verificando requisitos para buscar unidades:', {
-        isAuthenticated,
-        hasSessionToken: !!sessionToken,
-        idUnidadeAtual: idUnidadeAtual,
-        unidadesDisponiveis: unidadesFiltroList?.length || 0
-      });
-
-      if (!isAuthenticated || !sessionToken) {
-        console.log('[DEBUG] Falha na verificação de autenticação');
-        toast({
-          title: "Acesso não autorizado",
-          description: "Você precisa estar logado para ver as unidades.",
-          variant: "destructive"
-        });
-        router.push('/');
-        return;
-      }
-
-      // Usar idUnidadeAtual se disponível, caso contrário usar a primeira unidade da lista
-      const idParaBuscarUnidades = idUnidadeAtual || (Array.isArray(unidadesFiltroList) && unidadesFiltroList.length > 0 ? unidadesFiltroList[0]?.Id : null);
-
-      if (!idParaBuscarUnidades) {
-        console.log('[DEBUG] Nenhuma unidade disponível para fazer a requisição');
-        toast({
-          title: "Unidade não encontrada",
-          description: "Não foi possível determinar uma unidade para buscar as informações do processo.",
-          variant: "destructive"
-        });
-        setIsLoadingUnidadesAbertas(false);
-        setIsInitializing(false);
-        return;
-      }
-
-      setIsLoadingUnidadesAbertas(true);
-
-      try {
-        console.log('[DEBUG] Buscando unidades abertas com:', {
-          numeroProcesso,
-          idParaBuscarUnidades,
-          sessionTokenLength: sessionToken.length
-        });
-
-        const result = await fetchOpenUnitsForProcessWithToken(sessionToken, numeroProcesso, idParaBuscarUnidades);
-        
-        console.log('[DEBUG] Resultado da requisição de unidades abertas:', result);
-        
-        if ('error' in result) {
-          console.error('[DEBUG] Erro ao buscar unidades abertas:', result.error);
-
-          // Melhorar mensagem para erro 422
-          let errorMessage = result.error;
-          if (result.error.includes('422')) {
-            errorMessage = `O processo "${numeroProcesso}" não foi encontrado ou a unidade utilizada não tem acesso a ele. Verifique se o número está correto.`;
-          }
-
-          toast({
-            title: "Erro ao buscar unidades",
-            description: errorMessage,
-            variant: "destructive",
-            duration: 7000
-          });
-          setUnidadesAbertas([]);
-        } else {
-          // O resultado tem a estrutura {unidades: UnidadeAberta[], linkAcesso?: string}
-          const unidades = result.unidades || [];
-          console.log('[DEBUG] Unidades abertas encontradas:', unidades.length);
-          setUnidadesAbertas(unidades);
-        }
-      } catch (error) {
-        console.error('[DEBUG] Erro inesperado ao buscar unidades abertas:', error);
-        toast({ 
-          title: "Erro inesperado", 
-          description: "Falha ao carregar unidades abertas.", 
-          variant: "destructive" 
-        });
-        setUnidadesAbertas([]);
-      } finally {
-        setIsLoadingUnidadesAbertas(false);
-      }
-    };
-
-    // Aguardar um pouco antes de fazer as verificações para garantir que o localStorage foi carregado
     const timer = setTimeout(() => {
       setIsInitializing(false);
-      fetchUnidadesAbertas();
     }, 500);
     return () => clearTimeout(timer);
-  }, [isAuthenticated, sessionToken, idUnidadeAtual, numeroProcesso, router, toast]);
+  }, []);
+
+  // Verificar autenticação e redirecionar se necessário
+  useEffect(() => {
+    if (!isInitializing && (!isAuthenticated || !sessionToken)) {
+      console.log('[DEBUG] Falha na verificação de autenticação');
+      toast({
+        title: "Acesso não autorizado",
+        description: "Você precisa estar logado para ver as unidades.",
+        variant: "destructive"
+      });
+      router.push('/');
+    }
+  }, [isInitializing, isAuthenticated, sessionToken, router, toast]);
+
+  // Mostrar toast em caso de erro
+  useEffect(() => {
+    if (hasError && queryError) {
+      console.error('[DEBUG] Erro ao buscar unidades abertas:', queryError);
+
+      let errorMessage = queryError.message;
+      if (errorMessage.includes('422')) {
+        errorMessage = `O processo "${numeroProcesso}" não foi encontrado ou a unidade utilizada não tem acesso a ele. Verifique se o número está correto.`;
+      }
+
+      toast({
+        title: "Erro ao buscar unidades",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 7000
+      });
+    }
+  }, [hasError, queryError, numeroProcesso, toast]);
 
   // Filtrar unidades baseado no termo de busca
   const filteredUnidades = useMemo(() => {
