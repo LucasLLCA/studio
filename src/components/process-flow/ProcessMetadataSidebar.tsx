@@ -2,8 +2,7 @@
 "use client";
 
 import type { UnidadeAberta, ProcessedAndamento, ProcessedFlowData } from '@/types/process-flow';
-import { Briefcase, User, Info, AlertTriangle, Loader2 } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton'; 
+import { User, Info, AlertTriangle } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -13,33 +12,32 @@ import {
 } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
 import React from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ProcessMetadataSidebarProps {
   processNumber?: string;
-  processNumberPlaceholder?: string;
   openUnitsInProcess: UnidadeAberta[] | null;
-  processedFlowData: ProcessedFlowData | null; 
+  processedFlowData: ProcessedFlowData | null;
   onTaskCardClick: (task: ProcessedAndamento) => void;
+  userUnitId?: string; // ID da unidade atual do usuário
 }
 
-export function ProcessMetadataSidebar({ 
-  processNumber, 
-  processNumberPlaceholder,
+export function ProcessMetadataSidebar({
+  processNumber,
   openUnitsInProcess,
   processedFlowData,
   onTaskCardClick,
+  userUnitId,
 }: ProcessMetadataSidebarProps) {
 
   const getOpenUnitsMessage = () => {
     if (!processNumber && !openUnitsInProcess) return "Carregue ou pesquise um processo para ver as unidades em aberto.";
-    if (openUnitsInProcess && openUnitsInProcess.length === 0 && processNumber) { 
+    if (openUnitsInProcess && openUnitsInProcess.length === 0 && processNumber) {
       return "Nenhuma unidade com este processo em aberto (conforme API SEI).";
     }
-    if (!openUnitsInProcess && processNumber) { 
+    if (!openUnitsInProcess && processNumber) {
         return "Verificando unidades abertas (API)...";
     }
-    return null; 
+    return null;
   };
   const openUnitsMessage = getOpenUnitsMessage();
 
@@ -49,13 +47,13 @@ export function ProcessMetadataSidebar({
     }
     const openTasksInUnit = processedFlowData.tasks
       .filter(task => task.Unidade.IdUnidade === unitId && typeof task.daysOpen === 'number' && task.daysOpen >= 0)
-      .sort((a, b) => b.globalSequence - a.globalSequence); 
+      .sort((a, b) => b.globalSequence - a.globalSequence);
 
-    return openTasksInUnit[0]; 
+    return openTasksInUnit[0];
   };
 
   return (
-    <div className="w-full"> 
+    <div className="w-full">
         <div className="space-y-3">
           {openUnitsInProcess && openUnitsInProcess.length > 0 && (
             openUnitsInProcess.map(unitInfo => {

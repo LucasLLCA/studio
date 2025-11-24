@@ -77,11 +77,12 @@ export default function LoginPage() {
           hasToken: !!response.token,
           hasIdUnidadeAtual: !!idUnidadeAtual,
           idUnidadeAtual: idUnidadeAtual,
-          unidadesCount: unidadesRecebidas.length
+          unidadesCount: unidadesRecebidas.length,
+          orgao: data.orgao
         });
 
-        // Passar o idUnidadeAtual para o persistLogin
-        persistLogin(response.token, unidadesRecebidas, idUnidadeAtual);
+        // Passar o idUnidadeAtual e o órgão para o persistLogin
+        persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, data.orgao);
 
         toast({
           title: "Login realizado com sucesso!",

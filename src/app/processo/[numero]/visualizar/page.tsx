@@ -33,7 +33,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { fetchProcessDataFromSEIWithToken, fetchProcessSummaryWithToken, fetchDocumentsFromSEIWithToken } from '@/app/sei-actions';
+import { fetchProcessDataFromSEIWithToken, fetchDocumentsFromSEIWithToken, fetchProcessSummaryWithToken } from '@/app/sei-actions';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import ApiHealthCheck from '@/components/ApiHealthCheck';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -63,6 +63,7 @@ export default function VisualizarProcessoPage() {
     isAuthenticated,
     sessionToken,
     selectedUnidadeFiltro,
+    orgao: userOrgao,
     logout: persistLogout,
   } = usePersistedAuth();
 
@@ -144,6 +145,86 @@ export default function VisualizarProcessoPage() {
     return processAndamentos(dataToProcess.Andamentos, openUnitsInProcess, dataToProcess.Info?.NumeroProcesso || numeroProcesso, isSummarizedView);
   }, [rawProcessData, openUnitsInProcess, numeroProcesso, isSummarizedView]);
 
+  // Funções para calcular indicadores do órgão
+  const extractOrgaoFromSigla = (sigla: string): string => {
+    if (!sigla) return '';
+    const parts = sigla.split('/');
+    return parts[0].trim();
+  };
+
+  const isExternalProcess = useMemo(() => {
+    if (!userOrgao || !processCreationInfo?.creatorUnit) {
+      return false;
+    }
+    const creatorOrgao = extractOrgaoFromSigla(processCreationInfo.creatorUnit).toUpperCase();
+    const userOrgaoNormalized = userOrgao.toUpperCase();
+    return creatorOrgao !== userOrgaoNormalized;
+  }, [userOrgao, processCreationInfo]);
+
+  const daysOpenInUserOrgao = useMemo(() => {
+    if (!userOrgao || !openUnitsInProcess || openUnitsInProcess.length === 0 || !processedFlowData || !rawProcessData?.Andamentos) return null;
+
+    const userOrgaoNormalized = userOrgao.toUpperCase();
+
+    // Encontrar todas as unidades abertas do mesmo órgão
+    const unitsInUserOrgao = openUnitsInProcess.filter(u => {
+      const unitOrgao = extractOrgaoFromSigla(u.Unidade.Sigla).toUpperCase();
+      return unitOrgao === userOrgaoNormalized;
+    });
+
+    if (unitsInUserOrgao.length === 0) return null;
+
+    // Verificar se é processo externo
+    const creatorOrgao = processCreationInfo?.creatorUnit
+      ? extractOrgaoFromSigla(processCreationInfo.creatorUnit).toUpperCase()
+      : '';
+    const isExternal = creatorOrgao !== userOrgaoNormalized;
+
+    if (isExternal) {
+      // Para processos externos: calcular dias desde o primeiro andamento no órgão do usuário
+      // até o último andamento em aberto no mesmo órgão
+
+      // Encontrar todos os andamentos em unidades do órgão do usuário
+      const andamentosInUserOrgao = rawProcessData.Andamentos.filter(a => {
+        const andamentoOrgao = extractOrgaoFromSigla(a.Unidade.Sigla).toUpperCase();
+        return andamentoOrgao === userOrgaoNormalized;
+      });
+
+      if (andamentosInUserOrgao.length === 0) return null;
+
+      // Ordenar por data para encontrar o primeiro
+      const sortedAndamentos = andamentosInUserOrgao
+        .map(a => ({ ...a, parsedDate: parseCustomDateString(a.DataHora) }))
+        .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+
+      const firstDate = sortedAndamentos[0].parsedDate;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const diffTime = today.getTime() - firstDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      return diffDays;
+    } else {
+      // Para processos internos: usar a lógica original (maior número de dias em aberto)
+      let maxDays: number | null = null;
+      for (const unit of unitsInUserOrgao) {
+        const openTasksInUnit = processedFlowData.tasks
+          .filter(task => task.Unidade.IdUnidade === unit.Unidade.IdUnidade && typeof task.daysOpen === 'number' && task.daysOpen >= 0)
+          .sort((a, b) => b.globalSequence - a.globalSequence);
+
+        const openTask = openTasksInUnit[0];
+        if (openTask?.daysOpen !== undefined && openTask.daysOpen !== null) {
+          if (maxDays === null || openTask.daysOpen > maxDays) {
+            maxDays = openTask.daysOpen;
+          }
+        }
+      }
+
+      return maxDays;
+    }
+  }, [userOrgao, openUnitsInProcess, processedFlowData, rawProcessData, processCreationInfo]);
+
   useEffect(() => {
     if (rawProcessData && rawProcessData.Andamentos && rawProcessData.Andamentos.length > 0) {
       const sortedAndamentos = [...rawProcessData.Andamentos]
@@ -208,7 +289,7 @@ export default function VisualizarProcessoPage() {
 
       const andamentosPromise = fetchProcessDataFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro);
       const resumoPromise = fetchProcessSummaryWithToken(token, numeroProcesso, selectedUnidadeFiltro);
-      const documentosPromise = fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro);
+      const documentosPromise = fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro, 1, 1000);
 
       const creationTime = performance.now() - startCreation;
       console.log(`[DEBUG] Todas as 3 promises criadas em ${creationTime.toFixed(3)}ms (unidades via React Query)`);
@@ -236,18 +317,6 @@ export default function VisualizarProcessoPage() {
         setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
       };
 
-      const handleDocumentosResult = (documentsResponse: any) => {
-        if ('error' in documentsResponse) {
-          setDocuments([]);
-          console.warn("Erro ao buscar documentos:", documentsResponse.error);
-        } else {
-          console.log(`[DEBUG] DOCUMENTOS concluídos às ${new Date().toISOString()}`);
-          setDocuments(documentsResponse.Documentos);
-          console.log(`Documentos carregados: ${documentsResponse.Documentos.length}`);
-        }
-        setBackgroundLoading(prev => ({ ...prev, documentos: false }));
-      };
-
       const handleResumoResult = (summaryResponse: any) => {
         if ('error' in summaryResponse) {
           setProcessSummary(null);
@@ -258,6 +327,18 @@ export default function VisualizarProcessoPage() {
           toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
         }
         setBackgroundLoading(prev => ({ ...prev, resumo: false }));
+      };
+
+      const handleDocumentosResult = (documentsResponse: any) => {
+        if ('error' in documentsResponse) {
+          setDocuments([]);
+          console.warn("Erro ao buscar documentos:", documentsResponse.error);
+        } else {
+          console.log(`[DEBUG] DOCUMENTOS concluídos às ${new Date().toISOString()}`);
+          setDocuments(documentsResponse.Documentos);
+          console.log(`Documentos carregados: ${documentsResponse.Documentos.length}`);
+        }
+        setBackgroundLoading(prev => ({ ...prev, documentos: false }));
       };
 
       // Conectar handlers imediatamente às promises criadas
@@ -424,6 +505,18 @@ export default function VisualizarProcessoPage() {
                       )}
                     </div>
                   )}
+                  {userOrgao && processCreationInfo && (
+                    <div className="flex items-center">
+                      <ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
+                      Processo externo: <span className={`font-medium ml-1 ${isExternalProcess ? 'text-orange-600' : 'text-green-600'}`}>{isExternalProcess ? 'Sim' : 'Não'}</span>
+                    </div>
+                  )}
+                  {userOrgao && daysOpenInUserOrgao !== null && (
+                    <div className="flex items-center">
+                      <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+                      Dias em aberto no órgão: <span className="font-medium ml-1 text-red-600">{daysOpenInUserOrgao} {daysOpenInUserOrgao === 1 ? 'dia' : 'dias'}</span>
+                    </div>
+                  )}
 
                   {/* Feedback de carregamento dentro do card de informações gerais */}
                   {hasBackgroundLoading && (
@@ -586,6 +679,9 @@ export default function VisualizarProcessoPage() {
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="sr-only">Legenda do Fluxo</DialogTitle>
+                    </DialogHeader>
                     <ProcessFlowLegend />
                   </DialogContent>
                 </Dialog>
@@ -608,8 +704,8 @@ export default function VisualizarProcessoPage() {
                         openUnitsInProcess={openUnitsInProcess}
                         processedFlowData={processedFlowData}
                         onTaskCardClick={handleTaskCardClick}
+                        userUnitId={selectedUnidadeFiltro}
                       />
-
                     </div>
                   </div>
                 </div>
@@ -639,6 +735,9 @@ export default function VisualizarProcessoPage() {
 
       <Dialog open={isApiStatusModalOpen} onOpenChange={setIsApiStatusModalOpen}>
         <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Status da API</DialogTitle>
+          </DialogHeader>
           <ApiHealthCheck showDetails={true} className="border-0 shadow-none p-0 bg-transparent" />
         </DialogContent>
       </Dialog>
@@ -720,7 +819,7 @@ export default function VisualizarProcessoPage() {
                 <div>
                   <h4 className="font-semibold text-orange-900 mb-1">Problema Conhecido</h4>
                   <p className="text-sm text-orange-700">
-                    Alguns processos com grande volume de andamentos (>500) podem apresentar lentidão na renderização do gráfico. Recomenda-se usar a opção "Resumido" para melhor desempenho.
+                    Alguns processos com grande volume de andamentos (&gt;500) podem apresentar lentidão na renderização do gráfico. Recomenda-se usar a opção &quot;Resumido&quot; para melhor desempenho.
                   </p>
                 </div>
               </div>

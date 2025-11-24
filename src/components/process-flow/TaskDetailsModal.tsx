@@ -53,7 +53,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
         { name: 'isolado', regex: /\b(\d{8,9})\b/, priority: 1 },
         
         // Com prefixos comuns (DOC, DOCUMENTO, ANEXO, etc.)
-        { name: 'prefixo_doc', regex: /(?:DOC|DOCUMENTO|ANEXO|PROCESS)[O]?[:\s#-]*(\d{7,10})/i, priority: 2 },
+        { name: 'prefixo_doc', regex: /(?:DOC|DOCUMENTO|ANEXO|PROCESS)[O]?[:\s#-]*(\d{7,18})/i, priority: 2 },
         
         // Protocolo ou número de processo
         { name: 'protocolo', regex: /(?:PROTOCOLO|PROCESSO|SEI)[:\s#-]*(\d{7,10})/i, priority: 2 },

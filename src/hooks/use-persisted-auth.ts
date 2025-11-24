@@ -7,6 +7,7 @@ interface PersistedAuthData {
   isAuthenticated: boolean;
   sessionToken: string | null; // Apenas token de sessão, não credenciais
   idUnidadeAtual: string | null; // ID da unidade atual para requisições
+  orgao: string | null; // Órgão do usuário (ex: "SEAD-PI")
   unidadesFiltroList: UnidadeFiltro[];
   selectedUnidadeFiltro: string | undefined;
   timestamp: number;
@@ -68,6 +69,11 @@ export function usePersistedAuth() {
     return stored?.idUnidadeAtual || null;
   });
 
+  const [orgao, setOrgao] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.orgao || null;
+  });
+
   const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>(() => {
     const stored = loadFromStorage();
     return stored?.unidadesFiltroList || [];
@@ -81,12 +87,13 @@ export function usePersistedAuth() {
   // Função para salvar no localStorage
   const saveToStorage = useCallback((data: Partial<PersistedAuthData>) => {
     if (typeof window === 'undefined') return;
-    
+
     try {
       const current = loadFromStorage() || {
         isAuthenticated: false,
         sessionToken: null,
         idUnidadeAtual: null,
+        orgao: null,
         unidadesFiltroList: [],
         selectedUnidadeFiltro: undefined,
         timestamp: Date.now()
@@ -105,11 +112,12 @@ export function usePersistedAuth() {
   }, [loadFromStorage]);
 
   // Função para fazer login
-  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string) => {
+  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string) => {
     console.log('[DEBUG] Login iniciado - Token type:', typeof token);
     console.log('[DEBUG] Login - Token raw value:', token);
     console.log('[DEBUG] Login - Unidades:', unidades.length);
-    
+    console.log('[DEBUG] Login - Órgão:', userOrgao);
+
     // Tentar converter token para string se necessário
     let validToken: string;
     if (typeof token === 'string') {
@@ -121,29 +129,32 @@ export function usePersistedAuth() {
       console.error('[DEBUG] Login FALHOU - Token inválido:', token);
       return;
     }
-    
+
     console.log('[DEBUG] Login - Token válido:', typeof validToken, validToken.substring(0, 20) + '...');
-    
+
     setIsAuthenticated(true);
     setSessionToken(validToken);
     setIdUnidadeAtual(idUnidadeAtual || null);
+    setOrgao(userOrgao || null);
     setUnidadesFiltroList(unidades);
-    
+
     const dataToSave = {
       isAuthenticated: true,
       sessionToken: validToken,
       idUnidadeAtual: idUnidadeAtual || null,
+      orgao: userOrgao || null,
       unidadesFiltroList: unidades
     };
-    
+
     console.log('[DEBUG] Login - Salvando dados:', {
       isAuthenticated: dataToSave.isAuthenticated,
       tokenLength: dataToSave.sessionToken?.length,
-      unidadesCount: dataToSave.unidadesFiltroList.length
+      unidadesCount: dataToSave.unidadesFiltroList.length,
+      orgao: dataToSave.orgao
     });
-    
+
     saveToStorage(dataToSave);
-    
+
     console.log('[DEBUG] Login concluído - isAuthenticated agora deve ser true');
   }, [saveToStorage]);
 
@@ -153,9 +164,10 @@ export function usePersistedAuth() {
     setIsAuthenticated(false);
     setSessionToken(null);
     setIdUnidadeAtual(null);
+    setOrgao(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
-    
+
     // Limpeza completa do localStorage
     if (typeof window !== 'undefined') {
       localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -176,6 +188,7 @@ export function usePersistedAuth() {
     setIsAuthenticated(false);
     setSessionToken(null);
     setIdUnidadeAtual(null);
+    setOrgao(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
     if (typeof window !== 'undefined') {
@@ -198,6 +211,7 @@ export function usePersistedAuth() {
     isAuthenticated,
     sessionToken,
     idUnidadeAtual,
+    orgao,
     unidadesFiltroList,
     selectedUnidadeFiltro,
     login,
