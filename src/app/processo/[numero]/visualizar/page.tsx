@@ -289,7 +289,7 @@ export default function VisualizarProcessoPage() {
 
       const andamentosPromise = fetchProcessDataFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro);
       const resumoPromise = fetchProcessSummaryWithToken(token, numeroProcesso, selectedUnidadeFiltro);
-      const documentosPromise = fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro, 1, 1000);
+      const documentosPromise = fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro);
 
       const creationTime = performance.now() - startCreation;
       console.log(`[DEBUG] Todas as 3 promises criadas em ${creationTime.toFixed(3)}ms (unidades via React Query)`);

@@ -147,15 +147,14 @@ export async function fetchProcessSummary(
 
 /**
  * Busca documentos usando sessionToken
+ * Sem limite de quantidade - busca todos os documentos disponíveis
  */
 export async function fetchDocumentsFromSEIWithToken(
   token: string,
   protocoloProcedimento: string,
-  unidadeId: string,
-  pagina: number = 1,
-  quantidade: number = 10
+  unidadeId: string
 ): Promise<DocumentosResponse | ApiError> {
-  return fetchDocuments(token, protocoloProcedimento, unidadeId, pagina, quantidade);
+  return fetchDocuments(token, protocoloProcedimento, unidadeId, 1, 999999);
 }
 
 /**
