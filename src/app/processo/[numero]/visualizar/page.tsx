@@ -506,10 +506,35 @@ export default function VisualizarProcessoPage() {
                     </div>
                   )}
                   {userOrgao && processCreationInfo && (
-                    <div className="flex items-center">
-                      <ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
-                      Processo externo: <span className={`font-medium ml-1 ${isExternalProcess ? 'text-orange-600' : 'text-green-600'}`}>{isExternalProcess ? 'Sim' : 'Não'}</span>
-                    </div>
+                    <>
+                      <div className="flex items-center">
+                        <ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
+                        Processo externo: <span className={`font-medium ml-1 ${isExternalProcess ? 'text-orange-600' : 'text-green-600'}`}>{isExternalProcess ? 'Sim' : 'Não'}</span>
+                      </div>
+                      {isExternalProcess && rawProcessData?.Andamentos && (
+                        (() => {
+                          const userOrgaoNormalized = userOrgao.toUpperCase();
+                          const andamentosInUserOrgao = rawProcessData.Andamentos.filter(a => {
+                            const andamentoOrgao = extractOrgaoFromSigla(a.Unidade.Sigla).toUpperCase();
+                            return andamentoOrgao === userOrgaoNormalized;
+                          });
+
+                          if (andamentosInUserOrgao.length > 0) {
+                            const firstAndamento = andamentosInUserOrgao.sort((a, b) =>
+                              parseCustomDateString(a.DataHora).getTime() - parseCustomDateString(b.DataHora).getTime()
+                            )[0];
+
+                            return (
+                              <div className="flex items-center ml-6">
+                                <Building className="mr-2 h-4 w-4 text-muted-foreground" />
+                                Chegou em: <span className="font-medium ml-1 text-blue-600">{firstAndamento.Unidade.Sigla}</span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()
+                      )}
+                    </>
                   )}
                   {userOrgao && daysOpenInUserOrgao !== null && (
                     <div className="flex items-center">

@@ -53,27 +53,77 @@ export function ProcessFlowDiagram({
   const [timelinePosition, setTimelinePosition] = useState({ left: 0, width: 0 });
   const [diagramScrollLeft, setDiagramScrollLeft] = useState(0);
 
-  // Filtrar lanes baseado nas unidades selecionadas
-  const laneEntries = Array.from(laneMap.entries()).filter(([sigla]) => {
-    // Se nenhuma unidade foi selecionada, mostrar todas
-    if (filteredLaneUnits.length === 0) return true;
-    // Caso contrário, mostrar apenas as selecionadas
-    return filteredLaneUnits.includes(sigla);
-  });
-
-  // Filtrar tarefas para mostrar apenas as das unidades selecionadas
+  // Filtrar tarefas primeiro
   const filteredTasks = tasks.filter(task => {
-    // Se nenhuma unidade foi selecionada, mostrar todas
     if (filteredLaneUnits.length === 0) return true;
-    // Caso contrário, mostrar apenas tarefas das unidades selecionadas
     return filteredLaneUnits.includes(task.Unidade.Sigla);
   });
 
-  // Filtrar conexões para mostrar apenas as entre tarefas visíveis
-  const filteredTaskIds = new Set(filteredTasks.map(t => t.IdAndamento));
-  const filteredConnections = connections.filter(conn =>
-    filteredTaskIds.has(conn.sourceTask.IdAndamento) && filteredTaskIds.has(conn.targetTask.IdAndamento)
-  );
+  // Obter unidades que têm tarefas visíveis
+  const unitsWithTasks = new Set(filteredTasks.map(task => task.Unidade.Sigla));
+
+  // Filtrar lanes: remover raias vazias + aplicar filtro de unidades
+  const filteredAndSortedLanes = Array.from(laneMap.entries())
+    .filter(([sigla]) => {
+      // Sempre ocultar raias que não têm tarefas
+      if (!unitsWithTasks.has(sigla)) return false;
+
+      // Se há filtro, mostrar apenas unidades selecionadas
+      if (filteredLaneUnits.length === 0) return true;
+      return filteredLaneUnits.includes(sigla);
+    })
+    .sort(([siglaA], [siglaB]) => {
+      // Se há filtro ativo, colocar unidades filtradas no topo
+      if (filteredLaneUnits.length > 0) {
+        const aIsFiltered = filteredLaneUnits.includes(siglaA);
+        const bIsFiltered = filteredLaneUnits.includes(siglaB);
+
+        if (aIsFiltered && !bIsFiltered) return -1;
+        if (!aIsFiltered && bIsFiltered) return 1;
+      }
+
+      // Manter ordem original baseada em Y position
+      return (laneMap.get(siglaA) || 0) - (laneMap.get(siglaB) || 0);
+    });
+
+  // Criar novo mapeamento de posições Y para as lanes reordenadas
+  const repositionedLaneMap = new Map<string, number>();
+  filteredAndSortedLanes.forEach(([sigla], index) => {
+    const newYPos = VERTICAL_LANE_SPACING / 2 + index * VERTICAL_LANE_SPACING;
+    repositionedLaneMap.set(sigla, newYPos);
+  });
+
+  // Ajustar posições Y das tarefas de acordo com as novas posições das lanes
+  const repositionedTasks = filteredTasks.map(task => {
+    const newYPos = repositionedLaneMap.get(task.Unidade.Sigla);
+    if (newYPos !== undefined) {
+      return { ...task, y: newYPos };
+    }
+    return task;
+  });
+
+  // Criar mapa de tarefas reposicionadas para atualizar as conexões
+  const taskPositionMap = new Map<string, ProcessedAndamento>();
+  repositionedTasks.forEach(task => {
+    taskPositionMap.set(task.IdAndamento, task);
+  });
+
+  // Filtrar e ajustar conexões com as novas posições das tarefas
+  const filteredTaskIds = new Set(repositionedTasks.map(t => t.IdAndamento));
+  const repositionedConnections = connections
+    .filter(conn =>
+      filteredTaskIds.has(conn.sourceTask.IdAndamento) &&
+      filteredTaskIds.has(conn.targetTask.IdAndamento)
+    )
+    .map(conn => ({
+      ...conn,
+      sourceTask: taskPositionMap.get(conn.sourceTask.IdAndamento) || conn.sourceTask,
+      targetTask: taskPositionMap.get(conn.targetTask.IdAndamento) || conn.targetTask,
+    }));
+
+  // Usar os dados reposicionados no lugar dos originais
+  const laneEntries = Array.from(repositionedLaneMap.entries());
+  const filteredConnections = repositionedConnections;
 
   const LANE_LABEL_AREA_WIDTH = 150;
 
@@ -331,7 +381,7 @@ export function ProcessFlowDiagram({
   }, [isDragging, dragStart]);
 
 
-  if (filteredTasks.length === 0) {
+  if (repositionedTasks.length === 0) {
     return <p className="text-center text-muted-foreground py-10">
       {filteredLaneUnits.length > 0
         ? "Nenhum andamento encontrado para as unidades selecionadas."
@@ -375,7 +425,7 @@ export function ProcessFlowDiagram({
             transform: `translateX(-${diagramScrollLeft}px)`,
             willChange: 'transform',
           }}>
-            <ProcessTimelineBar tasks={filteredTasks} svgWidth={svgWidth} />
+            <ProcessTimelineBar tasks={repositionedTasks} svgWidth={svgWidth} />
           </div>
         </div>
       </div>
@@ -413,7 +463,7 @@ export function ProcessFlowDiagram({
               transform: `translateX(-${diagramScrollLeft}px)`,
               willChange: 'transform',
             }}>
-              <ProcessTimelineBar tasks={filteredTasks} svgWidth={svgWidth} />
+              <ProcessTimelineBar tasks={repositionedTasks} svgWidth={svgWidth} />
             </div>
           </div>
         </div>
@@ -542,7 +592,7 @@ export function ProcessFlowDiagram({
               />
             ))}
 
-            {filteredTasks.map((task) => (
+            {repositionedTasks.map((task) => (
               <TaskNode
                 key={`${task.IdAndamento}-${task.globalSequence}`}
                 task={task}
