@@ -8,6 +8,7 @@ interface PersistedAuthData {
   sessionToken: string | null; // Apenas token de sessão, não credenciais
   idUnidadeAtual: string | null; // ID da unidade atual para requisições
   orgao: string | null; // Órgão do usuário (ex: "SEAD-PI")
+  usuario: string | null; // Email/username do usuário
   unidadesFiltroList: UnidadeFiltro[];
   selectedUnidadeFiltro: string | undefined;
   timestamp: number;
@@ -74,6 +75,11 @@ export function usePersistedAuth() {
     return stored?.orgao || null;
   });
 
+  const [usuario, setUsuario] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.usuario || null;
+  });
+
   const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>(() => {
     const stored = loadFromStorage();
     return stored?.unidadesFiltroList || [];
@@ -94,6 +100,7 @@ export function usePersistedAuth() {
         sessionToken: null,
         idUnidadeAtual: null,
         orgao: null,
+        usuario: null,
         unidadesFiltroList: [],
         selectedUnidadeFiltro: undefined,
         timestamp: Date.now()
@@ -102,7 +109,8 @@ export function usePersistedAuth() {
       const updated: PersistedAuthData = {
         ...current,
         ...data,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        usuario: data.usuario !== undefined ? data.usuario : (current.usuario || null)
       };
 
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
@@ -112,7 +120,7 @@ export function usePersistedAuth() {
   }, [loadFromStorage]);
 
   // Função para fazer login
-  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string) => {
+  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string, userEmail?: string) => {
     console.log('[DEBUG] Login iniciado - Token type:', typeof token);
     console.log('[DEBUG] Login - Token raw value:', token);
     console.log('[DEBUG] Login - Unidades:', unidades.length);
@@ -136,6 +144,7 @@ export function usePersistedAuth() {
     setSessionToken(validToken);
     setIdUnidadeAtual(idUnidadeAtual || null);
     setOrgao(userOrgao || null);
+    setUsuario(userEmail || null);
     setUnidadesFiltroList(unidades);
 
     const dataToSave = {
@@ -143,6 +152,7 @@ export function usePersistedAuth() {
       sessionToken: validToken,
       idUnidadeAtual: idUnidadeAtual || null,
       orgao: userOrgao || null,
+      usuario: userEmail || null,
       unidadesFiltroList: unidades
     };
 
@@ -165,6 +175,7 @@ export function usePersistedAuth() {
     setSessionToken(null);
     setIdUnidadeAtual(null);
     setOrgao(null);
+    setUsuario(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
 
@@ -189,6 +200,7 @@ export function usePersistedAuth() {
     setSessionToken(null);
     setIdUnidadeAtual(null);
     setOrgao(null);
+    setUsuario(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
     if (typeof window !== 'undefined') {
@@ -212,6 +224,7 @@ export function usePersistedAuth() {
     sessionToken,
     idUnidadeAtual,
     orgao,
+    usuario,
     unidadesFiltroList,
     selectedUnidadeFiltro,
     login,

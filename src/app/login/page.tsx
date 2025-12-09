@@ -81,8 +81,8 @@ export default function LoginPage() {
           orgao: data.orgao
         });
 
-        // Passar o idUnidadeAtual e o órgão para o persistLogin
-        persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, data.orgao);
+        // Passar o idUnidadeAtual, o órgão e o usuário para o persistLogin
+        persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, data.orgao, data.usuario);
 
         toast({
           title: "Login realizado com sucesso!",

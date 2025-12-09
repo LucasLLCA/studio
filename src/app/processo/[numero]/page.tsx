@@ -9,6 +9,8 @@ import { ArrowLeft, Loader2, Search } from 'lucide-react';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import { useToast } from '@/hooks/use-toast';
+import { formatProcessNumber } from '@/lib/utils';
+import { saveSearchHistory, getSearchHistory } from '@/lib/history-api-client';
 
 export default function ProcessoPage() {
   const params = useParams();
@@ -19,7 +21,7 @@ export default function ProcessoPage() {
 
   console.log('[DEBUG] Número do processo decodificado:', numeroProcesso);
 
-  const { isAuthenticated, sessionToken, idUnidadeAtual, unidadesFiltroList, updateSelectedUnidade } = usePersistedAuth();
+  const { isAuthenticated, sessionToken, idUnidadeAtual, unidadesFiltroList, updateSelectedUnidade, usuario } = usePersistedAuth();
 
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -153,7 +155,7 @@ export default function ProcessoPage() {
     setUserClearedSelection(true);
   };
 
-  const handleAcessarProcesso = () => {
+  const handleAcessarProcesso = async () => {
     // Determinar qual unidade foi selecionada
     let unidadeIdSelecionada = selectedUnidadeAberta || selectedMinhaUnidade || selectedUnidadeFavorita;
 
@@ -167,6 +169,51 @@ export default function ProcessoPage() {
     }
 
     console.log('[DEBUG] Acessando processo com unidade:', unidadeIdSelecionada);
+
+    // Encontrar a unidade selecionada para obter seu nome/descrição para caixa_contexto
+    let unidadeSelecionada;
+    if (selectedUnidadeAberta) {
+      unidadeSelecionada = filteredUnidadesAbertas?.find(u => u.Unidade.IdUnidade === selectedUnidadeAberta)?.Unidade;
+    } else if (selectedMinhaUnidade) {
+      unidadeSelecionada = filteredUnidades?.find(u => u.Id === selectedMinhaUnidade);
+    } else if (selectedUnidadeFavorita) {
+      unidadeSelecionada = filteredUnidades?.find(u => u.Id === selectedUnidadeFavorita);
+    }
+
+    const unidadeNome = unidadeSelecionada ? `${unidadeSelecionada.Sigla} - ${unidadeSelecionada.Descricao}` : 'Unidade não identificada';
+
+    // Salvar no histórico com a unidade selecionada como caixa_contexto
+    if (usuario) {
+      const numeroProcessoLimpo = numeroProcesso.replace(/[.\/-]/g, '');
+      const numeroProcessoFormatado = formatProcessNumber(numeroProcessoLimpo);
+
+      try {
+        // Verificar se o processo já existe no histórico
+        const historicoExistente = await getSearchHistory(usuario, 100);
+
+        let processoJaExiste = false;
+        if (!('error' in historicoExistente)) {
+          processoJaExiste = historicoExistente.some(item =>
+            item.numero_processo === numeroProcessoLimpo
+          );
+        }
+
+        if (!processoJaExiste) {
+          await saveSearchHistory({
+            numero_processo: numeroProcessoLimpo,
+            numero_processo_formatado: numeroProcessoFormatado,
+            usuario: usuario,
+            caixa_contexto: unidadeNome
+          });
+          console.log('[DEBUG] Histórico salvo com sucesso após seleção de unidade');
+        } else {
+          console.log('[DEBUG] Processo já existe no histórico, não salvando novamente');
+        }
+      } catch (error) {
+        console.error('[DEBUG] Erro ao salvar histórico:', error);
+        // Não bloquear a navegação se falhar ao salvar
+      }
+    }
 
     // Atualizar a unidade selecionada no estado persistente
     updateSelectedUnidade(unidadeIdSelecionada);

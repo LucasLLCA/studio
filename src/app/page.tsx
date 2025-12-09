@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Search, LogOut, Activity, Newspaper, Info, Clock, HelpCircle } from 'lucide-react';
+import { Search, LogOut, Activity, Newspaper, Info, Clock, HelpCircle, Home as HomeIcon } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,9 +17,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import ApiHealthCheck from '@/components/ApiHealthCheck';
+import { SearchHistorySidebar } from '@/components/SearchHistorySidebar';
+import { IntelligencePanelsSidebar } from '@/components/IntelligencePanelsSidebar';
 
 export default function Home() {
-  const [currentYear, setCurrentYear] = useState<number | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -33,10 +34,8 @@ export default function Home() {
 
   const [isApiStatusModalOpen, setIsApiStatusModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-
-  useEffect(() => {
-    setCurrentYear(new Date().getFullYear());
-  }, []);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isIntelligencePanelsSidebarOpen, setIsIntelligencePanelsSidebarOpen] = useState(false);
 
   // Redirect to login page if not authenticated
   useEffect(() => {
@@ -49,21 +48,28 @@ export default function Home() {
     }
   }, [isAuthenticated, router]);
 
-  const handleSearchClick = () => {
+  const handleSearchClick = async (numeroProcesso?: string) => {
+    const processoToSearch = numeroProcesso || processoNumeroInput;
+
     if (!isAuthenticated) {
       toast({ title: "Acesso não autorizado", description: "Você precisa estar logado para pesquisar processos. Faça login e tente novamente.", variant: "destructive" });
       return;
     }
-    if (!processoNumeroInput) {
+    if (!processoToSearch) {
       toast({ title: "Número do processo obrigatório", description: "Digite o número do processo que deseja consultar (ex: 12345678901234567890).", variant: "destructive" });
       return;
     }
 
-    console.log('[DEBUG] Redirecionando para tela de seleção de unidade, processo:', processoNumeroInput);
+    console.log('[DEBUG] Redirecionando para tela de seleção de unidade, processo:', processoToSearch);
 
     // Codificar o número do processo para URL segura
-    const encodedProcesso = encodeURIComponent(processoNumeroInput);
+    const encodedProcesso = encodeURIComponent(processoToSearch);
     router.push(`/processo/${encodedProcesso}`);
+  };
+
+  const handleSidebarSearch = (numeroProcesso: string) => {
+    setIsSidebarOpen(false);
+    handleSearchClick(numeroProcesso);
   };
 
   const handleLogout = () => {
@@ -81,8 +87,24 @@ export default function Home() {
       <div className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
+            {isAuthenticated && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => setIsSidebarOpen(true)} title="Histórico de Pesquisas">
+                  Histórico de pesquisa
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setIsIntelligencePanelsSidebarOpen(true)} title="Painéis de Inteligência">
+                  Painéis de Inteligência
+                </Button>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {isAuthenticated && (
+              <Button variant="outline" size="sm" onClick={() => router.push('/')} title="Página Inicial">
+                <HomeIcon className="mr-2 h-4 w-4" />
+                Início
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setIsInfoModalOpen(true)} title="Informações do Sistema">
               <Newspaper className="h-4 w-4" />
             </Button>
@@ -129,7 +151,7 @@ export default function Home() {
                   }}
                 />
                 <Button
-                  onClick={handleSearchClick}
+                  onClick={() => handleSearchClick()}
                   disabled={!isAuthenticated || !processoNumeroInput}
                   className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
                 >
@@ -203,6 +225,17 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SearchHistorySidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        onSearchSelect={handleSidebarSearch}
+      />
+
+      <IntelligencePanelsSidebar
+        isOpen={isIntelligencePanelsSidebarOpen}
+        onClose={() => setIsIntelligencePanelsSidebarOpen(false)}
+      />
 
     </div>
   );
