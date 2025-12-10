@@ -9,7 +9,7 @@ RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json ./
 
 # Instalar dependências de produção e desenvolvimento
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Estágio 2: Build
 FROM node:20-alpine AS builder
@@ -22,7 +22,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Desabilitar telemetria do Next.js
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build da aplicação (gera .next/standalone)
 RUN npm run build
@@ -31,8 +31,8 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Criar usuário não-root para segurança
 RUN addgroup --system --gid 1001 nodejs
@@ -50,8 +50,8 @@ USER nextjs
 
 EXPOSE 3050
 
-ENV PORT 3050
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3050
+ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]
  
