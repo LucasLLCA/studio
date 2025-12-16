@@ -36,17 +36,23 @@ export default function Home() {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isIntelligencePanelsSidebarOpen, setIsIntelligencePanelsSidebarOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Garantir que o componente está montado no cliente
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Redirect to login page if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (mounted && !isAuthenticated) {
       console.log('[DEBUG] Usuário não autenticado - redirecionando para login');
       const timer = setTimeout(() => {
         router.push('/login');
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isAuthenticated, router]);
+  }, [mounted, isAuthenticated, router]);
 
   const handleSearchClick = async (numeroProcesso?: string) => {
     const processoToSearch = numeroProcesso || processoNumeroInput;
@@ -87,7 +93,7 @@ export default function Home() {
       <div className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
-            {isAuthenticated && (
+            {mounted && isAuthenticated && (
               <>
                 <Button variant="outline" size="sm" onClick={() => setIsSidebarOpen(true)} title="Histórico de Pesquisas">
                   Histórico de pesquisa
@@ -99,7 +105,7 @@ export default function Home() {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {isAuthenticated && (
+            {mounted && isAuthenticated && (
               <Button variant="outline" size="sm" onClick={() => router.push('/')} title="Página Inicial">
                 <HomeIcon className="mr-2 h-4 w-4" />
                 Início
@@ -111,7 +117,7 @@ export default function Home() {
             <Button variant="outline" size="sm" onClick={() => setIsApiStatusModalOpen(true)} title="Status das APIs">
               <Activity className="h-4 w-4" />
             </Button>
-            {isAuthenticated && (
+            {mounted && isAuthenticated && (
               <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
             )}
           </div>
@@ -142,7 +148,7 @@ export default function Home() {
                   className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
                   value={processoNumeroInput}
                   onChange={(e) => setProcessoNumeroInput(e.target.value)}
-                  disabled={!isAuthenticated}
+                  disabled={!mounted || !isAuthenticated}
                   ref={inputRef}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && isAuthenticated && processoNumeroInput) {
@@ -152,7 +158,7 @@ export default function Home() {
                 />
                 <Button
                   onClick={() => handleSearchClick()}
-                  disabled={!isAuthenticated || !processoNumeroInput}
+                  disabled={!mounted || !isAuthenticated || !processoNumeroInput}
                   className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
                 >
                   <Search className="h-5 w-5" />
