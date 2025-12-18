@@ -12,6 +12,10 @@ interface IntelligencePanelsSidebarProps {
 }
 
 export function IntelligencePanelsSidebar({ isOpen, onClose }: IntelligencePanelsSidebarProps) {
+  const handleAuthorizationClick = () => {
+    window.open('https://catalogodedados.inteligencia.sead.pi.gov.br/public/dashboard/66a52d9f-27db-4558-b779-111d53a4c861', '_blank', 'noopener,noreferrer');
+  };
+
   const handleProductivityClick = () => {
     window.open('https://painel.sead.pi.gov.br', '_blank', 'noopener,noreferrer');
   };
@@ -44,11 +48,14 @@ export function IntelligencePanelsSidebar({ isOpen, onClose }: IntelligencePanel
         {/* Panels List */}
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-3">
-            <Card className="opacity-50 cursor-not-allowed">
+            <Card
+              className="cursor-pointer hover:bg-accent transition-colors"
+              onClick={handleAuthorizationClick}
+            >
               <CardHeader className="p-4">
                 <CardTitle className="text-sm font-medium">Acompanhamento de processos com SEAD_AUTORIZAÇÃO</CardTitle>
                 <CardDescription className="text-xs mt-1">
-                  EM BREVE
+                  Clique para acessar o painel
                 </CardDescription>
               </CardHeader>
             </Card>
