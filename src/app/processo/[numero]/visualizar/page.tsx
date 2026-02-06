@@ -33,7 +33,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { fetchProcessDataFromSEIWithToken, fetchDocumentsFromSEIWithToken, fetchProcessSummaryWithToken } from '@/app/sei-actions';
+import { fetchProcessDataFromSEIWithToken, fetchDocumentsFromSEIWithToken } from '@/app/sei-actions';
+import { fetchSSEStream, getStreamProcessSummaryUrl } from '@/lib/streaming';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import ApiHealthCheck from '@/components/ApiHealthCheck';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -288,11 +289,10 @@ export default function VisualizarProcessoPage() {
       const startCreation = performance.now();
 
       const andamentosPromise = fetchProcessDataFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro);
-      const resumoPromise = fetchProcessSummaryWithToken(token, numeroProcesso, selectedUnidadeFiltro);
       const documentosPromise = fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro);
 
       const creationTime = performance.now() - startCreation;
-      console.log(`[DEBUG] Todas as 3 promises criadas em ${creationTime.toFixed(3)}ms (unidades via React Query)`);
+      console.log(`[DEBUG] Promises criadas em ${creationTime.toFixed(3)}ms (unidades via React Query, resumo via SSE)`);
 
       // Handlers para processar cada resultado
       const handleAndamentosResult = (processData: any) => {
@@ -315,18 +315,6 @@ export default function VisualizarProcessoPage() {
         }
         setIsLoading(false);
         setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
-      };
-
-      const handleResumoResult = (summaryResponse: any) => {
-        if ('error' in summaryResponse) {
-          setProcessSummary(null);
-          toast({ title: "Erro ao Gerar Resumo", description: summaryResponse.error, variant: "destructive", duration: 9000 });
-        } else {
-          console.log(`[DEBUG] RESUMO concluído às ${new Date().toISOString()}`);
-          setProcessSummary(summaryResponse.summary.replace(/[#*]/g, ''));
-          toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
-        }
-        setBackgroundLoading(prev => ({ ...prev, resumo: false }));
       };
 
       const handleDocumentosResult = (documentsResponse: any) => {
@@ -360,15 +348,33 @@ export default function VisualizarProcessoPage() {
           setBackgroundLoading(prev => ({ ...prev, documentos: false }));
         });
 
-      resumoPromise
-        .then(handleResumoResult)
-        .catch(error => {
-          setProcessSummary(null);
-          console.warn("Erro ao buscar resumo:", error);
+      // Resumo via SSE streaming - texto aparece progressivamente
+      setProcessSummary("");
+      fetchSSEStream(
+        getStreamProcessSummaryUrl(numeroProcesso, selectedUnidadeFiltro),
+        token,
+        (chunk) => {
+          setProcessSummary(prev => (prev || "") + chunk);
+        },
+        (fullResult) => {
+          // fullResult is the cached resultado object - extract the summary text
+          const summaryText = typeof fullResult === 'string'
+            ? fullResult
+            : fullResult?.resumo_combinado?.resposta_ia || fullResult?.resumo?.resposta_ia || "";
+          setProcessSummary(summaryText.replace(/[#*]/g, ''));
           setBackgroundLoading(prev => ({ ...prev, resumo: false }));
-        });
+          console.log(`[DEBUG] RESUMO (SSE) concluído às ${new Date().toISOString()}`);
+          toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
+        },
+        (error) => {
+          setProcessSummary(null);
+          setBackgroundLoading(prev => ({ ...prev, resumo: false }));
+          console.warn("Erro ao buscar resumo via SSE:", error);
+          toast({ title: "Erro ao Gerar Resumo", description: error, variant: "destructive", duration: 9000 });
+        },
+      );
 
-      console.log(`[DEBUG] Handlers conectados às promises`);
+      console.log(`[DEBUG] Handlers conectados (andamentos/documentos via promises, resumo via SSE)`);
     };
 
     loadProcessData();
@@ -586,11 +592,14 @@ export default function VisualizarProcessoPage() {
                   </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col flex-shrink-0 p-2 pt-0">
-                  {processSummary ? (
+                  {processSummary !== null && processSummary !== undefined && processSummary.length > 0 ? (
                     <div className="h-[150px] rounded-md border">
                       <ScrollArea className="h-full">
                         <div className="p-3">
                           <pre className="text-sm whitespace-pre-wrap break-words font-sans">{processSummary}</pre>
+                          {backgroundLoading.resumo && (
+                            <span className="inline-block w-2 h-4 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
+                          )}
                         </div>
                       </ScrollArea>
                     </div>

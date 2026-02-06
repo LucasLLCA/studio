@@ -451,13 +451,14 @@ export async function fetchProcessSummary(
   const token = tokenResult;
 
   const formattedProcessNumber = protocoloProcedimento.replace(/[.\/-]/g, "");
-  const summaryApiUrl = `${SUMMARY_API_BASE_URL}/processo/resumo-completo/${formattedProcessNumber}?token=${encodeURIComponent(token)}&id_unidade=${encodeURIComponent(unidadeId)}`;
+  const summaryApiUrl = `${SUMMARY_API_BASE_URL}/processo/resumo-completo/${formattedProcessNumber}?id_unidade=${encodeURIComponent(unidadeId)}`;
 
   try {
     const response = await fetch(summaryApiUrl, {
       method: 'GET',
       headers: {
         'accept': 'application/json',
+        'X-SEI-Token': token,
       },
       cache: 'no-store',
     });
@@ -618,13 +619,14 @@ export async function fetchDocumentSummary(
   }
   const token = tokenResult;
 
-  const summaryApiUrl = `${SUMMARY_API_BASE_URL}/processo/resumo-documento/${documentoFormatado}?token=${encodeURIComponent(token)}&id_unidade=${encodeURIComponent(unidadeId)}`;
+  const summaryApiUrl = `${SUMMARY_API_BASE_URL}/processo/resumo-documento/${documentoFormatado}?id_unidade=${encodeURIComponent(unidadeId)}`;
 
   try {
     const response = await fetch(summaryApiUrl, {
       method: 'GET',
       headers: {
         'accept': 'application/json',
+        'X-SEI-Token': token,
       },
       cache: 'no-store',
     });

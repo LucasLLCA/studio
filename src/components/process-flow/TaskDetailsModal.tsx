@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { fetchDocumentSummary } from '@/app/sei-actions';
+import { fetchSSEStream, getStreamDocumentSummaryUrl } from '@/lib/streaming';
 import React, { useState, useEffect } from 'react';
 import { formatDisplayDate } from '@/lib/process-flow-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -148,31 +148,35 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
     }
   }, [documentSummary, isLoadingDocumentSummary]);
 
-  const handleFetchDocumentSummary = async () => {
+  const handleFetchDocumentSummary = () => {
     if (!extractedDocumentNumber || !sessionToken || !task || !selectedUnidadeFiltro) {
       setDocumentSummaryError("Não foi possível carregar o resumo do documento. Verifique se você está logado e se o documento é válido.");
       return;
     }
 
     setIsLoadingDocumentSummary(true);
-    setDocumentSummary(null);
+    setDocumentSummary("");
     setDocumentSummaryError(null);
 
-    try {
-      // Criar objeto com token de sessão para API
-      const sessionAuth = { sessionToken: sessionToken! };
-      const result = await fetchDocumentSummary(sessionAuth, extractedDocumentNumber, selectedUnidadeFiltro!);
-      if ('error' in result) {
-        setDocumentSummaryError(result.error || "Não foi possível obter o resumo do documento. Tente novamente ou verifique se o documento existe.");
-      } else {
-        setDocumentSummary(result.summary);
-      }
-    } catch (err) {
-      console.error("Error fetching document summary:", err);
-      setDocumentSummaryError("Ocorreu um erro inesperado ao buscar o resumo. Verifique sua conexão e tente novamente.");
-    } finally {
-      setIsLoadingDocumentSummary(false);
-    }
+    fetchSSEStream(
+      getStreamDocumentSummaryUrl(extractedDocumentNumber, selectedUnidadeFiltro!),
+      sessionToken!,
+      (chunk) => {
+        setDocumentSummary(prev => (prev || "") + chunk);
+      },
+      (fullResult) => {
+        const summaryText = typeof fullResult === 'string'
+          ? fullResult
+          : fullResult?.resumo?.resposta_ia || "";
+        setDocumentSummary(summaryText);
+        setIsLoadingDocumentSummary(false);
+      },
+      (error) => {
+        setDocumentSummaryError(error || "Não foi possível obter o resumo do documento. Tente novamente.");
+        setDocumentSummary(null);
+        setIsLoadingDocumentSummary(false);
+      },
+    );
   };
 
   if (!task) return null;
@@ -307,14 +311,21 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
                           </p>
                         )}
                         
-                        {documentSummary && !isLoadingDocumentSummary && (
+                        {documentSummary !== null && documentSummary !== undefined && documentSummary.length > 0 && (
                           <div className="mt-3 p-3 border rounded-md bg-white/80">
                             <div className="flex items-center mb-2">
                               <Sparkles className="h-4 w-4 mr-1 text-accent" />
-                              <span className="text-sm font-medium text-foreground">Resumo Gerado</span>
+                              <span className="text-sm font-medium text-foreground">
+                                {isLoadingDocumentSummary ? "Gerando resumo..." : "Resumo Gerado"}
+                              </span>
                             </div>
                             <div className="border rounded-md bg-muted/20 p-3">
-                              <div className="text-sm text-secondary-foreground whitespace-pre-wrap">{documentSummary}</div>
+                              <div className="text-sm text-secondary-foreground whitespace-pre-wrap">
+                                {documentSummary}
+                                {isLoadingDocumentSummary && (
+                                  <span className="inline-block w-2 h-4 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
+                                )}
+                              </div>
                             </div>
                           </div>
                         )}
