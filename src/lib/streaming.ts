@@ -1,5 +1,9 @@
+import { MOCK_PROCESS_SUMMARY_TEXT } from '@/lib/mock-data';
+
 const SUMMARY_API_BASE_URL =
   process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
+
+const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_DATA === 'true';
 
 /**
  * Fetches an SSE stream from the backend and calls callbacks as events arrive.
@@ -14,6 +18,17 @@ export async function fetchSSEStream(
   onError: (error: string) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  if (MOCK_MODE) {
+    const words = MOCK_PROCESS_SUMMARY_TEXT.split(' ');
+    for (let i = 0; i < words.length; i += 3) {
+      if (signal?.aborted) return;
+      await new Promise(r => setTimeout(r, 50));
+      onChunk(words.slice(i, i + 3).join(' ') + ' ');
+    }
+    onDone({ resumo: { resposta_ia: MOCK_PROCESS_SUMMARY_TEXT } });
+    return;
+  }
+
   try {
     const response = await fetch(url, {
       method: "GET",

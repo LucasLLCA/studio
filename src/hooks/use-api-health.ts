@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { checkSEIApiHealth, checkSummaryApiHealth } from '@/app/sei-actions';
-import type { HealthCheckResponse } from '@/app/sei-actions';
+import type { HealthCheckResponse } from '@/lib/sei-api-client';
 
 interface UseApiHealthReturn {
   seiApiStatus: HealthCheckResponse | null;

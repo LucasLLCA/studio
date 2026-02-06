@@ -27,15 +27,27 @@ import {
   fetchDocumentSummary as fetchDocumentSummaryImpl,
   checkSEIApiHealth as checkSEIApiHealthImpl,
   checkSummaryApiHealth as checkSummaryApiHealthImpl,
-  type HealthCheckResponse
 } from '@/lib/sei-api-client';
 
-export type { HealthCheckResponse };
+import type { HealthCheckResponse } from '@/lib/sei-api-client';
+
+import {
+  mockLogin,
+  mockProcessData,
+  mockDocuments,
+  mockOpenUnits,
+  mockProcessSummary,
+  mockHealthCheck,
+} from '@/lib/mock-data';
+
+const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_DATA === 'true';
+
 
 /**
  * Login na API SEI
  */
 export async function loginToSEI(credentials: LoginCredentials): Promise<ClientLoginResponse> {
+  if (MOCK_MODE) return mockLogin();
   return loginToSEIImpl(credentials);
 }
 
@@ -72,6 +84,7 @@ export async function fetchProcessDataFromSEIWithToken(
   protocoloProcedimento: string,
   unidadeId: string
 ): Promise<ProcessoData | ApiError> {
+  if (MOCK_MODE) return mockProcessData();
   return fetchProcessData(token, protocoloProcedimento, unidadeId);
 }
 
@@ -84,6 +97,7 @@ export async function fetchProcessDataFromSEI(
   protocoloProcedimento: string,
   unidadeId: string
 ): Promise<ProcessoData | ApiError> {
+  if (MOCK_MODE) return mockProcessData();
   const token = 'sessionToken' in auth ? auth.sessionToken : '';
   if (token) {
     return fetchProcessData(token, protocoloProcedimento, unidadeId);
@@ -99,6 +113,7 @@ export async function fetchOpenUnitsForProcessWithToken(
   protocoloProcedimento: string,
   unidadeOrigemConsulta: string
 ): Promise<{unidades: UnidadeAberta[], linkAcesso?: string} | ApiError> {
+  if (MOCK_MODE) return mockOpenUnits();
   return fetchOpenUnits(token, protocoloProcedimento, unidadeOrigemConsulta);
 }
 
@@ -111,6 +126,7 @@ export async function fetchOpenUnitsForProcess(
   protocoloProcedimento: string,
   unidadeOrigemConsulta: string
 ): Promise<{unidades: UnidadeAberta[], linkAcesso?: string} | ApiError> {
+  if (MOCK_MODE) return mockOpenUnits();
   const token = 'sessionToken' in auth ? auth.sessionToken : '';
   if (token) {
     return fetchOpenUnits(token, protocoloProcedimento, unidadeOrigemConsulta);
@@ -126,6 +142,7 @@ export async function fetchProcessSummaryWithToken(
   protocoloProcedimento: string,
   unidadeId: string
 ): Promise<ProcessSummaryResponse | ApiError> {
+  if (MOCK_MODE) return mockProcessSummary();
   return fetchProcessSummaryImpl(token, protocoloProcedimento, unidadeId);
 }
 
@@ -138,6 +155,7 @@ export async function fetchProcessSummary(
   protocoloProcedimento: string,
   unidadeId: string
 ): Promise<ProcessSummaryResponse | ApiError> {
+  if (MOCK_MODE) return mockProcessSummary();
   const token = 'sessionToken' in auth ? auth.sessionToken : '';
   if (token) {
     return fetchProcessSummaryImpl(token, protocoloProcedimento, unidadeId);
@@ -154,6 +172,7 @@ export async function fetchDocumentsFromSEIWithToken(
   protocoloProcedimento: string,
   unidadeId: string
 ): Promise<DocumentosResponse | ApiError> {
+  if (MOCK_MODE) return mockDocuments();
   return fetchDocuments(token, protocoloProcedimento, unidadeId, 1, 999999);
 }
 
@@ -168,6 +187,7 @@ export async function fetchDocumentsFromSEI(
   pagina: number = 1,
   quantidade: number = 10
 ): Promise<DocumentosResponse | ApiError> {
+  if (MOCK_MODE) return mockDocuments();
   const token = 'sessionToken' in auth ? auth.sessionToken : '';
   if (token) {
     return fetchDocuments(token, protocoloProcedimento, unidadeId, pagina, quantidade);
@@ -183,6 +203,7 @@ export async function fetchDocumentSummary(
   documentoFormatado: string,
   unidadeId: string
 ): Promise<ProcessSummaryResponse | ApiError> {
+  if (MOCK_MODE) return mockProcessSummary();
   const token = 'sessionToken' in auth ? auth.sessionToken : '';
   if (token) {
     return fetchDocumentSummaryImpl(token, documentoFormatado, unidadeId);
@@ -194,6 +215,7 @@ export async function fetchDocumentSummary(
  * Verifica saúde da API SEI
  */
 export async function checkSEIApiHealth(): Promise<HealthCheckResponse> {
+  if (MOCK_MODE) return mockHealthCheck();
   return checkSEIApiHealthImpl();
 }
 
@@ -201,5 +223,6 @@ export async function checkSEIApiHealth(): Promise<HealthCheckResponse> {
  * Verifica saúde da API de Resumos
  */
 export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
+  if (MOCK_MODE) return mockHealthCheck();
   return checkSummaryApiHealthImpl();
 }

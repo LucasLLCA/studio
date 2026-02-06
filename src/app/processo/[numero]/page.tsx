@@ -10,7 +10,7 @@ import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import { useToast } from '@/hooks/use-toast';
 import { formatProcessNumber } from '@/lib/utils';
-import { saveSearchHistory, getSearchHistory } from '@/lib/history-api-client';
+import { saveSearchHistory } from '@/lib/history-api-client';
 
 export default function ProcessoPage() {
   const params = useParams();
@@ -22,8 +22,6 @@ export default function ProcessoPage() {
   console.log('[DEBUG] Número do processo decodificado:', numeroProcesso);
 
   const { isAuthenticated, sessionToken, idUnidadeAtual, unidadesFiltroList, updateSelectedUnidade, usuario } = usePersistedAuth();
-
-  const [isInitializing, setIsInitializing] = useState(true);
 
   // Estados para as seleções
   const [selectedUnidadeAberta, setSelectedUnidadeAberta] = useState<string>('');
@@ -46,7 +44,7 @@ export default function ProcessoPage() {
     processo: numeroProcesso,
     unidadeOrigem: idParaBuscarUnidades,
     token: sessionToken || '',
-    enabled: !isInitializing && isAuthenticated && !!sessionToken && !!idParaBuscarUnidades,
+    enabled: isAuthenticated && !!sessionToken && !!idParaBuscarUnidades,
   });
 
   const unidadesAbertas = openUnitsData?.unidades || null;
@@ -55,17 +53,9 @@ export default function ProcessoPage() {
     router.push('/');
   };
 
-  // Aguardar um pouco para garantir que o localStorage foi carregado
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsInitializing(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
   // Verificar autenticação e redirecionar se necessário
   useEffect(() => {
-    if (!isInitializing && (!isAuthenticated || !sessionToken)) {
+    if (!isAuthenticated || !sessionToken) {
       console.log('[DEBUG] Falha na verificação de autenticação');
       toast({
         title: "Acesso não autorizado",
@@ -74,7 +64,7 @@ export default function ProcessoPage() {
       });
       router.push('/');
     }
-  }, [isInitializing, isAuthenticated, sessionToken, router, toast]);
+  }, [isAuthenticated, sessionToken, router, toast]);
 
   // Mostrar toast em caso de erro
   useEffect(() => {
@@ -121,14 +111,14 @@ export default function ProcessoPage() {
 
   // Pré-selecionar unidade favorita quando a página carregar
   useEffect(() => {
-    if (unidadeFavorita && !isInitializing && !selectedUnidadeFavorita && !selectedUnidadeAberta && !selectedMinhaUnidade && !userClearedSelection) {
+    if (unidadeFavorita && !selectedUnidadeFavorita && !selectedUnidadeAberta && !selectedMinhaUnidade && !userClearedSelection) {
       console.log('[DEBUG] Pré-selecionando unidade favorita:', unidadeFavorita.Id);
       setSelectedUnidadeFavorita(unidadeFavorita.Id);
     }
-  }, [unidadeFavorita, isInitializing, selectedUnidadeFavorita, selectedUnidadeAberta, selectedMinhaUnidade, userClearedSelection]);
+  }, [unidadeFavorita, selectedUnidadeFavorita, selectedUnidadeAberta, selectedMinhaUnidade, userClearedSelection]);
 
-  // Mostrar loading durante inicialização ou carregamento das unidades abertas
-  if (isInitializing || isLoadingUnidadesAbertas) {
+  // Mostrar loading durante carregamento das unidades abertas
+  if (isLoadingUnidadesAbertas) {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-4xl mx-auto">
@@ -136,7 +126,7 @@ export default function ProcessoPage() {
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
               <p className="text-muted-foreground">
-                {isInitializing ? 'Carregando dados de autenticação...' : 'Carregando unidades em aberto...'}
+                Carregando unidades em aberto...
               </p>
             </div>
           </div>
@@ -183,36 +173,19 @@ export default function ProcessoPage() {
     const unidadeNome = unidadeSelecionada ? `${unidadeSelecionada.Sigla} - ${unidadeSelecionada.Descricao}` : 'Unidade não identificada';
 
     // Salvar no histórico com a unidade selecionada como caixa_contexto
+    // O backend faz deduplicação: se já existir, apenas atualiza o contexto
     if (usuario) {
       const numeroProcessoLimpo = numeroProcesso.replace(/[.\/-]/g, '');
       const numeroProcessoFormatado = formatProcessNumber(numeroProcessoLimpo);
 
-      try {
-        // Verificar se o processo já existe no histórico
-        const historicoExistente = await getSearchHistory(usuario, 100);
-
-        let processoJaExiste = false;
-        if (!('error' in historicoExistente)) {
-          processoJaExiste = historicoExistente.some(item =>
-            item.numero_processo === numeroProcessoLimpo
-          );
-        }
-
-        if (!processoJaExiste) {
-          await saveSearchHistory({
-            numero_processo: numeroProcessoLimpo,
-            numero_processo_formatado: numeroProcessoFormatado,
-            usuario: usuario,
-            caixa_contexto: unidadeNome
-          });
-          console.log('[DEBUG] Histórico salvo com sucesso após seleção de unidade');
-        } else {
-          console.log('[DEBUG] Processo já existe no histórico, não salvando novamente');
-        }
-      } catch (error) {
+      saveSearchHistory({
+        numero_processo: numeroProcessoLimpo,
+        numero_processo_formatado: numeroProcessoFormatado,
+        usuario: usuario,
+        caixa_contexto: unidadeNome
+      }).catch(error => {
         console.error('[DEBUG] Erro ao salvar histórico:', error);
-        // Não bloquear a navegação se falhar ao salvar
-      }
+      });
     }
 
     // Atualizar a unidade selecionada no estado persistente

@@ -2,7 +2,7 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, Andamento, Documento } from '@/types/process-flow';
-import { FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare, Activity, Home as HomeIcon, CheckCircle, Clock, ExternalLink, Expand, Newspaper } from 'lucide-react';
+import { FileJson, Search, Sparkles, Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, LogIn, LogOut, Menu, CalendarDays, UserCircle, Building, CalendarClock, Briefcase, HelpCircle, GanttChartSquare, Activity, Home as HomeIcon, CheckCircle, Clock, ExternalLink, Expand, Newspaper, PanelRight, User, AlertTriangle } from 'lucide-react';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,15 @@ import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import { ProcessMetadataSidebar } from '@/components/process-flow/ProcessMetadataSidebar';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet";
+import { Badge } from '@/components/ui/badge';
 import { processAndamentos, parseCustomDateString, formatDisplayDate } from '@/lib/process-flow-utils';
 import { ProcessFlowLegend } from '@/components/process-flow/ProcessFlowLegend';
 import { Combobox } from "@/components/ui/combobox";
@@ -102,7 +110,7 @@ export default function VisualizarProcessoPage() {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
   const [processCreationInfo, setProcessCreationInfo] = useState<ProcessCreationInfo | null>(null);
-  const [isUnitsSidebarOpen, setIsUnitsSidebarOpen] = useState(true);
+  const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(true);
   const [selectedLaneUnits, setSelectedLaneUnits] = useState<string[]>([]);
 
   useEffect(() => {
@@ -414,6 +422,14 @@ export default function VisualizarProcessoPage() {
     return Array.from(processedFlowData.laneMap.keys()).sort();
   }, [processedFlowData]);
 
+  // Helper para encontrar a task aberta mais recente de uma unidade
+  const findOpenTaskForUnit = (unitId: string): ProcessedAndamento | undefined => {
+    if (!processedFlowData?.tasks) return undefined;
+    return processedFlowData.tasks
+      .filter(task => task.Unidade.IdUnidade === unitId && typeof task.daysOpen === 'number' && task.daysOpen >= 0)
+      .sort((a, b) => b.globalSequence - a.globalSequence)[0];
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background w-full">
       {/* Barra de controles no topo */}
@@ -468,166 +484,182 @@ export default function VisualizarProcessoPage() {
           </div>
         )}
 
-        {processCreationInfo && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-            {processCreationInfo && (
-              <Card>
-                <CardHeader className="p-2">
-                  <CardTitle className="text-md flex items-center text-green-600">
-                    <FileText className="mr-2 h-5 w-5" /> Número: {rawProcessData?.Info?.NumeroProcesso || numeroProcesso}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1 text-sm pt-2 p-2">
-                  <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Unidade: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
-                  <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
-                  <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
-                  <div className="flex items-center"><CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />Tempo: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
-                  {processLinkAcesso && (
-                    <div className="flex items-center">
-                      <ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
-                      Link:
-                      <a
-                        href={processLinkAcesso}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium ml-1 text-blue-600 hover:text-blue-800 underline"
-                      >
-                        Abrir no SEI
-                      </a>
-                    </div>
-                  )}
-                  {openUnitsInProcess !== null && (
-                    <div className="flex items-center">
-                      {openUnitsInProcess.length === 0 ? (
-                        <>
-                          <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                          Status: <span className="font-medium ml-1 text-green-600">Concluído</span>
-                        </>
-                      ) : (
-                        <>
-                          <Clock className="mr-2 h-4 w-4 text-yellow-600" />
-                          Status: <span className="font-medium ml-1 text-yellow-600">Em andamento ({openUnitsInProcess.length} unidade{openUnitsInProcess.length !== 1 ? 's' : ''} aberta{openUnitsInProcess.length !== 1 ? 's' : ''})</span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                  {userOrgao && processCreationInfo && (
-                    <>
-                      <div className="flex items-center">
-                        <ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
-                        Processo externo: <span className={`font-medium ml-1 ${isExternalProcess ? 'text-orange-600' : 'text-green-600'}`}>{isExternalProcess ? 'Sim' : 'Não'}</span>
-                      </div>
-                      {isExternalProcess && rawProcessData?.Andamentos && (
-                        (() => {
-                          const userOrgaoNormalized = userOrgao.toUpperCase();
-                          const andamentosInUserOrgao = rawProcessData.Andamentos.filter(a => {
-                            const andamentoOrgao = extractOrgaoFromSigla(a.Unidade.Sigla).toUpperCase();
-                            return andamentoOrgao === userOrgaoNormalized;
-                          });
-
-                          if (andamentosInUserOrgao.length > 0) {
-                            const firstAndamento = andamentosInUserOrgao.sort((a, b) =>
-                              parseCustomDateString(a.DataHora).getTime() - parseCustomDateString(b.DataHora).getTime()
-                            )[0];
-
-                            return (
-                              <div className="flex items-center ml-6">
-                                <Building className="mr-2 h-4 w-4 text-muted-foreground" />
-                                Chegou em: <span className="font-medium ml-1 text-blue-600">{firstAndamento.Unidade.Sigla}</span>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()
-                      )}
-                    </>
-                  )}
-                  {userOrgao && daysOpenInUserOrgao !== null && (
-                    <div className="flex items-center">
-                      <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                      Dias em aberto no órgão: <span className="font-medium ml-1 text-red-600">{daysOpenInUserOrgao} {daysOpenInUserOrgao === 1 ? 'dia' : 'dias'}</span>
-                    </div>
-                  )}
-
-                  {/* Feedback de carregamento dentro do card de informações gerais */}
-                  {hasBackgroundLoading && (
-                    <div className="mt-3 pt-3 border-t">
-                      <div className="flex items-start space-x-2">
-                        <Loader2 className="h-4 w-4 text-primary animate-spin flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <h4 className="text-xs font-medium mb-1 text-green-600">Atualizando dados...</h4>
-                          <div className="space-y-0.5">
-                            {loadingTasks.map((task, index) => (
-                              <div key={index} className="flex items-center space-x-1.5 text-xs">
-                                <div className="w-1 h-1 bg-primary rounded-full animate-pulse flex-shrink-0"></div>
-                                <span className="text-muted-foreground">{task}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+        {/* Número do processo em destaque */}
+        {(rawProcessData || processCreationInfo) && (
+          <div className="mb-4 flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">
+              {rawProcessData?.Info?.NumeroProcesso || numeroProcesso}
+            </h1>
+            {processLinkAcesso && (
+              <a
+                href={processLinkAcesso}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800"
+                title="Abrir no SEI"
+              >
+                <ExternalLink className="h-5 w-5" />
+              </a>
             )}
-
-            <Card>
-              <CardHeader className="p-2">
-                  <CardTitle className="text-md flex items-center justify-between text-green-600">
-                    <div className="flex items-center">
-                      <BookText className="mr-2 h-5 w-5" /> Entendimento Automatizado (IA)
-                    </div>
-                    {processSummary && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsSummaryModalOpen(true)}
-                        className="ml-2 h-7 px-2 text-xs"
-                      >
-                        <Expand className="mr-1 h-3 w-3" />
-                        Expandir Resumo
-                      </Button>
-                    )}
-                  </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col flex-shrink-0 p-2 pt-0">
-                  {processSummary !== null && processSummary !== undefined && processSummary.length > 0 ? (
-                    <div className="h-[150px] rounded-md border">
-                      <ScrollArea className="h-full">
-                        <div className="p-3">
-                          <pre className="text-sm whitespace-pre-wrap break-words font-sans">{processSummary}</pre>
-                          {backgroundLoading.resumo && (
-                            <span className="inline-block w-2 h-4 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  ) : backgroundLoading.resumo ? (
-                    <div className="flex items-center justify-center p-4">
-                      <Loader2 className="h-6 w-6 text-primary animate-spin" />
-                      <p className="ml-2 text-muted-foreground">Gerando resumo...</p>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center p-4 text-muted-foreground">
-                      <Info className="mr-2 h-4 w-4" />
-                      Nenhum resumo disponível.
-                    </div>
-                  )}
-
-              </CardContent>
-            </Card>
+            {openUnitsInProcess !== null && (
+              openUnitsInProcess.length === 0 ? (
+                <Badge variant="outline" className="text-green-600 border-green-600">
+                  <CheckCircle className="mr-1 h-3 w-3" /> Concluído
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                  <Clock className="mr-1 h-3 w-3" /> Em andamento
+                </Badge>
+              )
+            )}
+            {hasBackgroundLoading && (
+              <Loader2 className="h-5 w-5 text-primary animate-spin" />
+            )}
           </div>
         )}
+
+        {/* Sheet lateral direita com metadados + resumo IA */}
+        <Sheet open={isDetailsSheetOpen} onOpenChange={setIsDetailsSheetOpen} modal={false}>
+          <SheetContent
+            side="right"
+            showOverlay={false}
+            showCloseButton={false}
+            className="w-[400px] sm:max-w-[400px] overflow-y-auto"
+            onInteractOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+          >
+            <SheetHeader>
+              <SheetTitle className="flex items-center text-green-600">
+                <FileText className="mr-2 h-5 w-5" /> Detalhes do Processo
+              </SheetTitle>
+              <SheetDescription>Metadados e resumo gerado por IA</SheetDescription>
+            </SheetHeader>
+
+            {/* Metadados do processo */}
+            {processCreationInfo && (
+              <div className="space-y-2 text-sm mt-4">
+                <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Unidade: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
+                <div className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />Usuário: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
+                <div className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Data: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
+                <div className="flex items-center"><CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />Tempo: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
+                {openUnitsInProcess !== null && (
+                  <div className="flex items-center">
+                    {openUnitsInProcess.length === 0 ? (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                        Status: <span className="font-medium ml-1 text-green-600">Concluído</span>
+                      </>
+                    ) : (
+                      <>
+                        <Clock className="mr-2 h-4 w-4 text-yellow-600" />
+                        Status: <span className="font-medium ml-1 text-yellow-600">Em andamento ({openUnitsInProcess.length} unidade{openUnitsInProcess.length !== 1 ? 's' : ''} aberta{openUnitsInProcess.length !== 1 ? 's' : ''})</span>
+                      </>
+                    )}
+                  </div>
+                )}
+                {userOrgao && processCreationInfo && (
+                  <>
+                    <div className="flex items-center">
+                      <ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
+                      Processo externo: <span className={`font-medium ml-1 ${isExternalProcess ? 'text-orange-600' : 'text-green-600'}`}>{isExternalProcess ? 'Sim' : 'Não'}</span>
+                    </div>
+                    {isExternalProcess && rawProcessData?.Andamentos && (
+                      (() => {
+                        const userOrgaoNormalized = userOrgao.toUpperCase();
+                        const andamentosInUserOrgao = rawProcessData.Andamentos.filter(a => {
+                          const andamentoOrgao = extractOrgaoFromSigla(a.Unidade.Sigla).toUpperCase();
+                          return andamentoOrgao === userOrgaoNormalized;
+                        });
+
+                        if (andamentosInUserOrgao.length > 0) {
+                          const firstAndamento = andamentosInUserOrgao.sort((a, b) =>
+                            parseCustomDateString(a.DataHora).getTime() - parseCustomDateString(b.DataHora).getTime()
+                          )[0];
+
+                          return (
+                            <div className="flex items-center ml-6">
+                              <Building className="mr-2 h-4 w-4 text-muted-foreground" />
+                              Chegou em: <span className="font-medium ml-1 text-blue-600">{firstAndamento.Unidade.Sigla}</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()
+                    )}
+                  </>
+                )}
+                {userOrgao && daysOpenInUserOrgao !== null && (
+                  <div className="flex items-center">
+                    <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+                    Dias em aberto no órgão: <span className="font-medium ml-1 text-red-600">{daysOpenInUserOrgao} {daysOpenInUserOrgao === 1 ? 'dia' : 'dias'}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Separador */}
+            <div className="border-t my-4" />
+
+            {/* Resumo IA */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold flex items-center text-green-600">
+                  <BookText className="mr-2 h-4 w-4" /> Entendimento Automatizado (IA)
+                </h3>
+                {processSummary && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsSummaryModalOpen(true)}
+                    className="h-7 px-2 text-xs"
+                  >
+                    <Expand className="mr-1 h-3 w-3" />
+                    Expandir
+                  </Button>
+                )}
+              </div>
+              {processSummary !== null && processSummary !== undefined && processSummary.length > 0 ? (
+                <div className="rounded-md border">
+                  <ScrollArea className="max-h-[300px]">
+                    <div className="p-3">
+                      <pre className="text-sm whitespace-pre-wrap break-words font-sans">{processSummary}</pre>
+                      {backgroundLoading.resumo && (
+                        <span className="inline-block w-2 h-4 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              ) : backgroundLoading.resumo ? (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                  <p className="ml-2 text-muted-foreground">Gerando resumo...</p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center p-4 text-muted-foreground">
+                  <Info className="mr-2 h-4 w-4" />
+                  Nenhum resumo disponível.
+                </div>
+              )}
+            </div>
+
+            <SheetFooter className="mt-4">
+              <Button variant="outline" onClick={() => setIsDetailsSheetOpen(false)} className="w-full">
+                Fechar
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
 
         {rawProcessData && (
           <div className="flex flex-1 mt-4 overflow-hidden flex-col">
             {/* Barra de botões */}
             <div className="w-full flex justify-between items-center mb-4 px-4 py-2 bg-muted/50 rounded-lg border">
               <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm" onClick={() => setIsUnitsSidebarOpen(!isUnitsSidebarOpen)} aria-label={isUnitsSidebarOpen ? "Fechar painel de metadados" : "Abrir painel de metadados"}>
-                  <Menu className="h-4 w-4" />
-                </Button>
+                {!isDetailsSheetOpen && (
+                  <Button variant="outline" size="sm" onClick={() => setIsDetailsSheetOpen(true)} aria-label="Abrir painel de detalhes">
+                    <PanelRight className="mr-2 h-4 w-4" /> Detalhes
+                  </Button>
+                )}
               </div>
               <div className="flex items-center space-x-2">
                 <div className="flex items-center space-x-2 mr-4">
@@ -722,44 +754,66 @@ export default function VisualizarProcessoPage() {
               </div>
             </div>
 
-            {/* Seção de unidades em aberto e fluxo lado a lado */}
-            <div className="flex flex-1 gap-4 overflow-hidden">
-              {/* Seção de unidades em aberto */}
-              {isUnitsSidebarOpen && (
-                <div className="w-[22rem] flex-shrink-0">
-                  <div className="bg-card border rounded-lg p-4 h-full">
-                    <div className="flex items-center mb-3">
-                      <Briefcase className="mr-2 h-5 w-5 text-muted-foreground" />
-                      <h3 className="text-base font-semibold">Unidades com Processo Aberto</h3>
-                    </div>
-                    <div className="overflow-auto h-[calc(100%-2.5rem)]">
-                      <ProcessMetadataSidebar
-                        processNumber={numeroProcesso || (rawProcessData?.Info?.NumeroProcesso)}
-                        openUnitsInProcess={openUnitsInProcess}
-                        processedFlowData={processedFlowData}
-                        onTaskCardClick={handleTaskCardClick}
-                        userUnitId={selectedUnidadeFiltro}
-                      />
-                    </div>
-                  </div>
+            {/* Unidades em aberto - lista horizontal */}
+            <div className="mb-4">
+              {isLoadingOpenUnits ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground px-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Verificando unidades abertas...</span>
                 </div>
-              )}
+              ) : openUnitsInProcess && openUnitsInProcess.length > 0 ? (
+                <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                  <div className="flex items-center gap-1 text-sm font-medium text-muted-foreground flex-shrink-0 mr-1">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <span>Abertas:</span>
+                  </div>
+                  {openUnitsInProcess.map(unitInfo => {
+                    const openTaskDetails = findOpenTaskForUnit(unitInfo.Unidade.IdUnidade);
+                    return (
+                      <Card
+                        key={unitInfo.Unidade.IdUnidade}
+                        className={`flex-shrink-0 p-2 px-3 shadow-sm border-destructive/30 ${openTaskDetails ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+                        onClick={() => openTaskDetails && handleTaskCardClick(openTaskDetails)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-destructive">{unitInfo.Unidade.Sigla}</span>
+                          {unitInfo.UsuarioAtribuicao?.Nome && (
+                            <span className="text-xs text-muted-foreground flex items-center">
+                              <User className="h-3 w-3 mr-0.5" />{unitInfo.UsuarioAtribuicao.Nome}
+                            </span>
+                          )}
+                          {openTaskDetails && typeof openTaskDetails.daysOpen === 'number' && (
+                            <Badge variant="destructive" className="text-xs px-1.5 py-0">
+                              {openTaskDetails.daysOpen}d
+                            </Badge>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : openUnitsInProcess && openUnitsInProcess.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm px-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="text-green-600 font-medium">Processo concluído — nenhuma unidade em aberto</span>
+                </div>
+              ) : null}
+            </div>
 
-              {/* Fluxo do processo */}
-              <div className="flex-1 overflow-hidden">
-                <ProcessFlowClient
-                  processedFlowData={processedFlowData}
-                  taskToScrollTo={taskToScrollTo}
-                  sessionToken={sessionToken}
-                  isAuthenticated={isAuthenticated}
-                  selectedUnidadeFiltro={selectedUnidadeFiltro}
-                  processNumber={numeroProcesso || (rawProcessData?.Info?.NumeroProcesso)}
-                  documents={documents}
-                  isLoadingDocuments={backgroundLoading.documentos}
-                  filteredLaneUnits={selectedLaneUnits}
-                  openUnitsInProcess={openUnitsInProcess}
-                />
-              </div>
+            {/* Fluxo do processo */}
+            <div className="flex-1 overflow-hidden">
+              <ProcessFlowClient
+                processedFlowData={processedFlowData}
+                taskToScrollTo={taskToScrollTo}
+                sessionToken={sessionToken}
+                isAuthenticated={isAuthenticated}
+                selectedUnidadeFiltro={selectedUnidadeFiltro}
+                processNumber={numeroProcesso || (rawProcessData?.Info?.NumeroProcesso)}
+                documents={documents}
+                isLoadingDocuments={backgroundLoading.documentos}
+                filteredLaneUnits={selectedLaneUnits}
+                openUnitsInProcess={openUnitsInProcess}
+              />
             </div>
           </div>
         )}

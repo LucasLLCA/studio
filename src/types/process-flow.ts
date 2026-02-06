@@ -187,6 +187,23 @@ export interface DocumentoUnidadeElaboradora {
   Descricao: string;
 }
 
+export interface DocumentoAssinatura {
+  Nome: string;
+  CargoFuncao: string;
+  DataHora: string;
+  IdUsuario: string;
+  IdOrigem: string;
+  Orgao: string;
+  Sigla: string;
+}
+
+export interface DocumentoAndamentoGeracao {
+  Descricao: string;
+  DataHora: string;
+  Unidade: { IdUnidade: string; Sigla: string; Descricao: string };
+  Usuario: { IdUsuario: string; Sigla: string; Nome: string };
+}
+
 export interface Documento {
   IdProcedimento: string;
   ProcedimentoFormatado: string;
@@ -198,6 +215,10 @@ export interface Documento {
   Descricao?: string;
   Data: string;
   UnidadeElaboradora: DocumentoUnidadeElaboradora;
+  AndamentoGeracao?: DocumentoAndamentoGeracao;
+  Assinaturas?: DocumentoAssinatura[];
+  Publicacao?: Record<string, any>;
+  Campos?: any[];
 }
 
 export interface DocumentosInfo {

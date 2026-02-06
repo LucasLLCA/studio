@@ -211,13 +211,29 @@ export function usePersistedAuth() {
   // Função para limpar dados expirados na inicialização
   useEffect(() => {
     loadFromStorage();
-    
+
     // Verificar se sessionToken contém dados corrompidos (credenciais em JSON)
     if (sessionToken && typeof sessionToken === 'string' && sessionToken.includes('usuario')) {
       console.warn('[DEBUG] Dados corrompidos detectados no sessionToken - forçando limpeza');
       forceLogout();
     }
   }, [loadFromStorage, sessionToken, forceLogout]);
+
+  // Auto-authenticate in mock mode
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_MOCK_DATA === 'true' && !isAuthenticated) {
+      login(
+        'mock-session-token-abc123',
+        [
+          { Id: '110000001', Sigla: 'GAB/SEAD', Descricao: 'Gabinete do Secretário' },
+          { Id: '110000002', Sigla: 'DAF/SEAD', Descricao: 'Diretoria de Administração e Finanças' },
+        ],
+        '110000001',
+        'SEAD-PI',
+        'mock@sead.pi.gov.br',
+      );
+    }
+  }, [isAuthenticated, login]);
 
   return {
     isAuthenticated,

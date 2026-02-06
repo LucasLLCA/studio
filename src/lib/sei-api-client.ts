@@ -544,11 +544,7 @@ export async function fetchDocuments(
     protocolo_procedimento: protocoloProcedimento,
     pagina: pagina.toString(),
     quantidade: quantidade.toString(),
-    sinal_geracao: 'N',
-    sinal_assinaturas: 'N',
-    sinal_publicacao: 'N',
-    sinal_campos: 'N',
-    sinal_completo: 'N'
+    sinal_completo: 'S'
   });
 
   const url = `${SEI_API_BASE_URL}/unidades/${unidadeId}/procedimentos/documentos?${queryParams.toString()}`;

@@ -16,7 +16,7 @@ import React, { useState, useEffect } from 'react';
 import { formatDisplayDate } from '@/lib/process-flow-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, CheckCircle, User, Briefcase, CalendarClock, FileText, Sparkles, Layers, Loader2, ExternalLink } from 'lucide-react';
+import { AlertCircle, CheckCircle, User, Briefcase, CalendarClock, FileText, Sparkles, Layers, Loader2, ExternalLink, PenTool, TriangleAlert } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 interface TaskDetailsModalProps {
@@ -287,7 +287,42 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
                           Abrir
                         </Button>
                       </div>
-                      
+
+                      {/* Signature status for Serie 11 (Oficio) documents */}
+                      {matchedDocument.Serie.IdSerie === '11' && (
+                        <div className="mt-3 pt-3 border-t border-blue-200">
+                          {(!matchedDocument.Assinaturas || matchedDocument.Assinaturas.length === 0) ? (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-50 border border-amber-200">
+                              <TriangleAlert className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                              <span className="text-sm font-medium text-amber-800">Sem assinatura</span>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <PenTool className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                <span className="text-sm font-medium text-green-800">
+                                  {matchedDocument.Assinaturas.length === 1 ? '1 assinatura' : `${matchedDocument.Assinaturas.length} assinaturas`}
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                {matchedDocument.Assinaturas.map((assinatura, idx) => (
+                                  <div key={idx} className="flex items-start gap-2 pl-6 text-sm text-muted-foreground">
+                                    <User className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-green-600" />
+                                    <div>
+                                      <span className="font-medium text-foreground">{assinatura.Nome}</span>
+                                      {assinatura.CargoFuncao && (
+                                        <span className="text-xs ml-1">({assinatura.CargoFuncao})</span>
+                                      )}
+                                      <div className="text-xs">{assinatura.DataHora}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Botão e resumo do documento */}
                       <div className="mt-3 pt-3 border-t border-blue-200">
                         <Button

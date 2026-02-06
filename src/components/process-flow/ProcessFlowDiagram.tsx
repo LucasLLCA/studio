@@ -6,7 +6,7 @@ import { TaskNode } from './TaskNode';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils'; 
+import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils';
 import { ProcessTimelineBar } from './ProcessTimelineBar';
 
 interface ProcessFlowDiagramProps {
@@ -132,22 +132,22 @@ export function ProcessFlowDiagram({
     if (!openUnitsInProcess || openUnitsInProcess.length === 0) return false;
     return openUnitsInProcess.some(unit => unit.Unidade.Sigla === sigla);
   };
-  
+
   // Função para quebrar texto longo em múltiplas linhas
   const breakLongText = (text: string, maxLength: number = 12): string[] => {
     if (text.length <= maxLength) return [text];
-    
+
     // Primeiro, tentar quebrar por '/' para preservar identificação das siglas
     if (text.includes('/')) {
       const parts = text.split('/');
       const lines: string[] = [];
       let currentLine = '';
-      
+
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
         const separator = i === 0 ? '' : '/';
         const newContent = currentLine + separator + part;
-        
+
         if (newContent.length <= maxLength || currentLine === '') {
           currentLine = newContent;
         } else {
@@ -155,9 +155,9 @@ export function ProcessFlowDiagram({
           currentLine = separator + part;
         }
       }
-      
+
       if (currentLine) lines.push(currentLine);
-      
+
       // Verificar se alguma linha ainda está muito longa
       return lines.flatMap(line => {
         if (line.length <= maxLength) return line;
@@ -165,7 +165,7 @@ export function ProcessFlowDiagram({
         const words = line.split(/[\s-]/);
         const subLines: string[] = [];
         let subLine = '';
-        
+
         for (const word of words) {
           if (subLine.length + word.length + 1 <= maxLength || subLine === '') {
             subLine += (subLine && !subLine.endsWith('/') ? ' ' : '') + word;
@@ -174,17 +174,17 @@ export function ProcessFlowDiagram({
             subLine = word;
           }
         }
-        
+
         if (subLine) subLines.push(subLine);
         return subLines.length > 0 ? subLines : [line];
       });
     }
-    
+
     // Fallback: quebrar por espaços/hífens como antes
     const words = text.split(/[\s-]/);
     const lines: string[] = [];
     let currentLine = '';
-    
+
     for (const word of words) {
       if (currentLine.length + word.length + 1 <= maxLength) {
         currentLine += (currentLine ? ' ' : '') + word;
@@ -193,9 +193,9 @@ export function ProcessFlowDiagram({
         currentLine = word;
       }
     }
-    
+
     if (currentLine) lines.push(currentLine);
-    
+
     // Se ainda estiver muito longo, força quebra por caracteres
     return lines.flatMap(line => {
       if (line.length <= maxLength) return line;
@@ -205,7 +205,7 @@ export function ProcessFlowDiagram({
       }
       return chunks;
     });
-  }; 
+  };
 
   useEffect(() => {
     if (taskToScrollTo && viewportRef.current) {
@@ -237,20 +237,20 @@ export function ProcessFlowDiagram({
     const sRadius = s.nodeRadius || 18;
     const tRadius = t.nodeRadius || 18;
 
-    if (s.Unidade.IdUnidade !== t.Unidade.IdUnidade) { 
-      const startX = s.x; 
+    if (s.Unidade.IdUnidade !== t.Unidade.IdUnidade) {
+      const startX = s.x;
       const startY = s.y;
-      const endX = t.x;   
+      const endX = t.x;
       const endY = t.y;
-      
+
       const dx = endX - startX;
-      const controlX1 = startX + dx * 0.5; 
-      const controlY1 = startY;             
-      const controlX2 = endX - dx * 0.5;   
-      const controlY2 = endY;               
+      const controlX1 = startX + dx * 0.5;
+      const controlY1 = startY;
+      const controlX2 = endX - dx * 0.5;
+      const controlY2 = endY;
 
       return `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
-    } else { 
+    } else {
       const sourceXEdge = s.x < t.x ? s.x + sRadius : s.x - sRadius;
       const targetXEdge = s.x < t.x ? t.x - tRadius : t.x + tRadius;
       return `M ${sourceXEdge} ${s.y} L ${targetXEdge} ${t.y}`;
@@ -260,13 +260,13 @@ export function ProcessFlowDiagram({
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     const target = e.target as HTMLElement;
     const targetTagName = target.tagName.toLowerCase();
-    
+
     // Não interceptar cliques em elementos interativos (nodos clicáveis)
-    const isInteractiveElement = target.closest('.cursor-pointer') || 
-                                target.classList.contains('cursor-pointer');
-    
-    if (viewportRef.current && e.button === 0 && !isInteractiveElement && 
-        (targetTagName === 'svg' || target.dataset.diagramRoot)) { 
+    const isInteractiveElement = target.closest('.cursor-pointer') ||
+      target.classList.contains('cursor-pointer');
+
+    if (viewportRef.current && e.button === 0 && !isInteractiveElement &&
+      (targetTagName === 'svg' || target.dataset.diagramRoot)) {
       setIsDragging(true);
       setDragStart({
         x: e.clientX,
@@ -280,7 +280,7 @@ export function ProcessFlowDiagram({
         const diagramRoot = viewportRef.current?.querySelector('[data-diagram-root]') as HTMLElement | null;
         if (diagramRoot) diagramRoot.style.cursor = 'grabbing';
       }
-      e.preventDefault(); 
+      e.preventDefault();
     }
   };
 
@@ -388,7 +388,7 @@ export function ProcessFlowDiagram({
         : "Nenhum andamento para exibir."}
     </p>;
   }
-  
+
   const TOP_PADDING = 30; // Space for the top date labels
   const TIMELINE_HEIGHT = 50; // Height of the timeline bar itself
   const BOTTOM_PADDING = 30; // Space for dates below the timeline
@@ -398,16 +398,16 @@ export function ProcessFlowDiagram({
     <div className="h-full flex flex-col w-full relative">
       {/* Horizontal Timeline Bar - Original position */}
       <div
-         ref={timelineContainerRef}
-         style={{
-            width: '100%',
-            height: `${TOTAL_TIMELINE_HEIGHT}px`,
-            backgroundColor: 'hsl(var(--card))',
-            borderBottom: '1px solid hsl(var(--border))',
-            boxSizing: 'border-box',
-            flexShrink: 0,
-            overflow: 'hidden',
-         }}
+        ref={timelineContainerRef}
+        style={{
+          width: '100%',
+          height: `${TOTAL_TIMELINE_HEIGHT}px`,
+          backgroundColor: 'hsl(var(--card))',
+          borderBottom: '1px solid hsl(var(--border))',
+          boxSizing: 'border-box',
+          flexShrink: 0,
+          overflow: 'hidden',
+        }}
       >
         <div
           style={{
@@ -505,9 +505,8 @@ export function ProcessFlowDiagram({
                 return (
                   <div
                     key={`lane-label-${sigla}`}
-                    className={`flex items-center pl-4 pr-2 text-sm font-semibold ${
-                      unitIsOpen ? 'text-red-600' : 'text-muted-foreground'
-                    }`}
+                    className={`flex items-center pl-4 pr-2 text-sm font-semibold ${unitIsOpen ? 'text-red-600' : 'text-muted-foreground'
+                      }`}
                     style={{
                       position: 'absolute',
                       top: `${yPos - (VERTICAL_LANE_SPACING / 2)}px`,
@@ -537,7 +536,7 @@ export function ProcessFlowDiagram({
               width={svgWidth}
               height={svgHeight}
               xmlns="http://www.w3.org/2000/svg"
-              className="bg-background"
+              className=""
               style={{
                 position: 'absolute',
                 left: `${LANE_LABEL_AREA_WIDTH}px`,
@@ -545,61 +544,62 @@ export function ProcessFlowDiagram({
                 display: 'block',
               }}
             >
-            <defs>
-              <marker
-                id="arrowhead"
-                markerWidth="10"
-                markerHeight="7"
-                refX="9" 
-                refY="3.5"
-                orient="auto-start-reverse" 
-                markerUnits="strokeWidth"
-              >
-                <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--muted-foreground))" />
-              </marker>
-            </defs>
+              <defs>
+                <marker
+                  id="arrowhead"
+                  markerWidth="10"
+                  markerHeight="7"
+                  refX="9"
+                  refY="3.5"
+                  orient="auto-start-reverse"
+                  markerUnits="strokeWidth"
+                >
+                  <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--muted-foreground))" />
+                </marker>
+              </defs>
 
-            {/* Linhas divisórias entre raias */}
-            {laneEntries.map(([sigla, yPos], index) => {
-              // Não desenhar linha após a última raia
-              if (index === laneEntries.length - 1) return null;
+              {/* Linhas divisórias entre raias */}
+              {laneEntries.map(([sigla, yPos], index) => {
+                // Não desenhar linha após a última raia
+                if (index === laneEntries.length - 1) return null;
 
-              const nextYPos = laneEntries[index + 1][1];
-              const lineY = yPos + (nextYPos - yPos) / 2;
-              
-              return (
-                <line
-                  key={`lane-divider-${sigla}`}
-                  x1="0"
-                  y1={lineY}
-                  x2={svgWidth}
-                  y2={lineY}
-                  stroke="hsl(var(--border))"
-                  strokeWidth="1"
-                  opacity="0.3"
+                const nextYPos = laneEntries[index + 1][1];
+                const lineY = yPos + (nextYPos - yPos) / 2;
+
+                return (
+                  <line
+                    key={`lane-divider-${sigla}`}
+                    x1="0"
+                    y1={lineY}
+                    x2={svgWidth}
+                    y2={lineY}
+                    stroke="hsl(var(--border))"
+                    strokeWidth="1"
+                    opacity="0.3"
+                  />
+                );
+              })}
+
+              {filteredConnections.map((conn) => (
+                <path
+                  key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}-${conn.sourceTask.globalSequence}-${conn.targetTask.globalSequence}`}
+                  d={getPathDefinition(conn)}
+                  stroke="hsl(var(--muted-foreground))"
+                  strokeWidth="2"
+                  fill="none"
+                  markerEnd="url(#arrowhead)"
                 />
-              );
-            })}
+              ))}
 
-            {filteredConnections.map((conn) => (
-              <path
-                key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}-${conn.sourceTask.globalSequence}-${conn.targetTask.globalSequence}`}
-                d={getPathDefinition(conn)}
-                stroke="hsl(var(--muted-foreground))"
-                strokeWidth="2"
-                fill="none"
-                markerEnd="url(#arrowhead)"
-              />
-            ))}
-
-            {repositionedTasks.map((task) => (
-              <TaskNode
-                key={`${task.IdAndamento}-${task.globalSequence}`}
-                task={task}
-                onTaskClick={handleTaskClick}
-              />
-            ))}
-          </svg>
+              {repositionedTasks.map((task) => (
+                <TaskNode
+                  key={`${task.IdAndamento}-${task.globalSequence}`}
+                  task={task}
+                  onTaskClick={handleTaskClick}
+                  documents={documents}
+                />
+              ))}
+            </svg>
           </div>
         </div>
         <ScrollBar orientation="horizontal" />
