@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, LogOut, Activity, Newspaper, Info, Clock, HelpCircle, Home as HomeIcon, Folder, Share2, Zap } from 'lucide-react';
+import { Search, LogOut, Activity, Newspaper, Info, Clock, HelpCircle, Home as HomeIcon, Zap } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -112,7 +112,7 @@ export default function Home() {
   const inputRef = React.createRef<HTMLInputElement>();
 
   return (
-    <div className="flex flex-col min-h-screen bg-background w-full">
+    <div className="flex flex-col min-h-screen bg-gray-100 w-full">
       {/* Barra de controles no topo */}
       <div className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
@@ -150,77 +150,74 @@ export default function Home() {
 
       <ApiHealthCheck />
 
-      <main className="flex-1 flex flex-col overflow-y-auto w-full">
-        <div className="flex flex-col min-h-screen">
-          {/* Conteúdo principal */}
-          <div className="flex-1 p-8">
-            <div className="max-w-6xl mx-auto">
-              {/* Greeting */}
-              <div className="mb-8 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gray-300"></div>
-                <div>
-                  <p className="text-gray-700">Olá, <span className="font-semibold">{userName}</span></p>
-                </div>
+      <main className="flex-1 flex flex-col w-full">
+        {/* Conteúdo principal */}
+        <div className="flex-1 p-8">
+          <div className="max-w-6xl mx-auto">
+            {/* Greeting */}
+            <div className="mb-8 flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gray-300"></div>
+              <div>
+                <p className="text-gray-700">Olá, <span className="font-semibold">{userName}</span></p>
               </div>
+            </div>
 
-              {/* Título principal */}
-              <h1 className="text-3xl font-bold mb-8" style={{ color: '#4CAF50' }}>
-                O que analisaremos juntos ?
-              </h1>
+            {/* Título principal */}
+            <h1 className="text-3xl font-bold mb-8" style={{ color: '#4CAF50' }}>
+              O que analisaremos juntos ?
+            </h1>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                {/* Cards de categorias */}
-                <CategoryCard icon={<Clock className="w-8 h-8" />} title="Últimas pesquisas" onClick={() => setIsSidebarOpen(true)} />
-                <CategoryCard icon={<Folder className="w-8 h-8" />} title="Meu Espaço" />
-                <CategoryCard icon={<Share2 className="w-8 h-8" />} title="Compartilhados comigo" />
-                <CategoryCard icon={<Zap className="w-8 h-8" />} title="Painéis de Inteligência" onClick={() => setIsIntelligencePanelsSidebarOpen(true)} />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+              {/* Cards de categorias */}
+              <CategoryCard icon={<Clock className="w-8 h-8" />} title="Últimas pesquisas" onClick={() => setIsSidebarOpen(true)} />
+              <CategoryCard icon={<Zap className="w-8 h-8" />} title="Painéis de Inteligência" onClick={() => setIsIntelligencePanelsSidebarOpen(true)} />
+            </div>
 
-              {/* Barra de pesquisa */}
-              <div className="w-full space-y-4">
-                <div className="relative max-w-2xl">
-                  <Input
-                    type="text"
-                    placeholder="Digite o número do processo..."
-                    className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
-                    value={processoNumeroInput}
-                    onChange={(e) => setProcessoNumeroInput(e.target.value)}
-                    disabled={!mounted || !isAuthenticated}
-                    ref={inputRef}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && isAuthenticated && processoNumeroInput) {
-                        handleSearchClick();
-                      }
-                    }}
-                  />
-                  <Button
-                    onClick={() => handleSearchClick()}
-                    disabled={!mounted || !isAuthenticated || !processoNumeroInput}
-                    className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
-                  >
-                    <Search className="h-5 w-5" />
-                  </Button>
-                </div>
+            {/* Barra de pesquisa */}
+            <div className="w-full space-y-4">
+              <div className="relative max-w-2xl">
+                <Input
+                  type="text"
+                  placeholder="Digite o número do processo..."
+                  className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
+                  value={processoNumeroInput}
+                  onChange={(e) => setProcessoNumeroInput(e.target.value)}
+                  disabled={!mounted || !isAuthenticated}
+                  ref={inputRef}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && isAuthenticated && processoNumeroInput) {
+                      handleSearchClick();
+                    }
+                  }}
+                />
+                <Button
+                  onClick={() => handleSearchClick()}
+                  disabled={!mounted || !isAuthenticated || !processoNumeroInput}
+                  className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
+                >
+                  <Search className="h-5 w-5" />
+                </Button>
               </div>
             </div>
           </div>
-
-          {/* Footer */}
-          <footer className="bg-gray-50 border-t border-gray-200 py-8 px-8">
-            <div className="max-w-6xl mx-auto">
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex items-center gap-6">
-                  <Image src="/logo-sead.png" alt="Logo SEAD" width={120} height={50} />
-                </div>
-                <div className="text-center text-sm text-gray-600">
-                  <p>Desenvolvido pelo Núcleo Estratégico de Tecnologia e Governo Digital</p>
-                  <p>SEAD/NTGD • Secretaria de Administração do Piauí</p>
-                  <p>© 2026 Governo do Estado do Piauí</p>
-                </div>
-              </div>
-            </div>
-          </footer>
         </div>
+
+        {/* Footer */}
+        <footer className="bg-gray-100 border-t border-gray-300 py-12 px-8 mt-auto">
+          <div className="flex flex-col items-center gap-8 max-w-6xl mx-auto">
+            {/* Logo */}
+            <div className="flex items-center justify-center">
+              <Image src="/logo-sead.png" alt="Logo SEAD" width={120} height={50} priority />
+            </div>
+
+            {/* Texto */}
+            <div className="text-center text-xs text-gray-600 max-w-2xl">
+              <p className="font-semibold mb-1">Desenvolvido pelo Núcleo Estratégico de Tecnologia e Governo Digital</p>
+              <p className="mb-1">SEAD/NTGD • Secretaria de Administração do Piauí</p>
+              <p>© 2026 Governo do Estado do Piauí</p>
+            </div>
+          </div>
+        </footer>
       </main>
 
 
