@@ -364,7 +364,7 @@ export default function Home() {
       <Dialog open={isInfoModalOpen} onOpenChange={setIsInfoModalOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center text-blue-600">
+            <DialogTitle className="flex items-center text-emerald-600">
               <Newspaper className="mr-2 h-5 w-5" />
               Informações do Sistema
             </DialogTitle>
@@ -373,36 +373,24 @@ export default function Home() {
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-4">
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="p-4">
               <div className="flex items-start space-x-3">
-                <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <Info className="h-5 w-5 mt-0.5 flex-shrink-0" />
                 <div>
-                  <h4 className="font-semibold text-blue-900 mb-1">Arquivos Suportados</h4>
-                  <p className="text-sm text-blue-700">
-                    Nesta fase atual o sistema consegue ler e processar apenas arquivos gerados internamente pelo SEI.
+                  <h4 className="font-semibold mb-1">Arquivos Suportados</h4>
+                  <p className="text-sm">
+                    Nesta fase atual o sistema consegue ler e processar apenas arquivos gerados internamente pelo SEI e PDFs
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="p-4">
               <div className="flex items-start space-x-3">
-                <Clock className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <HelpCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
                 <div>
-                  <h4 className="font-semibold text-yellow-900 mb-1">Documentos PDF</h4>
-                  <p className="text-sm text-yellow-700">
-                    Documentos PDFs ainda não são processados e está no cronograma de desenvolvimento.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <HelpCircle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h4 className="font-semibold text-orange-900 mb-1">Problema Conhecido</h4>
-                  <p className="text-sm text-orange-700">
+                  <h4 className="font-semibold mb-1">Problema Conhecido</h4>
+                  <p className="text-sm">
                     Alguns processos com grande volume de andamentos {'>'}500 podem apresentar lentidão na renderização do gráfico. Recomenda-se usar a opção "Resumido" para melhor desempenho.
                   </p>
                 </div>
