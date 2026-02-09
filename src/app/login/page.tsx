@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { loginToSEI, decryptSEICredentials, clearSEICredentialsCookie } from '../sei-actions';
+import { loginToSEI, decryptSEICredentials, decryptJWEToken, clearSEICredentialsCookie } from '../sei-actions';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -64,13 +64,25 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, router]);
 
-  // Auto-login via SEI_CREDENTIALS cookie (JWE token)
+  // Auto-login via URL token param OR SEI_CREDENTIALS cookie (JWE token)
   useEffect(() => {
     let cancelled = false;
 
     async function attemptAutoLogin() {
       try {
-        const credentials = await decryptSEICredentials();
+        // 1. Check for JWE token in URL query param (e.g., /login?token=<JWE>)
+        const urlToken = searchParams.get('token');
+        let credentials = null;
+
+        if (urlToken) {
+          credentials = await decryptJWEToken(urlToken);
+        }
+
+        // 2. Fall back to SEI_CREDENTIALS cookie
+        if (!credentials) {
+          credentials = await decryptSEICredentials();
+        }
+
         if (cancelled) return;
 
         if (!credentials) {
@@ -100,7 +112,7 @@ export default function LoginPage() {
 
     attemptAutoLogin();
     return () => { cancelled = true; };
-  }, []);
+  }, [searchParams]);
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);

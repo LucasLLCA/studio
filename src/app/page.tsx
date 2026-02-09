@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +43,7 @@ function FeatureCard({ icon, title, subtitle }: FeatureCardProps) {
 export default function Home() {
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const {
     isAuthenticated,
@@ -72,11 +73,13 @@ export default function Home() {
   useEffect(() => {
     if (mounted && !isAuthenticated) {
       const timer = setTimeout(() => {
-        router.push('/login');
+        // Preserve token query param so /login can auto-login with it
+        const token = searchParams.get('token');
+        router.push(token ? `/login?token=${encodeURIComponent(token)}` : '/login');
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [mounted, isAuthenticated, router]);
+  }, [mounted, isAuthenticated, router, searchParams]);
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -153,10 +156,10 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-2 flex-grow">
             {mounted && isAuthenticated && (
               <>
-                <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-800 shadow-sm mr-1">
+                <span className="inline-flex items-center px-3 py-1 text-xl font-bold text-emerald-600 mr-1">
                   Visualizador de Processos
                 </span>
-                <Button variant="outline" size="sm" onClick={() => router.push('/')} title="Página Inicial">
+                <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/')} title="Página Inicial">
                   <HomeIcon className="mr-2 h-4 w-4" />
                   Início
                 </Button>
@@ -164,14 +167,14 @@ export default function Home() {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Button variant="outline" size="sm" onClick={() => setIsInfoModalOpen(true)} title="Informações do Sistema">
+            <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => setIsInfoModalOpen(true)} title="Informações do Sistema">
               <Newspaper className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setIsApiStatusModalOpen(true)} title="Status das APIs">
+            <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => setIsApiStatusModalOpen(true)} title="Status das APIs">
               <Activity className="h-4 w-4" />
             </Button>
             {mounted && isAuthenticated && (
-              <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Sair </Button>
+              <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Sair </Button>
             )}
           </div>
         </div>
@@ -182,17 +185,19 @@ export default function Home() {
       <main className="flex-1 flex flex-col justify-between w-full bg-gray-100">
         <div className="flex-1 p-8">
           <div className="max-w-6xl mx-auto">
-            <div className="mb-3">
-              <p className="text-gray-700">Olá, <span className="font-semibold">{mounted ? (nomeUsuario || 'Usuário') : 'Usuário'}</span></p>
+            <div className="mb-1">
+              <p className="text-gray-700">Olá,
+                <span className="font-semibold">{mounted ? (nomeUsuario || 'Usuário') : 'Usuário'}</span>
+              </p>
             </div>
 
-            <h1 className="text-3xl font-bold mb-3 text-emerald-600">
+            <h1 className="text-3xl font-bold text-emerald-600">
               O que analisaremos juntos ?
             </h1>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10 items-start">
-              <section className="xl:pt-12">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10 items-start mt-4 xl:mt-8">
+              <section className="">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <FeatureCard
                     icon={<GanttChartSquare className="w-8 h-8" />}
                     title="Análise de processos"
@@ -216,7 +221,7 @@ export default function Home() {
                 </div>
 
                 <div className="w-full">
-                  <div className="relative max-w-2xl">
+                  <div className="relative">
                     <Input
                       type="text"
                       placeholder="Digite o número do processo..."
@@ -257,68 +262,68 @@ export default function Home() {
                     </TabsList>
                   </div>
                   <div className="bg-white border border-gray-300 rounded-lg p-4 min-h-[360px]">
-                  <TabsContent value="historico" className="mt-0">
-                    <ScrollArea className="h-[330px] pr-2">
-                      {isHistoryLoading ? (
-                        <div className="h-full flex items-center justify-center text-gray-500">
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        </div>
-                      ) : history.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-sm text-gray-500">
-                          Nenhuma pesquisa encontrada no histórico.
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {history.map((item) => (
-                            <button
-                              key={item.id}
-                              onClick={() => handleSearchClick(item.numero_processo)}
-                              className="w-full text-left p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
-                            >
-                              <p className="font-medium text-gray-800">{formatHistoryProcessNumber(item.numero_processo)}</p>
-                              {item.caixa_contexto && (
-                                <p className="text-xs text-gray-600 mt-1 whitespace-nowrap overflow-hidden text-ellipsis" title={item.caixa_contexto}>
-                                  {item.caixa_contexto}
-                                </p>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </ScrollArea>
-                  </TabsContent>
-
-                  <TabsContent value="espaco" className="mt-0">
-                    <div className="h-[330px] flex items-center justify-center text-sm text-gray-500 border border-dashed rounded-md">
-                      Listagem do Meu Espaço em breve.
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="compartilhados" className="mt-0">
-                    <div className="h-[330px] flex items-center justify-center text-sm text-gray-500 border border-dashed rounded-md">
-                      Listagem de compartilhados em breve.
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="paineis" className="mt-0">
-                    <div className="h-[330px] overflow-y-auto space-y-2 pr-2">
-                      {intelligencePanels.map((panel) => (
-                        <button
-                          key={panel.id}
-                          onClick={() => window.open(panel.url, '_blank', 'noopener,noreferrer')}
-                          className="w-full text-left p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-medium text-gray-800">{panel.titulo}</p>
-                              <p className="text-xs text-gray-600 mt-1">{panel.subtitulo}</p>
-                            </div>
-                            <ExternalLink className="h-4 w-4 text-gray-500 mt-0.5" />
+                    <TabsContent value="historico" className="mt-0">
+                      <ScrollArea className="h-[330px] pr-2">
+                        {isHistoryLoading ? (
+                          <div className="h-full flex items-center justify-center text-gray-500">
+                            <Loader2 className="h-5 w-5 animate-spin" />
                           </div>
-                        </button>
-                      ))}
-                    </div>
-                  </TabsContent>
+                        ) : history.length === 0 ? (
+                          <div className="h-full flex items-center justify-center text-sm text-gray-500">
+                            Nenhuma pesquisa encontrada no histórico.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {history.map((item) => (
+                              <button
+                                key={item.id}
+                                onClick={() => handleSearchClick(item.numero_processo)}
+                                className="w-full text-left p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+                              >
+                                <p className="font-medium text-gray-800">{formatHistoryProcessNumber(item.numero_processo)}</p>
+                                {item.caixa_contexto && (
+                                  <p className="text-xs text-gray-600 mt-1 whitespace-nowrap overflow-hidden text-ellipsis" title={item.caixa_contexto}>
+                                    {item.caixa_contexto}
+                                  </p>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </TabsContent>
+
+                    <TabsContent value="espaco" className="mt-0">
+                      <div className="h-[330px] flex items-center justify-center text-sm text-gray-500 border border-dashed rounded-md">
+                        Listagem do Meu Espaço em breve.
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="compartilhados" className="mt-0">
+                      <div className="h-[330px] flex items-center justify-center text-sm text-gray-500 border border-dashed rounded-md">
+                        Listagem de compartilhados em breve.
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="paineis" className="mt-0">
+                      <div className="h-[330px] overflow-y-auto space-y-2 pr-2">
+                        {intelligencePanels.map((panel) => (
+                          <button
+                            key={panel.id}
+                            onClick={() => window.open(panel.url, '_blank', 'noopener,noreferrer')}
+                            className="w-full text-left p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-medium text-gray-800">{panel.titulo}</p>
+                                <p className="text-xs text-gray-600 mt-1">{panel.subtitulo}</p>
+                              </div>
+                              <ExternalLink className="h-4 w-4 text-gray-500 mt-0.5" />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </TabsContent>
                   </div>
                 </Tabs>
               </section>
@@ -334,7 +339,6 @@ export default function Home() {
                 alt="Logo SoberanIA"
                 className="h-10 w-auto object-contain"
               />
-              <Image src="/logo-sead.png" alt="Logo SEAD/PI" width={90} height={52} priority />
               <img
                 src="/logo-governo-piaui.svg"
                 alt="Logo Governo do Piauí"

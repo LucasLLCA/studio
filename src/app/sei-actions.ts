@@ -274,6 +274,43 @@ export async function decryptSEICredentials(): Promise<LoginCredentials | null> 
 }
 
 /**
+ * Decrypts a raw JWE token string (from URL query param) into LoginCredentials.
+ * Unlike decryptSEICredentials(), this does NOT read from a cookie.
+ */
+export async function decryptJWEToken(jweToken: string): Promise<LoginCredentials | null> {
+  try {
+    const jweSecret = process.env.JWE_SECRET_KEY;
+    if (!jweSecret) {
+      console.error('[decryptJWEToken] JWE_SECRET_KEY not configured');
+      return null;
+    }
+
+    const keyBytes = Uint8Array.from(atob(jweSecret.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    if (keyBytes.length !== 32) {
+      console.error('[decryptJWEToken] JWE_SECRET_KEY must be 32 bytes');
+      return null;
+    }
+
+    const { plaintext } = await compactDecrypt(jweToken, keyBytes);
+    const payload = JSON.parse(new TextDecoder().decode(plaintext));
+
+    if (!payload.email || !payload.password || !payload.orgao) {
+      console.error('[decryptJWEToken] Invalid payload structure');
+      return null;
+    }
+
+    return {
+      usuario: payload.email,
+      senha: payload.password,
+      orgao: payload.orgao,
+    };
+  } catch (error) {
+    console.error('[decryptJWEToken] Failed to decrypt token:', error);
+    return null;
+  }
+}
+
+/**
  * Clears the SEI_CREDENTIALS cookie after auto-login.
  */
 export async function clearSEICredentialsCookie(): Promise<void> {
