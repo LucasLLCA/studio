@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { loginToSEI } from '../sei-actions';
+import { loginToSEI, decryptSEICredentials, clearSEICredentialsCookie } from '../sei-actions';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -29,6 +29,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isAutoLogging, setIsAutoLogging] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
   
@@ -62,6 +63,43 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, router]);
 
+  // Auto-login via SEI_CREDENTIALS cookie (JWE token)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function attemptAutoLogin() {
+      try {
+        const credentials = await decryptSEICredentials();
+        if (cancelled) return;
+
+        if (!credentials) {
+          setIsAutoLogging(false);
+          return;
+        }
+
+        const response = await loginToSEI(credentials);
+        if (cancelled) return;
+
+        if (response.success && response.token) {
+          const unidadesRecebidas = response.unidades || [];
+          const idUnidadeAtual = response.idUnidadeAtual;
+
+          persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, credentials.orgao, credentials.usuario);
+          await clearSEICredentialsCookie();
+          router.push('/');
+          return;
+        }
+
+        // Login failed, fall back to manual form
+        setIsAutoLogging(false);
+      } catch {
+        if (!cancelled) setIsAutoLogging(false);
+      }
+    }
+
+    attemptAutoLogin();
+    return () => { cancelled = true; };
+  }, []);
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
@@ -233,10 +271,22 @@ export default function LoginPage() {
       `}</style>
       
       <div className="login-screen" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
+        {isAutoLogging ? (
+          <div className="login-card" style={{ textAlign: 'center' }}>
+            <div className="logo">
+              <h1>Login SEI</h1>
+              <p>Visualizador de Processos</p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '40px 0' }}>
+              <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#3b82f6' }} />
+              <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>Realizando login automaticamente...</p>
+            </div>
+          </div>
+        ) : (
         <div className="login-card">
           <div className="logo">
             <div className="logo-image">
-              <div 
+              <div
                 style={{ display: 'block', margin: '0 auto', width: '300px', height: '75px' }}
                 dangerouslySetInnerHTML={{
                   __html: `
@@ -373,7 +423,8 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
-        
+        )}
+
       </div>
     </>
   );

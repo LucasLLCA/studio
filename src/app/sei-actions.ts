@@ -40,6 +40,9 @@ import {
   mockHealthCheck,
 } from '@/lib/mock-data';
 
+import { cookies } from 'next/headers';
+import { compactDecrypt } from 'jose';
+
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_DATA === 'true';
 
 
@@ -225,4 +228,55 @@ export async function checkSEIApiHealth(): Promise<HealthCheckResponse> {
 export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
   if (MOCK_MODE) return mockHealthCheck();
   return checkSummaryApiHealthImpl();
+}
+
+/**
+ * Decrypts SEI credentials from the SEI_CREDENTIALS cookie (JWE token).
+ * Returns LoginCredentials if valid, null otherwise.
+ */
+export async function decryptSEICredentials(): Promise<LoginCredentials | null> {
+  try {
+    const cookieStore = await cookies();
+    const cookie = cookieStore.get('SEI_CREDENTIALS');
+    if (!cookie?.value) return null;
+
+    const jweSecret = process.env.JWE_SECRET_KEY;
+    if (!jweSecret) {
+      console.error('[decryptSEICredentials] JWE_SECRET_KEY not configured');
+      return null;
+    }
+
+    // Decode the base64url-encoded 256-bit key
+    const keyBytes = Uint8Array.from(atob(jweSecret.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    if (keyBytes.length !== 32) {
+      console.error('[decryptSEICredentials] JWE_SECRET_KEY must be 32 bytes');
+      return null;
+    }
+
+    const { plaintext } = await compactDecrypt(cookie.value, keyBytes);
+    const payload = JSON.parse(new TextDecoder().decode(plaintext));
+
+    // Map JWE payload fields (email/password) to LoginCredentials fields (usuario/senha)
+    if (!payload.email || !payload.password || !payload.orgao) {
+      console.error('[decryptSEICredentials] Invalid payload structure');
+      return null;
+    }
+
+    return {
+      usuario: payload.email,
+      senha: payload.password,
+      orgao: payload.orgao,
+    };
+  } catch (error) {
+    console.error('[decryptSEICredentials] Failed to decrypt credentials:', error);
+    return null;
+  }
+}
+
+/**
+ * Clears the SEI_CREDENTIALS cookie after auto-login.
+ */
+export async function clearSEICredentialsCookie(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete('SEI_CREDENTIALS');
 }
