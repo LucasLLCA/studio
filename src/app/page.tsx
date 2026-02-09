@@ -156,22 +156,24 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-2 flex-grow">
             {mounted && isAuthenticated && (
               <>
-                <span className="inline-flex items-center px-3 py-1 text-xl font-bold text-emerald-600 mr-1">
+                <Button variant="ghost" className="inline-flex items-center px-3 py-1 text-xl font-bold text-emerald-600 mr-1" onClick={() => router.push('/')}>
                   Visualizador de Processos
-                </span>
-                <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/')} title="Página Inicial">
-                  <HomeIcon className="mr-2 h-4 w-4" />
-                  Início
                 </Button>
               </>
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/')} title="Página Inicial">
+              <HomeIcon className="mr-2 h-4 w-4" />
+              Início
+            </Button>
             <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => setIsInfoModalOpen(true)} title="Informações do Sistema">
               <Newspaper className="h-4 w-4" />
+              Noticias
             </Button>
             <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => setIsApiStatusModalOpen(true)} title="Status das APIs">
               <Activity className="h-4 w-4" />
+              Saúde das APIs
             </Button>
             {mounted && isAuthenticated && (
               <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Sair </Button>
@@ -182,12 +184,11 @@ export default function Home() {
 
       <ApiHealthCheck />
 
-      <main className="flex-1 flex flex-col justify-between w-full bg-gray-100">
-        <div className="flex-1 p-8">
+      <main className="flex flex-1 flex-col w-full bg-gray-100">
+        <div className="flex flex-1 items-center justify-center p-8">
           <div className="max-w-6xl mx-auto">
             <div className="mb-1">
-              <p className="text-gray-700">Olá,
-                <span className="font-semibold">{mounted ? (nomeUsuario || 'Usuário') : 'Usuário'}</span>
+              <p className="text-gray-700">Olá, <span className="font-semibold">{mounted ? (nomeUsuario || 'Usuário') : 'Usuário'}</span>
               </p>
             </div>
 
