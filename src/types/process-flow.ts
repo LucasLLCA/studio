@@ -168,6 +168,7 @@ export interface ClientLoginResponse {
   success: boolean;
   token?: string;
   idUnidadeAtual?: string; // ID da unidade atual para requisições
+  nomeUsuario?: string; // Nome do usuário retornado pela API de login
   unidades?: UnidadeFiltro[]; // Uses UnidadeFiltro for consistency with Select
   error?: string;
   status?: number;

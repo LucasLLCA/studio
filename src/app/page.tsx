@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, LogOut, Activity, Newspaper, Info, Clock, HelpCircle, Home as HomeIcon, Zap } from 'lucide-react';
+import { Search, LogOut, Activity, Newspaper, Info, Clock, HelpCircle, Home as HomeIcon, Brain, Share2, FileSignature, Loader2, ExternalLink, Lock, GanttChartSquare } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,24 +16,26 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import ApiHealthCheck from '@/components/ApiHealthCheck';
-import { SearchHistorySidebar } from '@/components/SearchHistorySidebar';
-import { IntelligencePanelsSidebar } from '@/components/IntelligencePanelsSidebar';
+import { getSearchHistory, type HistoryItem } from '@/lib/history-api-client';
 
-interface CategoryCardProps {
+interface FeatureCardProps {
   icon: React.ReactNode;
   title: string;
-  onClick?: () => void;
+  subtitle: string;
 }
 
-function CategoryCard({ icon, title, onClick }: CategoryCardProps) {
+function FeatureCard({ icon, title, subtitle }: FeatureCardProps) {
   return (
-    <div
-      onClick={onClick}
-      className="bg-gray-200 rounded-lg p-8 h-32 flex flex-col items-start justify-between cursor-pointer hover:bg-gray-300 transition-colors"
-    >
-      <div className="text-gray-600">{icon}</div>
-      <p className="text-gray-700 font-medium">{title}</p>
+    <div className="bg-white rounded-lg p-5 min-h-36 flex flex-col gap-3 border border-emerald-200 relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />
+      <div className="text-emerald-700">{icon}</div>
+      <div className="space-y-1">
+        <p className="text-emerald-700 font-semibold leading-tight">{title}</p>
+        <p className="text-sm text-gray-600 leading-snug">{subtitle}</p>
+      </div>
     </div>
   );
 }
@@ -42,41 +44,68 @@ export default function Home() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // Hook de autenticação persistente
   const {
     isAuthenticated,
     logout: persistLogout,
+    nomeUsuario,
+    usuario,
   } = usePersistedAuth();
 
   const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
-  const [userName, setUserName] = useState<string>("Usuário");
-
   const [isApiStatusModalOpen, setIsApiStatusModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isIntelligencePanelsSidebarOpen, setIsIntelligencePanelsSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
-  // Garantir que o componente está montado no cliente
+  const formatHistoryProcessNumber = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length < 16) return value;
+    const masked = `${digits.slice(0, 5)}.${digits.slice(5, 10)}/${digits.slice(10, 14)}-${digits.slice(14, 16)}`;
+    return masked;
+  };
+
   useEffect(() => {
     setMounted(true);
-    // Obter nome do usuário do localStorage ou usar padrão
-    const storedUserName = localStorage.getItem('userName');
-    if (storedUserName) {
-      setUserName(storedUserName);
-    }
   }, []);
 
-  // Redirect to login page if not authenticated
   useEffect(() => {
     if (mounted && !isAuthenticated) {
-      console.log('[DEBUG] Usuário não autenticado - redirecionando para login');
       const timer = setTimeout(() => {
         router.push('/login');
       }, 500);
       return () => clearTimeout(timer);
     }
   }, [mounted, isAuthenticated, router]);
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!mounted || !isAuthenticated || !usuario) return;
+      setIsHistoryLoading(true);
+      try {
+        const data = await getSearchHistory(usuario, 20);
+        if ('error' in data) {
+          if (data.status === 404 || data.status === 500) {
+            setHistory([]);
+          } else {
+            toast({
+              title: "Erro ao carregar histórico",
+              description: data.error,
+              variant: "destructive",
+            });
+          }
+        } else {
+          setHistory(data);
+        }
+      } catch {
+        setHistory([]);
+      } finally {
+        setIsHistoryLoading(false);
+      }
+    };
+
+    loadHistory();
+  }, [mounted, isAuthenticated, usuario, toast]);
 
   const handleSearchClick = async (numeroProcesso?: string) => {
     const processoToSearch = numeroProcesso || processoNumeroInput;
@@ -90,20 +119,11 @@ export default function Home() {
       return;
     }
 
-    console.log('[DEBUG] Redirecionando para tela de seleção de unidade, processo:', processoToSearch);
-
-    // Codificar o número do processo para URL segura
     const encodedProcesso = encodeURIComponent(processoToSearch);
     router.push(`/processo/${encodedProcesso}`);
   };
 
-  const handleSidebarSearch = (numeroProcesso: string) => {
-    setIsSidebarOpen(false);
-    handleSearchClick(numeroProcesso);
-  };
-
   const handleLogout = () => {
-    console.log('[DEBUG] Iniciando logout...');
     persistLogout();
     toast({ title: "Logout realizado." });
     router.push('/login');
@@ -111,30 +131,39 @@ export default function Home() {
 
   const inputRef = React.createRef<HTMLInputElement>();
 
+  const intelligencePanels = [
+    {
+      id: 'autorizacao',
+      titulo: 'Acompanhamento de processos com SEAD_AUTORIZAÇÃO',
+      subtitulo: 'Painel para monitoramento de fluxos de autorização',
+      url: 'https://catalogodedados.inteligencia.sead.pi.gov.br/public/dashboard/66a52d9f-27db-4558-b779-111d53a4c861',
+    },
+    {
+      id: 'produtividade',
+      titulo: 'Acompanhamento de estoque de processos e produtividade',
+      subtitulo: 'Painel consolidado de estoque e produtividade',
+      url: 'https://painel.sead.pi.gov.br',
+    },
+  ];
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 w-full">
-      {/* Barra de controles no topo */}
       <div className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
             {mounted && isAuthenticated && (
               <>
-                <Button variant="outline" size="sm" onClick={() => setIsSidebarOpen(true)} title="Histórico de Pesquisas">
-                  Histórico de pesquisa
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setIsIntelligencePanelsSidebarOpen(true)} title="Painéis de Inteligência">
-                  Painéis de Inteligência
+                <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-800 shadow-sm mr-1">
+                  Visualizador de Processos
+                </span>
+                <Button variant="outline" size="sm" onClick={() => router.push('/')} title="Página Inicial">
+                  <HomeIcon className="mr-2 h-4 w-4" />
+                  Início
                 </Button>
               </>
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {mounted && isAuthenticated && (
-              <Button variant="outline" size="sm" onClick={() => router.push('/')} title="Página Inicial">
-                <HomeIcon className="mr-2 h-4 w-4" />
-                Início
-              </Button>
-            )}
             <Button variant="outline" size="sm" onClick={() => setIsInfoModalOpen(true)} title="Informações do Sistema">
               <Newspaper className="h-4 w-4" />
             </Button>
@@ -142,7 +171,7 @@ export default function Home() {
               <Activity className="h-4 w-4" />
             </Button>
             {mounted && isAuthenticated && (
-              <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Logout </Button>
+              <Button variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Sair </Button>
             )}
           </div>
         </div>
@@ -150,67 +179,168 @@ export default function Home() {
 
       <ApiHealthCheck />
 
-      <main className="flex-1 flex flex-col w-full">
-        {/* Conteúdo principal */}
+      <main className="flex-1 flex flex-col justify-between w-full bg-gray-100">
         <div className="flex-1 p-8">
           <div className="max-w-6xl mx-auto">
-            {/* Greeting */}
-            <div className="mb-8 flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gray-300"></div>
-              <div>
-                <p className="text-gray-700">Olá, <span className="font-semibold">{userName}</span></p>
-              </div>
+            <div className="mb-3">
+              <p className="text-gray-700">Olá, <span className="font-semibold">{mounted ? (nomeUsuario || 'Usuário') : 'Usuário'}</span></p>
             </div>
 
-            {/* Título principal */}
-            <h1 className="text-3xl font-bold mb-8" style={{ color: '#4CAF50' }}>
+            <h1 className="text-3xl font-bold mb-3 text-emerald-600">
               O que analisaremos juntos ?
             </h1>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-              {/* Cards de categorias */}
-              <CategoryCard icon={<Clock className="w-8 h-8" />} title="Últimas pesquisas" onClick={() => setIsSidebarOpen(true)} />
-              <CategoryCard icon={<Zap className="w-8 h-8" />} title="Painéis de Inteligência" onClick={() => setIsIntelligencePanelsSidebarOpen(true)} />
-            </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10 items-start">
+              <section className="xl:pt-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <FeatureCard
+                    icon={<GanttChartSquare className="w-8 h-8" />}
+                    title="Análise de processos"
+                    subtitle="Analise objetivamente com a linha do tempo"
+                  />
+                  <FeatureCard
+                    icon={<Brain className="w-8 h-8" />}
+                    title="Entendimentos"
+                    subtitle="Entendimento automatizado com SoberanIA"
+                  />
+                  <FeatureCard
+                    icon={<Share2 className="w-8 h-8" />}
+                    title="Compartilhe"
+                    subtitle="Compartilhe processos e entendimentos com outros gestores"
+                  />
+                  <FeatureCard
+                    icon={<FileSignature className="w-8 h-8" />}
+                    title="Assinaturas"
+                    subtitle="Tome ações rapidas, assine oficios"
+                  />
+                </div>
 
-            {/* Barra de pesquisa */}
-            <div className="w-full space-y-4">
-              <div className="relative max-w-2xl">
-                <Input
-                  type="text"
-                  placeholder="Digite o número do processo..."
-                  className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
-                  value={processoNumeroInput}
-                  onChange={(e) => setProcessoNumeroInput(e.target.value)}
-                  disabled={!mounted || !isAuthenticated}
-                  ref={inputRef}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && isAuthenticated && processoNumeroInput) {
-                      handleSearchClick();
-                    }
-                  }}
-                />
-                <Button
-                  onClick={() => handleSearchClick()}
-                  disabled={!mounted || !isAuthenticated || !processoNumeroInput}
-                  className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
-                >
-                  <Search className="h-5 w-5" />
-                </Button>
-              </div>
+                <div className="w-full">
+                  <div className="relative max-w-2xl">
+                    <Input
+                      type="text"
+                      placeholder="Digite o número do processo..."
+                      className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-emerald-500 shadow-lg"
+                      value={processoNumeroInput}
+                      onChange={(e) => setProcessoNumeroInput(e.target.value)}
+                      disabled={!mounted || !isAuthenticated}
+                      ref={inputRef}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && isAuthenticated && processoNumeroInput) {
+                          handleSearchClick();
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={() => handleSearchClick()}
+                      disabled={!mounted || !isAuthenticated || !processoNumeroInput}
+                      className="absolute right-2 top-2 h-10 w-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white p-0"
+                    >
+                      <Search className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <Tabs defaultValue="historico" className="w-full">
+                  <div className="mb-3">
+                    <TabsList className="w-full grid grid-cols-4 h-auto gap-1 bg-gray-100">
+                      <TabsTrigger value="historico" className="text-xs px-2 py-2 whitespace-normal leading-tight">Últimas pesquisas</TabsTrigger>
+                      <TabsTrigger value="espaco" disabled className="text-xs px-2 py-2 whitespace-normal leading-tight">
+                        <Lock className="h-3.5 w-3.5 mr-1" /> Meu Espaço
+                      </TabsTrigger>
+                      <TabsTrigger value="compartilhados" disabled className="text-xs px-2 py-2 whitespace-normal leading-tight">
+                        <Lock className="h-3.5 w-3.5 mr-1" /> Compartilhados comigo
+                      </TabsTrigger>
+                      <TabsTrigger value="paineis" className="text-xs px-2 py-2 whitespace-normal leading-tight">Painéis de Inteligência</TabsTrigger>
+                    </TabsList>
+                  </div>
+                  <div className="bg-white border border-gray-300 rounded-lg p-4 min-h-[360px]">
+                  <TabsContent value="historico" className="mt-0">
+                    <ScrollArea className="h-[330px] pr-2">
+                      {isHistoryLoading ? (
+                        <div className="h-full flex items-center justify-center text-gray-500">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        </div>
+                      ) : history.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-sm text-gray-500">
+                          Nenhuma pesquisa encontrada no histórico.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {history.map((item) => (
+                            <button
+                              key={item.id}
+                              onClick={() => handleSearchClick(item.numero_processo)}
+                              className="w-full text-left p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+                            >
+                              <p className="font-medium text-gray-800">{formatHistoryProcessNumber(item.numero_processo)}</p>
+                              {item.caixa_contexto && (
+                                <p className="text-xs text-gray-600 mt-1 whitespace-nowrap overflow-hidden text-ellipsis" title={item.caixa_contexto}>
+                                  {item.caixa_contexto}
+                                </p>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </TabsContent>
+
+                  <TabsContent value="espaco" className="mt-0">
+                    <div className="h-[330px] flex items-center justify-center text-sm text-gray-500 border border-dashed rounded-md">
+                      Listagem do Meu Espaço em breve.
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="compartilhados" className="mt-0">
+                    <div className="h-[330px] flex items-center justify-center text-sm text-gray-500 border border-dashed rounded-md">
+                      Listagem de compartilhados em breve.
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="paineis" className="mt-0">
+                    <div className="h-[330px] overflow-y-auto space-y-2 pr-2">
+                      {intelligencePanels.map((panel) => (
+                        <button
+                          key={panel.id}
+                          onClick={() => window.open(panel.url, '_blank', 'noopener,noreferrer')}
+                          className="w-full text-left p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-medium text-gray-800">{panel.titulo}</p>
+                              <p className="text-xs text-gray-600 mt-1">{panel.subtitulo}</p>
+                            </div>
+                            <ExternalLink className="h-4 w-4 text-gray-500 mt-0.5" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </TabsContent>
+                  </div>
+                </Tabs>
+              </section>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="bg-gray-100 border-t border-gray-300 py-12 px-8 mt-auto">
-          <div className="flex flex-col items-center gap-8 max-w-6xl mx-auto">
-            {/* Logo */}
-            <div className="flex items-center justify-center">
-              <Image src="/logo-sead.png" alt="Logo SEAD" width={120} height={50} priority />
+        <footer className="bg-gray-100 py-8 px-8">
+          <div className="flex flex-col items-center gap-6 max-w-6xl mx-auto">
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+              <img
+                src="/logo-soberania.svg"
+                alt="Logo SoberanIA"
+                className="h-10 w-auto object-contain"
+              />
+              <Image src="/logo-sead.png" alt="Logo SEAD/PI" width={90} height={52} priority />
+              <img
+                src="/logo-governo-piaui.svg"
+                alt="Logo Governo do Piauí"
+                className="h-14 w-auto object-contain"
+              />
             </div>
-
-            {/* Texto */}
             <div className="text-center text-xs text-gray-600 max-w-2xl">
               <p className="font-semibold mb-1">Desenvolvido pelo Núcleo Estratégico de Tecnologia e Governo Digital</p>
               <p className="mb-1">SEAD/NTGD • Secretaria de Administração do Piauí</p>
@@ -219,7 +349,6 @@ export default function Home() {
           </div>
         </footer>
       </main>
-
 
       <Dialog open={isApiStatusModalOpen} onOpenChange={setIsApiStatusModalOpen}>
         <DialogContent className="sm:max-w-md">
@@ -282,18 +411,6 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <SearchHistorySidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        onSearchSelect={handleSidebarSearch}
-      />
-
-      <IntelligencePanelsSidebar
-        isOpen={isIntelligencePanelsSidebarOpen}
-        onClose={() => setIsIntelligencePanelsSidebarOpen(false)}
-      />
-
     </div>
   );
 }

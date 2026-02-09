@@ -9,6 +9,7 @@ interface PersistedAuthData {
   idUnidadeAtual: string | null; // ID da unidade atual para requisições
   orgao: string | null; // Órgão do usuário (ex: "SEAD-PI")
   usuario: string | null; // Email/username do usuário
+  nomeUsuario: string | null; // Nome do usuário para exibição
   unidadesFiltroList: UnidadeFiltro[];
   selectedUnidadeFiltro: string | undefined;
   timestamp: number;
@@ -16,6 +17,17 @@ interface PersistedAuthData {
 
 const AUTH_STORAGE_KEY = 'sei_auth_data';
 const AUTH_EXPIRY_HOURS = 8; // Expira em 8 horas
+
+function sanitizeDisplayName(name?: string | null): string | null {
+  if (!name) return null;
+
+  // Remove sufixos comuns de matrícula, ex.: " - Matr.0371160-9" ou "Matr.E.03610730"
+  const cleaned = name
+    .replace(/\s*[-–]?\s*Matr\.?\s*[A-Za-z0-9.\-_/]+/gi, '')
+    .trim();
+
+  return cleaned || null;
+}
 
 export function usePersistedAuth() {
   // Função para carregar dados do localStorage
@@ -80,6 +92,11 @@ export function usePersistedAuth() {
     return stored?.usuario || null;
   });
 
+  const [nomeUsuario, setNomeUsuario] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.nomeUsuario || null;
+  });
+
   const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>(() => {
     const stored = loadFromStorage();
     return stored?.unidadesFiltroList || [];
@@ -101,6 +118,7 @@ export function usePersistedAuth() {
         idUnidadeAtual: null,
         orgao: null,
         usuario: null,
+        nomeUsuario: null,
         unidadesFiltroList: [],
         selectedUnidadeFiltro: undefined,
         timestamp: Date.now()
@@ -120,7 +138,7 @@ export function usePersistedAuth() {
   }, [loadFromStorage]);
 
   // Função para fazer login
-  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string, userEmail?: string) => {
+  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string, userEmail?: string, userName?: string) => {
     console.log('[DEBUG] Login iniciado - Token type:', typeof token);
     console.log('[DEBUG] Login - Token raw value:', token);
     console.log('[DEBUG] Login - Unidades:', unidades.length);
@@ -145,6 +163,8 @@ export function usePersistedAuth() {
     setIdUnidadeAtual(idUnidadeAtual || null);
     setOrgao(userOrgao || null);
     setUsuario(userEmail || null);
+    const cleanUserName = sanitizeDisplayName(userName);
+    setNomeUsuario(cleanUserName);
     setUnidadesFiltroList(unidades);
 
     const dataToSave = {
@@ -153,6 +173,7 @@ export function usePersistedAuth() {
       idUnidadeAtual: idUnidadeAtual || null,
       orgao: userOrgao || null,
       usuario: userEmail || null,
+      nomeUsuario: cleanUserName,
       unidadesFiltroList: unidades
     };
 
@@ -176,6 +197,7 @@ export function usePersistedAuth() {
     setIdUnidadeAtual(null);
     setOrgao(null);
     setUsuario(null);
+    setNomeUsuario(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
 
@@ -201,6 +223,7 @@ export function usePersistedAuth() {
     setIdUnidadeAtual(null);
     setOrgao(null);
     setUsuario(null);
+    setNomeUsuario(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
     if (typeof window !== 'undefined') {
@@ -219,21 +242,6 @@ export function usePersistedAuth() {
     }
   }, [loadFromStorage, sessionToken, forceLogout]);
 
-  // Auto-authenticate in mock mode
-  useEffect(() => {
-    if (process.env.NEXT_PUBLIC_MOCK_DATA === 'true' && !isAuthenticated) {
-      login(
-        'mock-session-token-abc123',
-        [
-          { Id: '110000001', Sigla: 'GAB/SEAD', Descricao: 'Gabinete do Secretário' },
-          { Id: '110000002', Sigla: 'DAF/SEAD', Descricao: 'Diretoria de Administração e Finanças' },
-        ],
-        '110000001',
-        'SEAD-PI',
-        'mock@sead.pi.gov.br',
-      );
-    }
-  }, [isAuthenticated, login]);
 
   return {
     isAuthenticated,
@@ -241,6 +249,7 @@ export function usePersistedAuth() {
     idUnidadeAtual,
     orgao,
     usuario,
+    nomeUsuario,
     unidadesFiltroList,
     selectedUnidadeFiltro,
     login,

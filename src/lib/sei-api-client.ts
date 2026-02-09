@@ -154,12 +154,17 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
 
     // CORREÇÃO: IdUnidadeAtual vem em data.Login.IdUnidadeAtual, não em data.IdUnidadeAtual
     const idUnidadeAtualFromAPI = data.Login?.IdUnidadeAtual;
+    const nomeUsuarioFromAPI =
+      data.Login?.Nome ||
+      (data as { Nome?: string }).Nome ||
+      (data as { Usuario?: { Nome?: string } }).Usuario?.Nome;
 
     console.log('[DEBUG] Resposta da API SEI no login:', {
       hasToken: !!data.Token,
       hasLogin: !!data.Login,
       hasIdUnidadeAtual: !!idUnidadeAtualFromAPI,
       idUnidadeAtual: idUnidadeAtualFromAPI,
+      hasNomeUsuario: !!nomeUsuarioFromAPI,
       unidadesCount: data.Unidades?.length || 0
     });
 
@@ -187,7 +192,8 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
       success: true, 
       token: tokenToReturn, 
       unidades,
-      idUnidadeAtual 
+      idUnidadeAtual,
+      nomeUsuario: nomeUsuarioFromAPI
     };
 
   } catch (error) {

@@ -432,8 +432,8 @@ export default function VisualizarProcessoPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background w-full">
-      {/* Barra de controles no topo */}
-      <div className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
+      {/* Header da página */}
+      <header className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
           </div>
@@ -452,7 +452,7 @@ export default function VisualizarProcessoPage() {
             )}
           </div>
         </div>
-      </div>
+      </header>
 
       <ApiHealthCheck />
 
@@ -819,6 +819,29 @@ export default function VisualizarProcessoPage() {
         )}
 
       </main>
+
+      <footer className="bg-gray-100 py-8 px-8 border-t border-gray-200">
+        <div className="flex flex-col items-center gap-6 max-w-6xl mx-auto">
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <img
+              src="/logo-soberania.svg"
+              alt="Logo SoberanIA"
+              className="h-8 w-auto object-contain"
+            />
+            <Image src="/logo-sead.png" alt="Logo SEAD/PI" width={90} height={52} priority />
+            <img
+              src="/logo-governo-piaui.svg"
+              alt="Logo Governo do Piauí"
+              className="h-14 w-auto object-contain"
+            />
+          </div>
+          <div className="text-center text-xs text-gray-600 max-w-2xl">
+            <p className="font-semibold mb-1">Desenvolvido pelo Núcleo Estratégico de Tecnologia e Governo Digital</p>
+            <p className="mb-1">SEAD/NTGD • Secretaria de Administração do Piauí</p>
+            <p>© {currentYear ?? new Date().getFullYear()} Governo do Estado do Piauí</p>
+          </div>
+        </div>
+      </footer>
 
 
       <Dialog open={isApiStatusModalOpen} onOpenChange={setIsApiStatusModalOpen}>

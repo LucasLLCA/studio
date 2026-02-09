@@ -5,12 +5,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Search } from 'lucide-react';
+import { Home as HomeIcon, Loader2, Search } from 'lucide-react';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import { useToast } from '@/hooks/use-toast';
 import { formatProcessNumber } from '@/lib/utils';
 import { saveSearchHistory } from '@/lib/history-api-client';
+import Image from 'next/image';
 
 export default function ProcessoPage() {
   const params = useParams();
@@ -120,17 +121,63 @@ export default function ProcessoPage() {
   // Mostrar loading durante carregamento das unidades abertas
   if (isLoadingUnidadesAbertas) {
     return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-center min-h-[50vh]">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">
-                Carregando unidades em aberto...
-              </p>
+      <div className="min-h-screen bg-gray-100 flex flex-col w-full">
+        <header className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
+          <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
+            <div className="flex flex-wrap items-center gap-2 flex-grow">
+              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-800 shadow-sm mr-1">
+                Visualizador de Processos
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                onClick={handleGoBack}
+                variant="ghost"
+                size="sm"
+                className="border-0 bg-transparent shadow-none hover:bg-transparent"
+              >
+                <HomeIcon className="mr-2 h-4 w-4" />
+                Início
+              </Button>
             </div>
           </div>
-        </div>
+        </header>
+
+        <main className="flex-1 min-h-0 p-4 md:p-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-center min-h-[40vh]">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  Carregando unidades em aberto...
+                </p>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <footer className="bg-gray-100 py-4 px-6 border-t border-gray-200">
+          <div className="flex flex-col items-center gap-3 max-w-6xl mx-auto">
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+              <img
+                src="/logo-soberania.svg"
+                alt="Logo SoberanIA"
+                className="h-8 w-auto object-contain"
+              />
+              <Image src="/logo-sead.png" alt="Logo SEAD/PI" width={80} height={46} priority />
+              <img
+                src="/logo-governo-piaui.svg"
+                alt="Logo Governo do Piauí"
+                className="h-10 w-auto object-contain"
+              />
+            </div>
+            <div className="text-center text-xs text-gray-600 max-w-2xl">
+              <p className="font-semibold mb-1">Desenvolvido pelo Núcleo Estratégico de Tecnologia e Governo Digital</p>
+              <p className="mb-1">SEAD/NTGD • Secretaria de Administração do Piauí</p>
+              <p>© {new Date().getFullYear()} Governo do Estado do Piauí</p>
+            </div>
+          </div>
+        </footer>
       </div>
     );
   }
@@ -196,41 +243,58 @@ export default function ProcessoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-2xl">
-        <Button onClick={handleGoBack} variant="ghost" className="mb-4">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar
-        </Button>
+    <div className="min-h-screen bg-gray-100 flex flex-col w-full">
+      <header className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
+          <div className="flex flex-wrap items-center gap-2 flex-grow">
+            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-800 shadow-sm mr-1">
+              Visualizador de Processos
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              onClick={handleGoBack}
+              variant="ghost"
+              size="sm"
+              className="border-0 bg-transparent shadow-none hover:bg-transparent"
+            >
+              <HomeIcon className="mr-2 h-4 w-4" />
+              Início
+            </Button>
+          </div>
+        </div>
+      </header>
 
-        <Card className="shadow-lg">
-          <CardContent className="p-8">
-            <div className="text-center mb-6">
-              <h1 className="text-lg font-semibold text-gray-700 mb-2">
-                Processo
-              </h1>
-              <p className="text-xl font-bold text-gray-900 mb-4">
-                {numeroProcesso}
-              </p>
-
-              {unidadesAbertas !== null && (
-                <p className="text-sm text-gray-600 mb-2">
-                  Consta em aberto em <strong>{unidadesAbertas.length}</strong> {unidadesAbertas.length === 1 ? 'unidade' : 'unidades'}
+      <main className="flex-1 min-h-0 flex items-center justify-center p-4 md:p-6">
+        <div className="w-full max-w-5xl">
+          <Card className="shadow-lg max-h-[calc(100dvh-220px)] overflow-hidden">
+            <CardContent className="p-4 md:p-5 h-full flex flex-col">
+              <div className="text-center mb-3">
+                <h1 className="text-lg font-semibold text-gray-700 mb-2">
+                  Processo
+                </h1>
+                <p className="text-xl font-bold text-gray-900 mb-2">
+                  {numeroProcesso}
                 </p>
-              )}
 
-              <p className="text-sm text-gray-700 font-medium mb-4">
-                Selecione o contexto pelo qual deseja acessá-lo
-              </p>
+                {unidadesAbertas !== null && (
+                  <p className="text-sm text-gray-600 mb-2">
+                    Consta em aberto em <strong>{unidadesAbertas.length}</strong> {unidadesAbertas.length === 1 ? 'unidade' : 'unidades'}
+                  </p>
+                )}
 
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-left">
-                <p className="text-xs text-blue-800">
-                  <strong>Atenção!</strong> Pelas regras de permissionamento do SEI, todo processo precisa ser visualizado sob o contexto de um usuário + unidade.
+                <p className="text-sm text-gray-700 font-medium mb-3">
+                  Selecione o contexto pelo qual deseja acessá-lo
                 </p>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-left">
+                  <p className="text-xs text-blue-800">
+                    <strong>Atenção!</strong> Pelas regras de permissionamento do SEI, todo processo precisa ser visualizado sob o contexto de um usuário + unidade.
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-4">
+              <div className="space-y-3 flex-1 min-h-0">
               {/* Botão para limpar seleção */}
               {hasSelection && (
                 <div className="flex justify-end">
@@ -245,9 +309,10 @@ export default function ProcessoPage() {
                 </div>
               )}
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-h-0">
               {/* Unidades em aberto */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="min-h-0">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Unidades em aberto
                   {unidadesAbertas && unidadesAbertas.length > 0 && (
                     <span className="ml-2 text-sm font-semibold text-green-700">
@@ -256,8 +321,8 @@ export default function ProcessoPage() {
                   )}
                 </label>
                 {unidadesAbertas && unidadesAbertas.length > 0 ? (
-                  <div>
-                    <div className="relative mb-2">
+                  <div className="min-h-0">
+                    <div className="relative mb-1.5">
                       <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         type="text"
@@ -268,7 +333,7 @@ export default function ProcessoPage() {
                         className="pl-9"
                       />
                     </div>
-                    <div className="max-h-48 overflow-y-auto border rounded-md bg-white">
+                    <div className="max-h-[min(18vh,130px)] overflow-y-auto border rounded-md bg-white">
                       {filteredUnidadesAbertas.length > 0 ? (
                         filteredUnidadesAbertas.map((unidadeAberta, index) => (
                           <div
@@ -305,8 +370,8 @@ export default function ProcessoPage() {
               </div>
 
               {/* Minhas unidades */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="min-h-0">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Minhas unidades
                   {unidadesFiltroList && unidadesFiltroList.length > 0 && (
                     <span className="ml-2 text-sm font-semibold text-blue-700">
@@ -315,8 +380,8 @@ export default function ProcessoPage() {
                   )}
                 </label>
                 {unidadesFiltroList && unidadesFiltroList.length > 0 ? (
-                  <div>
-                    <div className="relative mb-2">
+                  <div className="min-h-0">
+                    <div className="relative mb-1.5">
                       <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         type="text"
@@ -327,7 +392,7 @@ export default function ProcessoPage() {
                         className="pl-9"
                       />
                     </div>
-                    <div className="max-h-48 overflow-y-auto border rounded-md bg-white">
+                    <div className="max-h-[min(18vh,130px)] overflow-y-auto border rounded-md bg-white">
                       {filteredUnidades.length > 0 ? (
                         filteredUnidades.map((unidade) => (
                           <div
@@ -359,14 +424,15 @@ export default function ProcessoPage() {
                   </div>
                 )}
               </div>
+              </div>
 
               {/* Minha unidade favorita */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Minha unidade favorita
                 </label>
                 {unidadeFavorita ? (
-                  <div className="max-h-48 overflow-y-auto border rounded-md bg-white">
+                  <div className="max-h-[min(14vh,96px)] overflow-y-auto border rounded-md bg-white">
                     <div
                       onClick={() => {
                         if (!selectedUnidadeAberta && !selectedMinhaUnidade) {
@@ -396,10 +462,34 @@ export default function ProcessoPage() {
               >
                 Acessar processo
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+
+      <footer className="bg-gray-100 py-4 px-6 border-t border-gray-200">
+        <div className="flex flex-col items-center gap-3 max-w-6xl mx-auto">
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <img
+              src="/logo-soberania.svg"
+              alt="Logo SoberanIA"
+              className="h-8 w-auto object-contain"
+            />
+            <Image src="/logo-sead.png" alt="Logo SEAD/PI" width={80} height={46} priority />
+            <img
+              src="/logo-governo-piaui.svg"
+              alt="Logo Governo do Piauí"
+              className="h-10 w-auto object-contain"
+            />
+          </div>
+          <div className="text-center text-xs text-gray-600 max-w-2xl">
+            <p className="font-semibold mb-1">Desenvolvido pelo Núcleo Estratégico de Tecnologia e Governo Digital</p>
+            <p className="mb-1">SEAD/NTGD • Secretaria de Administração do Piauí</p>
+            <p>© {new Date().getFullYear()} Governo do Estado do Piauí</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
