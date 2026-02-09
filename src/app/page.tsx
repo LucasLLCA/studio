@@ -156,7 +156,7 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-2 flex-grow">
             {mounted && isAuthenticated && (
               <>
-                <Button variant="ghost" className="inline-flex items-center px-3 py-1 text-xl font-bold text-emerald-600 mr-1" onClick={() => router.push('/')}>
+                <Button variant="ghost" className="inline-flex items-center px-3 py-1 text-xl font-bold text-emerald-600 mr-1 hover:bg-transparent hover:text-emerald-700" onClick={() => router.push('/')}>
                   Visualizador de Processos
                 </Button>
               </>
@@ -196,8 +196,8 @@ export default function Home() {
               O que analisaremos juntos ?
             </h1>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10 items-start mt-4 xl:mt-8">
-              <section className="">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10 items-center mt-4 xl:mt-8">
+              <section className="justify-between">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <FeatureCard
                     icon={<GanttChartSquare className="w-8 h-8" />}
