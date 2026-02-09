@@ -14,7 +14,7 @@ export function formatProcessNumber(numeroProcesso: string): string {
   const clean = numeroProcesso.replace(/[^\d]/g, '');
 
   // Se não tem 20 dígitos, retorna o original
-  if (clean.length !== 20) {
+  if (clean.length !== 17) {
     return numeroProcesso;
   }
 
