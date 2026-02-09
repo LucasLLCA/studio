@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, LogOut, Activity, Newspaper, Info, Clock, HelpCircle, Home as HomeIcon } from 'lucide-react';
+import { Search, LogOut, Activity, Newspaper, Info, Clock, HelpCircle, Home as HomeIcon, Folder, Share2, Zap } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,24 @@ import ApiHealthCheck from '@/components/ApiHealthCheck';
 import { SearchHistorySidebar } from '@/components/SearchHistorySidebar';
 import { IntelligencePanelsSidebar } from '@/components/IntelligencePanelsSidebar';
 
+interface CategoryCardProps {
+  icon: React.ReactNode;
+  title: string;
+  onClick?: () => void;
+}
+
+function CategoryCard({ icon, title, onClick }: CategoryCardProps) {
+  return (
+    <div
+      onClick={onClick}
+      className="bg-gray-200 rounded-lg p-8 h-32 flex flex-col items-start justify-between cursor-pointer hover:bg-gray-300 transition-colors"
+    >
+      <div className="text-gray-600">{icon}</div>
+      <p className="text-gray-700 font-medium">{title}</p>
+    </div>
+  );
+}
+
 export default function Home() {
   const { toast } = useToast();
   const router = useRouter();
@@ -31,6 +49,7 @@ export default function Home() {
   } = usePersistedAuth();
 
   const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
+  const [userName, setUserName] = useState<string>("Usuário");
 
   const [isApiStatusModalOpen, setIsApiStatusModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
@@ -41,6 +60,11 @@ export default function Home() {
   // Garantir que o componente está montado no cliente
   useEffect(() => {
     setMounted(true);
+    // Obter nome do usuário do localStorage ou usar padrão
+    const storedUserName = localStorage.getItem('userName');
+    if (storedUserName) {
+      setUserName(storedUserName);
+    }
   }, []);
 
   // Redirect to login page if not authenticated
@@ -126,46 +150,76 @@ export default function Home() {
 
       <ApiHealthCheck />
 
-      <main className="flex-1 flex flex-col overflow-y-auto p-4 w-full">
-        {/* Logo e título centralizados no meio da tela */}
-        <div className="flex flex-col items-center justify-center flex-1 -mt-8">
-          <div className="flex flex-col items-center space-y-4">
-            <Image src="/logo-sead.png" alt="Logo SEAD Piauí" width={500} height={500} priority data-ai-hint="logo government" />
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold" style={{ color: '#107527' }}>Visualizador de Processos</h1>
-              <span className="text-sm font-semibold text-blue-500 bg-blue-100 px-3 py-1 rounded-full">Beta</span>
-            </div>
-            <p className="text-muted-foreground text-center max-w-md mt-4">
-              Para iniciar, insira o número do processo e clique em "Pesquisar".
-            </p>
+      <main className="flex-1 flex flex-col overflow-y-auto w-full">
+        <div className="flex flex-col min-h-screen">
+          {/* Conteúdo principal */}
+          <div className="flex-1 p-8">
+            <div className="max-w-6xl mx-auto">
+              {/* Greeting */}
+              <div className="mb-8 flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gray-300"></div>
+                <div>
+                  <p className="text-gray-700">Olá, <span className="font-semibold">{userName}</span></p>
+                </div>
+              </div>
 
-            {/* Campo de busca centralizado */}
-            <div className="w-full max-w-2xl mt-8 space-y-4">
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="Digite o número do processo..."
-                  className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
-                  value={processoNumeroInput}
-                  onChange={(e) => setProcessoNumeroInput(e.target.value)}
-                  disabled={!mounted || !isAuthenticated}
-                  ref={inputRef}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && isAuthenticated && processoNumeroInput) {
-                      handleSearchClick();
-                    }
-                  }}
-                />
-                <Button
-                  onClick={() => handleSearchClick()}
-                  disabled={!mounted || !isAuthenticated || !processoNumeroInput}
-                  className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
-                >
-                  <Search className="h-5 w-5" />
-                </Button>
+              {/* Título principal */}
+              <h1 className="text-3xl font-bold mb-8" style={{ color: '#4CAF50' }}>
+                O que analisaremos juntos ?
+              </h1>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                {/* Cards de categorias */}
+                <CategoryCard icon={<Clock className="w-8 h-8" />} title="Últimas pesquisas" onClick={() => setIsSidebarOpen(true)} />
+                <CategoryCard icon={<Folder className="w-8 h-8" />} title="Meu Espaço" />
+                <CategoryCard icon={<Share2 className="w-8 h-8" />} title="Compartilhados comigo" />
+                <CategoryCard icon={<Zap className="w-8 h-8" />} title="Painéis de Inteligência" onClick={() => setIsIntelligencePanelsSidebarOpen(true)} />
+              </div>
+
+              {/* Barra de pesquisa */}
+              <div className="w-full space-y-4">
+                <div className="relative max-w-2xl">
+                  <Input
+                    type="text"
+                    placeholder="Digite o número do processo..."
+                    className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
+                    value={processoNumeroInput}
+                    onChange={(e) => setProcessoNumeroInput(e.target.value)}
+                    disabled={!mounted || !isAuthenticated}
+                    ref={inputRef}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && isAuthenticated && processoNumeroInput) {
+                        handleSearchClick();
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={() => handleSearchClick()}
+                    disabled={!mounted || !isAuthenticated || !processoNumeroInput}
+                    className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
+                  >
+                    <Search className="h-5 w-5" />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Footer */}
+          <footer className="bg-gray-50 border-t border-gray-200 py-8 px-8">
+            <div className="max-w-6xl mx-auto">
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center gap-6">
+                  <Image src="/logo-sead.png" alt="Logo SEAD" width={120} height={50} />
+                </div>
+                <div className="text-center text-sm text-gray-600">
+                  <p>Desenvolvido pelo Núcleo Estratégico de Tecnologia e Governo Digital</p>
+                  <p>SEAD/NTGD • Secretaria de Administração do Piauí</p>
+                  <p>© 2026 Governo do Estado do Piauí</p>
+                </div>
+              </div>
+            </div>
+          </footer>
         </div>
       </main>
 
