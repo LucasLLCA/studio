@@ -1,8 +1,5 @@
 import { MOCK_PROCESS_SUMMARY_TEXT } from '@/lib/mock-data';
 
-const SUMMARY_API_BASE_URL =
-  process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
-
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_DATA === 'true';
 
 /**
@@ -98,7 +95,7 @@ export function getStreamProcessSummaryUrl(
   unidadeId: string,
 ): string {
   const formatted = processNumber.replace(/[.\/-]/g, "");
-  return `${SUMMARY_API_BASE_URL}/processo/resumo-completo-stream/${encodeURIComponent(formatted)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  return `/api/stream/resumo-completo/${encodeURIComponent(formatted)}?id_unidade=${encodeURIComponent(unidadeId)}`;
 }
 
 export function getStreamSituacaoAtualUrl(
@@ -106,12 +103,12 @@ export function getStreamSituacaoAtualUrl(
   unidadeId: string,
 ): string {
   const formatted = processNumber.replace(/[.\/-]/g, "");
-  return `${SUMMARY_API_BASE_URL}/processo/resumo-situacao-stream/${encodeURIComponent(formatted)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  return `/api/stream/resumo-situacao/${encodeURIComponent(formatted)}?id_unidade=${encodeURIComponent(unidadeId)}`;
 }
 
 export function getStreamDocumentSummaryUrl(
   documentoFormatado: string,
   unidadeId: string,
 ): string {
-  return `${SUMMARY_API_BASE_URL}/processo/resumo-documento-stream/${encodeURIComponent(documentoFormatado)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  return `/api/stream/resumo-documento/${encodeURIComponent(documentoFormatado)}?id_unidade=${encodeURIComponent(unidadeId)}`;
 }
