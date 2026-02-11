@@ -54,6 +54,20 @@ export function ProcessFlowLegend() {
               }
             />
             <NodeItem
+              label="Documento Restrito"
+              visual={
+                <div className="relative flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full border-2 border-gray-300 flex-shrink-0" style={{ backgroundColor: 'hsl(var(--muted))' }}></div>
+                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ backgroundColor: '#94a3b8', border: '1.5px solid #64748b' }}>
+                    <svg width="8" height="8" viewBox="0 0 20 20" fill="white">
+                      <rect x="4" y="9" width="12" height="9" rx="1.5" />
+                      <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                </div>
+              }
+            />
+            <NodeItem
               label={"Of\u00edcio Assinado"}
               visual={
                 <div className="relative flex items-center justify-center">

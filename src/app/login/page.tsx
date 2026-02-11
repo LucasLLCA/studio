@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { loginToSEI, decryptSEICredentials, decryptJWEToken, clearSEICredentialsCookie } from '../sei-actions';
+import { loginToSEI, decryptSEICredentials, decryptJWEToken } from '../sei-actions';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -72,7 +72,7 @@ function LoginPageContent() {
     }
   }, [isAuthenticated, router]);
 
-  // Auto-login via URL token param OR SEI_CREDENTIALS cookie (JWE token)
+  // Auto-login via URL token param OR auth_token cookie (JWE token)
   useEffect(() => {
     let cancelled = false;
 
@@ -86,7 +86,7 @@ function LoginPageContent() {
           credentials = await decryptJWEToken(urlToken);
         }
 
-        // 2. Fall back to SEI_CREDENTIALS cookie
+        // 2. Fall back to auth_token cookie
         if (!credentials) {
           credentials = await decryptSEICredentials();
         }
@@ -106,7 +106,6 @@ function LoginPageContent() {
           const idUnidadeAtual = response.idUnidadeAtual;
 
           persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, credentials.orgao, credentials.usuario);
-          await clearSEICredentialsCookie();
           router.push('/');
           return;
         }

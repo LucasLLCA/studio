@@ -1,8 +1,9 @@
 /**
  * Server Actions para API SEI
  *
- * Este arquivo mantém a interface pública original para compatibilidade com o código existente.
- * A implementação foi refatorada e consolidada em src/lib/sei-api-client.ts
+ * Este arquivo mantém a interface pública para o frontend.
+ * A implementação está consolidada em src/lib/sei-api-client.ts
+ * que agora roteia todas as chamadas pelo backend proxy.
  */
 
 'use server';
@@ -15,7 +16,6 @@ import type {
   ClientLoginResponse,
   UnidadeAberta,
   DocumentosResponse,
-  SessionTokenAuth
 } from '@/types/process-flow';
 
 import {
@@ -27,6 +27,7 @@ import {
   fetchDocumentSummary as fetchDocumentSummaryImpl,
   checkSEIApiHealth as checkSEIApiHealthImpl,
   checkSummaryApiHealth as checkSummaryApiHealthImpl,
+  invalidateProcessCache as invalidateProcessCacheImpl,
 } from '@/lib/sei-api-client';
 
 import type { HealthCheckResponse } from '@/lib/sei-api-client';
@@ -55,31 +56,6 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
 }
 
 /**
- * Obtém token de autenticação
- * @deprecated Use diretamente o sessionToken do hook usePersistedAuth
- */
-export async function getAuthToken(auth: LoginCredentials | SessionTokenAuth): Promise<string | ApiError> {
-  if ('sessionToken' in auth) {
-    const token = auth.sessionToken;
-
-    // Validação do token
-    if (!token || token === 'undefined' || token === 'null') {
-      return { error: "Token de autenticação inválido", status: 401 };
-    }
-
-    // Se o token contém dados corrompidos, retorna erro
-    if (typeof token === 'string' && token.startsWith('{') && token.includes('usuario')) {
-      return { error: "Token corrompido detectado. Faça login novamente.", status: 401 };
-    }
-
-    return token;
-  }
-
-  // Se são credenciais, retorna erro pois essa função não deve fazer login
-  return { error: "Use loginToSEI para autenticar com credenciais.", status: 400 };
-}
-
-/**
  * Busca dados do processo (andamentos) usando sessionToken
  */
 export async function fetchProcessDataFromSEIWithToken(
@@ -89,23 +65,6 @@ export async function fetchProcessDataFromSEIWithToken(
 ): Promise<ProcessoData | ApiError> {
   if (MOCK_MODE) return mockProcessData();
   return fetchProcessData(token, protocoloProcedimento, unidadeId);
-}
-
-/**
- * Busca dados do processo (andamentos) usando credenciais
- * @deprecated Prefira usar fetchProcessDataFromSEIWithToken com sessionToken
- */
-export async function fetchProcessDataFromSEI(
-  auth: LoginCredentials | SessionTokenAuth,
-  protocoloProcedimento: string,
-  unidadeId: string
-): Promise<ProcessoData | ApiError> {
-  if (MOCK_MODE) return mockProcessData();
-  const token = 'sessionToken' in auth ? auth.sessionToken : '';
-  if (token) {
-    return fetchProcessData(token, protocoloProcedimento, unidadeId);
-  }
-  return { error: "Formato de autenticação inválido", status: 400 };
 }
 
 /**
@@ -121,23 +80,6 @@ export async function fetchOpenUnitsForProcessWithToken(
 }
 
 /**
- * Busca unidades abertas usando credenciais
- * @deprecated Prefira usar fetchOpenUnitsForProcessWithToken com sessionToken
- */
-export async function fetchOpenUnitsForProcess(
-  auth: LoginCredentials | SessionTokenAuth,
-  protocoloProcedimento: string,
-  unidadeOrigemConsulta: string
-): Promise<{unidades: UnidadeAberta[], linkAcesso?: string} | ApiError> {
-  if (MOCK_MODE) return mockOpenUnits();
-  const token = 'sessionToken' in auth ? auth.sessionToken : '';
-  if (token) {
-    return fetchOpenUnits(token, protocoloProcedimento, unidadeOrigemConsulta);
-  }
-  return { error: "Formato de autenticação inválido", status: 400 };
-}
-
-/**
  * Busca resumo do processo usando sessionToken
  */
 export async function fetchProcessSummaryWithToken(
@@ -150,25 +92,8 @@ export async function fetchProcessSummaryWithToken(
 }
 
 /**
- * Busca resumo do processo usando credenciais
- * @deprecated Prefira usar fetchProcessSummaryWithToken com sessionToken
- */
-export async function fetchProcessSummary(
-  auth: LoginCredentials | SessionTokenAuth,
-  protocoloProcedimento: string,
-  unidadeId: string
-): Promise<ProcessSummaryResponse | ApiError> {
-  if (MOCK_MODE) return mockProcessSummary();
-  const token = 'sessionToken' in auth ? auth.sessionToken : '';
-  if (token) {
-    return fetchProcessSummaryImpl(token, protocoloProcedimento, unidadeId);
-  }
-  return { error: "Formato de autenticação inválido", status: 400 };
-}
-
-/**
  * Busca documentos usando sessionToken
- * Sem limite de quantidade - busca todos os documentos disponíveis
+ * Backend faz paginação paralela e retorna todos os documentos
  */
 export async function fetchDocumentsFromSEIWithToken(
   token: string,
@@ -176,42 +101,28 @@ export async function fetchDocumentsFromSEIWithToken(
   unidadeId: string
 ): Promise<DocumentosResponse | ApiError> {
   if (MOCK_MODE) return mockDocuments();
-  return fetchDocuments(token, protocoloProcedimento, unidadeId, 1, 999999);
+  return fetchDocuments(token, protocoloProcedimento, unidadeId);
 }
 
 /**
- * Busca documentos usando credenciais
- * @deprecated Prefira usar fetchDocumentsFromSEIWithToken com sessionToken
+ * Busca resumo de documento específico usando sessionToken
  */
-export async function fetchDocumentsFromSEI(
-  auth: LoginCredentials | SessionTokenAuth,
-  protocoloProcedimento: string,
-  unidadeId: string,
-  pagina: number = 1,
-  quantidade: number = 10
-): Promise<DocumentosResponse | ApiError> {
-  if (MOCK_MODE) return mockDocuments();
-  const token = 'sessionToken' in auth ? auth.sessionToken : '';
-  if (token) {
-    return fetchDocuments(token, protocoloProcedimento, unidadeId, pagina, quantidade);
-  }
-  return { error: "Formato de autenticação inválido", status: 400 };
-}
-
-/**
- * Busca resumo de documento específico
- */
-export async function fetchDocumentSummary(
-  auth: LoginCredentials | SessionTokenAuth,
+export async function fetchDocumentSummaryWithToken(
+  token: string,
   documentoFormatado: string,
   unidadeId: string
 ): Promise<ProcessSummaryResponse | ApiError> {
   if (MOCK_MODE) return mockProcessSummary();
-  const token = 'sessionToken' in auth ? auth.sessionToken : '';
-  if (token) {
-    return fetchDocumentSummaryImpl(token, documentoFormatado, unidadeId);
-  }
-  return { error: "Formato de autenticação inválido", status: 400 };
+  return fetchDocumentSummaryImpl(token, documentoFormatado, unidadeId);
+}
+
+/**
+ * Invalida o cache proxy de um processo no backend
+ */
+export async function invalidateProcessCache(
+  protocoloProcedimento: string
+): Promise<{ success: boolean; keysDeleted?: number }> {
+  return invalidateProcessCacheImpl(protocoloProcedimento);
 }
 
 /**
@@ -231,13 +142,13 @@ export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
 }
 
 /**
- * Decrypts SEI credentials from the SEI_CREDENTIALS cookie (JWE token).
+ * Decrypts SEI credentials from the auth_token cookie (JWE token).
  * Returns LoginCredentials if valid, null otherwise.
  */
 export async function decryptSEICredentials(): Promise<LoginCredentials | null> {
   try {
     const cookieStore = await cookies();
-    const cookie = cookieStore.get('SEI_CREDENTIALS');
+    const cookie = cookieStore.get('auth_token');
     if (!cookie?.value) return null;
 
     const jweSecret = process.env.JWE_SECRET_KEY;
@@ -259,6 +170,12 @@ export async function decryptSEICredentials(): Promise<LoginCredentials | null> 
     // Map JWE payload fields (email/password) to LoginCredentials fields (usuario/senha)
     if (!payload.email || !payload.password || !payload.orgao) {
       console.error('[decryptSEICredentials] Invalid payload structure');
+      return null;
+    }
+
+    // Reject expired tokens
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+      console.error('[decryptSEICredentials] Token expired');
       return null;
     }
 
@@ -299,6 +216,12 @@ export async function decryptJWEToken(jweToken: string): Promise<LoginCredential
       return null;
     }
 
+    // Reject expired tokens
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+      console.error('[decryptJWEToken] Token expired');
+      return null;
+    }
+
     return {
       usuario: payload.email,
       senha: payload.password,
@@ -308,12 +231,4 @@ export async function decryptJWEToken(jweToken: string): Promise<LoginCredential
     console.error('[decryptJWEToken] Failed to decrypt token:', error);
     return null;
   }
-}
-
-/**
- * Clears the SEI_CREDENTIALS cookie after auto-login.
- */
-export async function clearSEICredentialsCookie(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete('SEI_CREDENTIALS');
 }

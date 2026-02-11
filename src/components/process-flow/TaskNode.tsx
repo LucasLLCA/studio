@@ -78,9 +78,10 @@ interface TaskNodeProps {
   task: ProcessedAndamento;
   onTaskClick: (task: ProcessedAndamento) => void;
   documents?: Documento[] | null;
+  isLoadingDocuments?: boolean;
 }
 
-export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents }) => {
+export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents, isLoadingDocuments }) => {
   const handleNodeClick = () => {
     onTaskClick(task);
   };
@@ -98,6 +99,10 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents
   const isOficio = matchedDoc?.Serie?.IdSerie === '11';
   const hasSigned = isOficio && matchedDoc?.Assinaturas && matchedDoc.Assinaturas.length > 0;
   const isUnsignedOficio = isOficio && (!matchedDoc?.Assinaturas || matchedDoc.Assinaturas.length === 0);
+
+  // Document exists in task description but user can't access it
+  const isDocumentInaccessible = hasDocument && !matchedDoc && !isOficio
+    && Array.isArray(documents) && !isLoadingDocuments;
 
   // Marker positioning
   const markerX = radius * 0.7;
@@ -196,8 +201,8 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents
         </g>
       )}
 
-      {/* Default amber circle for non-Serie-11 documents */}
-      {hasDocument && !isOficio && (
+      {/* Default amber circle for accessible non-Serie-11 documents */}
+      {hasDocument && matchedDoc && !isOficio && (
         <circle
           r={radius / 4}
           cx={markerX}
@@ -209,10 +214,28 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents
         />
       )}
 
+      {/* Gray lock badge for inaccessible documents */}
+      {isDocumentInaccessible && (
+        <g transform={`translate(${markerX}, ${markerY})`} style={{ pointerEvents: 'none' }}>
+          <circle r={markerSize} fill="#94a3b8" stroke="#64748b" strokeWidth="1" />
+          {/* Lock SVG icon */}
+          <g transform={`scale(${markerSize / 8}) translate(-8, -8)`}>
+            <rect x="5" y="8" width="10" height="8" rx="1" fill="white" />
+            <path
+              d="M7 8V6a3 3 0 0 1 6 0v2"
+              fill="none"
+              stroke="white"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </g>
+        </g>
+      )}
+
       <title>{
         task.isSummaryNode ?
         `${task.groupedTasksCount} ações diversas em ${task.Unidade.Sigla}\nInício em: ${formatDisplayDate(task.parsedDate)}${hasDocument ? '\n🔍 Possui documento para resumo' : ''}` :
-        `Tarefa: ${task.Tarefa}\nUnidade: ${task.Unidade.Sigla}\nData: ${formatDisplayDate(task.parsedDate)}\nDias Aberto: ${task.daysOpen ?? 'N/A'}${isUnsignedOficio ? '\n⚠️ Ofício sem assinatura' : hasSigned ? '\n✅ Ofício assinado' : hasDocument ? `\n🔍 Documento detectado: ${extractableDocument}` : ''}`
+        `Tarefa: ${task.Tarefa}\nUnidade: ${task.Unidade.Sigla}\nData: ${formatDisplayDate(task.parsedDate)}\nDias Aberto: ${task.daysOpen ?? 'N/A'}${isDocumentInaccessible ? `\n🔒 Documento restrito (${extractableDocument})` : isUnsignedOficio ? '\n⚠️ Ofício sem assinatura' : hasSigned ? '\n✅ Ofício assinado' : hasDocument ? `\n🔍 Documento detectado: ${extractableDocument}` : ''}`
       }</title>
     </g>
   );

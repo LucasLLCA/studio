@@ -9,7 +9,6 @@ services:
       - "3050:3050"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_SEI_API_BASE_URL=${NEXT_PUBLIC_SEI_API_BASE_URL:-https://api.sei.pi.gov.br/v1}
       - NEXT_PUBLIC_SUMMARY_API_BASE_URL=${NEXT_PUBLIC_SUMMARY_API_BASE_URL:-https://api.sei.agentes.sead.pi.gov.br}
     restart: unless-stopped
     healthcheck:

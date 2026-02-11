@@ -597,6 +597,7 @@ export function ProcessFlowDiagram({
                   task={task}
                   onTaskClick={handleTaskClick}
                   documents={documents}
+                  isLoadingDocuments={isLoadingDocuments}
                 />
               ))}
             </svg>

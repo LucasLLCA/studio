@@ -2,8 +2,8 @@
 
 import { ProcessFlowClient } from '@/components/process-flow/ProcessFlowClient';
 import type { ProcessoData, ProcessedFlowData, UnidadeFiltro, UnidadeAberta, ProcessedAndamento, Andamento, Documento } from '@/types/process-flow';
-import { Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, CalendarDays, UserCircle, Building, CalendarClock, HelpCircle, GanttChartSquare, CheckCircle, Clock, ExternalLink, PanelRight, User, AlertTriangle, Bookmark, Bell, X, Share2, Copy } from 'lucide-react';
-import React, { useState, useEffect, useMemo } from 'react';
+import { Loader2, FileText, ChevronsLeft, ChevronsRight, BookText, Info, CalendarDays, UserCircle, Building, CalendarClock, HelpCircle, GanttChartSquare, CheckCircle, Clock, ExternalLink, PanelRight, User, AlertTriangle, Bookmark, Bell, X, Share2, Copy, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -36,7 +36,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { fetchProcessDataFromSEIWithToken, fetchDocumentsFromSEIWithToken } from '@/app/sei-actions';
+import { fetchProcessDataFromSEIWithToken, fetchDocumentsFromSEIWithToken, invalidateProcessCache } from '@/app/sei-actions';
 import { fetchSSEStream, getStreamProcessSummaryUrl } from '@/lib/streaming';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -70,6 +70,9 @@ export default function VisualizarProcessoPage() {
   } = usePersistedAuth();
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
+  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const [isSummarizedView, setIsSummarizedView] = useState<boolean>(true);
   const [documents, setDocuments] = useState<Documento[] | null>(null);
 
@@ -86,6 +89,7 @@ export default function VisualizarProcessoPage() {
   const {
     data: openUnitsData,
     isLoading: isLoadingOpenUnits,
+    refetch: refetchOpenUnits,
   } = useOpenUnits({
     processo: numeroProcesso,
     unidadeOrigem: selectedUnidadeFiltro || '',
@@ -310,6 +314,7 @@ export default function VisualizarProcessoPage() {
         } else if (!('error' in processData) && processData.Andamentos && Array.isArray(processData.Andamentos)) {
           console.log(`[DEBUG] ANDAMENTOS concluídos às ${new Date().toISOString()}`);
           setRawProcessData(processData);
+          setLastFetchedAt(new Date());
           toast({ title: "Processo carregado com sucesso", description: `Encontrados ${processData.Andamentos.length} andamentos para visualização.` });
         } else {
           toast({ title: "Formato de dados inesperado", description: "Os dados recebidos não estão no formato esperado. Entre em contato com o suporte técnico.", variant: "destructive" });
@@ -380,7 +385,7 @@ export default function VisualizarProcessoPage() {
     };
 
     loadProcessData();
-  }, [isAuthenticated, sessionToken, selectedUnidadeFiltro, numeroProcesso]);
+  }, [isAuthenticated, sessionToken, selectedUnidadeFiltro, numeroProcesso, refreshKey]);
 
   const handleTaskCardClick = (task: ProcessedAndamento) => setTaskToScrollTo(task);
   const handleScrollToFirstTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[0]); };
@@ -397,6 +402,21 @@ export default function VisualizarProcessoPage() {
   }, [backgroundLoading, isLoadingOpenUnits]);
 
   const hasBackgroundLoading = Object.values(backgroundLoading).some(loading => loading);
+
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing || hasBackgroundLoading) return;
+    setIsRefreshing(true);
+    try {
+      await invalidateProcessCache(numeroProcesso);
+      refetchOpenUnits();
+      setRefreshKey(prev => prev + 1);
+      toast({ title: "Atualizando dados", description: "Cache invalidado. Buscando dados atualizados..." });
+    } catch {
+      toast({ title: "Erro ao atualizar", description: "Não foi possível invalidar o cache.", variant: "destructive" });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing, hasBackgroundLoading, numeroProcesso, refetchOpenUnits, toast]);
 
   // Extrair lista de unidades únicas que aparecem no processo
   const availableLaneUnits = useMemo(() => {
@@ -460,6 +480,14 @@ export default function VisualizarProcessoPage() {
               )}
               {hasBackgroundLoading && (
                 <Loader2 className="h-4 w-4 text-primary animate-spin" />
+              )}
+              {lastFetchedAt && !hasBackgroundLoading && (
+                <>
+                  <span className="text-muted-foreground/40">|</span>
+                  <span className="text-xs text-muted-foreground">
+                    Atualizado {formatDistanceToNowStrict(lastFetchedAt, { addSuffix: true, locale: ptBR })}
+                  </span>
+                </>
               )}
             </div>
 
@@ -570,6 +598,15 @@ export default function VisualizarProcessoPage() {
                   <PanelRight className="mr-2 h-4 w-4" /> Detalhes
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing || hasBackgroundLoading}
+                aria-label="Atualizar dados do processo"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> Atualizar
+              </Button>
               <Button variant="outline" size="sm" disabled>
                 <Bookmark className="mr-2 h-4 w-4" /> Salvar
               </Button>

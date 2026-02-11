@@ -16,7 +16,7 @@ import React, { useState, useEffect } from 'react';
 import { formatDisplayDate } from '@/lib/process-flow-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, CheckCircle, User, Briefcase, CalendarClock, FileText, Sparkles, Layers, Loader2, ExternalLink, PenTool, TriangleAlert } from 'lucide-react';
+import { AlertCircle, CheckCircle, User, Briefcase, CalendarClock, FileText, Sparkles, Layers, Loader2, ExternalLink, PenTool, TriangleAlert, Lock } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 interface TaskDetailsModalProps {
@@ -369,8 +369,14 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
                   )}
                   
                   {!matchedDocument && extractedDocumentNumber && !isLoadingDocuments && (
-                    <div className="text-sm text-muted-foreground">
-                      Documento não encontrado na lista de documentos do processo.
+                    <div className="p-3 border rounded-md bg-slate-50 border-slate-300">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Lock className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                        <span className="text-sm font-medium text-slate-700">Documento restrito</span>
+                      </div>
+                      <p className="text-sm text-slate-600 pl-6">
+                        Você não possui permissão para acessar este documento. Entre em contato com a unidade responsável caso precise de acesso.
+                      </p>
                     </div>
                   )}
                   
