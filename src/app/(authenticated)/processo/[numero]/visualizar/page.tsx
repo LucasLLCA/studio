@@ -37,9 +37,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { fetchProcessDataFromSEIWithToken, fetchDocumentsFromSEIWithToken, invalidateProcessCache } from '@/app/sei-actions';
-import { fetchSSEStream, getStreamProcessSummaryUrl } from '@/lib/streaming';
+import { fetchSSEStream, getStreamProcessSummaryUrl, getStreamSituacaoAtualUrl } from '@/lib/streaming';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { isNetworkError, withNetworkRetry } from '@/lib/network-retry';
+import { useNetworkStatus } from '@/hooks/use-network-status';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -77,12 +81,14 @@ export default function VisualizarProcessoPage() {
   const [documents, setDocuments] = useState<Documento[] | null>(null);
 
   const [processSummary, setProcessSummary] = useState<string | null>(null);
+  const [situacaoAtual, setSituacaoAtual] = useState<string | null>(null);
 
   // Estados de carregamento em background
   const [backgroundLoading, setBackgroundLoading] = useState({
     andamentos: false,
     documentos: false,
-    resumo: false
+    resumo: false,
+    situacao: false,
   });
 
   // Hook do React Query para buscar unidades em aberto com cache de 2h
@@ -100,6 +106,19 @@ export default function VisualizarProcessoPage() {
   // Dados das unidades em aberto (do cache do React Query)
   const openUnitsInProcess = openUnitsData?.unidades || null;
   const processLinkAcesso = openUnitsData?.linkAcesso || null;
+
+  // Auto-recover when network comes back online
+  useNetworkStatus({
+    onOnline: () => {
+      // Wait for network to stabilize before retrying
+      setTimeout(() => {
+        if (!rawProcessData || !documents || !processSummary) {
+          console.log('[NETWORK] Conexão restaurada — recarregando dados ausentes...');
+          setRefreshKey((prev) => prev + 1);
+        }
+      }, 1500);
+    },
+  });
 
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
@@ -270,13 +289,15 @@ export default function VisualizarProcessoPage() {
       setRawProcessData(null);
       setDocuments(null);
       setProcessSummary(null);
+      setSituacaoAtual(null);
       setProcessCreationInfo(null);
 
       // Reset estados de background loading (unidades agora é gerenciado pelo React Query)
       setBackgroundLoading({
         andamentos: true,
         documentos: true,
-        resumo: true
+        resumo: true,
+        situacao: false,
       });
 
       console.log(`[DEBUG] Iniciando paralelização DIRETA às ${new Date().toISOString()}`);
@@ -286,7 +307,7 @@ export default function VisualizarProcessoPage() {
         console.error('[DEBUG] Token de sessão não disponível');
         toast({ title: "Sessão expirada", description: "Sua sessão expirou. Faça login novamente para continuar.", variant: "destructive" });
         setIsLoading(false);
-        setBackgroundLoading({ andamentos: false, documentos: false, resumo: false });
+        setBackgroundLoading({ andamentos: false, documentos: false, resumo: false, situacao: false });
         return;
       }
 
@@ -294,8 +315,14 @@ export default function VisualizarProcessoPage() {
 
       const startCreation = performance.now();
 
-      const andamentosPromise = fetchProcessDataFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro);
-      const documentosPromise = fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro);
+      const andamentosPromise = withNetworkRetry(
+        () => fetchProcessDataFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro),
+        'andamentos',
+      );
+      const documentosPromise = withNetworkRetry(
+        () => fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro),
+        'documentos',
+      );
 
       const creationTime = performance.now() - startCreation;
       console.log(`[DEBUG] Promises criadas em ${creationTime.toFixed(3)}ms (unidades via React Query, resumo via SSE)`);
@@ -355,31 +382,39 @@ export default function VisualizarProcessoPage() {
           setBackgroundLoading(prev => ({ ...prev, documentos: false }));
         });
 
-      // Resumo via SSE streaming - texto aparece progressivamente
-      setProcessSummary("");
-      fetchSSEStream(
-        getStreamProcessSummaryUrl(numeroProcesso, selectedUnidadeFiltro),
-        token,
-        (chunk) => {
-          setProcessSummary(prev => (prev || "") + chunk);
-        },
-        (fullResult) => {
-          // fullResult is the cached resultado object - extract the summary text
-          const summaryText = typeof fullResult === 'string'
-            ? fullResult
-            : fullResult?.resumo_combinado?.resposta_ia || fullResult?.resumo?.resposta_ia || "";
-          setProcessSummary(summaryText.replace(/[#*]/g, ''));
-          setBackgroundLoading(prev => ({ ...prev, resumo: false }));
-          console.log(`[DEBUG] RESUMO (SSE) concluído às ${new Date().toISOString()}`);
-          toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
-        },
-        (error) => {
-          setProcessSummary(null);
-          setBackgroundLoading(prev => ({ ...prev, resumo: false }));
-          console.warn("Erro ao buscar resumo via SSE:", error);
-          toast({ title: "Erro ao Gerar Resumo", description: error, variant: "destructive", duration: 9000 });
-        },
-      );
+      // Resumo via SSE streaming - com retry automático em falha de rede
+      const startSSEWithRetry = (attempt = 0) => {
+        setProcessSummary("");
+        fetchSSEStream(
+          getStreamProcessSummaryUrl(numeroProcesso, selectedUnidadeFiltro),
+          token,
+          (chunk) => {
+            setProcessSummary(prev => (prev || "") + chunk);
+          },
+          (fullResult) => {
+            const summaryText = typeof fullResult === 'string'
+              ? fullResult
+              : fullResult?.resumo_combinado?.resposta_ia || fullResult?.resumo?.resposta_ia || "";
+            setProcessSummary(summaryText.replace(/[#*]/g, ''));
+            setBackgroundLoading(prev => ({ ...prev, resumo: false }));
+            console.log(`[DEBUG] RESUMO (SSE) concluído às ${new Date().toISOString()}`);
+            toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
+          },
+          (error) => {
+            if (attempt < 2 && isNetworkError(error)) {
+              const delay = 2000 * (attempt + 1);
+              console.warn(`[RETRY] resumo SSE: tentativa ${attempt + 1} falhou (rede), aguardando ${delay}ms...`);
+              setTimeout(() => startSSEWithRetry(attempt + 1), delay);
+            } else {
+              setProcessSummary(null);
+              setBackgroundLoading(prev => ({ ...prev, resumo: false }));
+              console.warn("Erro ao buscar resumo via SSE:", error);
+              toast({ title: "Erro ao Gerar Resumo", description: typeof error === 'string' ? error : "Falha na conexão", variant: "destructive", duration: 9000 });
+            }
+          },
+        );
+      };
+      startSSEWithRetry();
 
       console.log(`[DEBUG] Handlers conectados (andamentos/documentos via promises, resumo via SSE)`);
     };
@@ -635,6 +670,15 @@ export default function VisualizarProcessoPage() {
                   <br />
                   {formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso)}
                 </SheetTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsDetailsSheetOpen(false)}
+                  className="h-8 w-8 p-0 flex-shrink-0"
+                  aria-label="Fechar detalhes"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
               <SheetDescription className="sr-only">Detalhes do processo</SheetDescription>
             </SheetHeader>
@@ -708,51 +752,137 @@ export default function VisualizarProcessoPage() {
                 )}
               </div>
 
-              {/* Entendimento section */}
+              {/* Entendimento / Situação Atual tabs */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                    <BookText className="h-5 w-5" /> Entendimento (IA)
+                    <BookText className="h-5 w-5" /> Resumo (IA)
                   </h3>
-                  {processSummary && (
-                    <div className="flex items-center gap-1">
-                      <Button variant="outline" size="sm" disabled className="h-7 px-2 text-xs">
-                        <Share2 className="mr-1 h-3 w-3" />
-                        Compartilhar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => {
-                          navigator.clipboard.writeText(processSummary);
-                          toast({ title: "Copiado", description: "Entendimento copiado para a área de transferência." });
-                        }}
-                      >
-                        <Copy className="mr-1 h-3 w-3" />
-                        Copiar
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      disabled={!processSummary && !situacaoAtual}
+                      onClick={() => {
+                        const text = processSummary || situacaoAtual || '';
+                        if (text) {
+                          const processNum = formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso);
+                          const message = `*Processo ${processNum}*\n\n${text}`;
+                          window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
+                        }
+                      }}
+                    >
+                      <Share2 className="mr-1 h-3 w-3" />
+                      WhatsApp
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => {
+                        const text = processSummary || situacaoAtual || '';
+                        if (text) {
+                          navigator.clipboard.writeText(text);
+                          toast({ title: "Copiado", description: "Texto copiado para a área de transferência." });
+                        }
+                      }}
+                      disabled={!processSummary && !situacaoAtual}
+                    >
+                      <Copy className="mr-1 h-3 w-3" />
+                      Copiar
+                    </Button>
+                  </div>
                 </div>
-                {processSummary !== null && processSummary !== undefined && processSummary.length > 0 ? (
-                  <div>
-                    <pre className="text-lg whitespace-pre-wrap break-words font-sans leading-relaxed">{processSummary}</pre>
-                    {backgroundLoading.resumo && (
-                      <span className="inline-block w-2 h-5 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
+                <Tabs defaultValue="entendimento" onValueChange={(value) => {
+                  if (value === "situacao" && situacaoAtual === null && !backgroundLoading.situacao && sessionToken && selectedUnidadeFiltro) {
+                    setBackgroundLoading(prev => ({ ...prev, situacao: true }));
+                    setSituacaoAtual("");
+
+                    const startSituacaoSSE = (attempt = 0) => {
+                      setSituacaoAtual("");
+                      fetchSSEStream(
+                        getStreamSituacaoAtualUrl(numeroProcesso, selectedUnidadeFiltro),
+                        sessionToken,
+                        (chunk) => {
+                          setSituacaoAtual(prev => (prev || "") + chunk);
+                        },
+                        (fullResult) => {
+                          const text = typeof fullResult === 'string'
+                            ? fullResult
+                            : fullResult?.situacao_atual || "";
+                          setSituacaoAtual(text.replace(/[#*]/g, ''));
+                          setBackgroundLoading(prev => ({ ...prev, situacao: false }));
+                        },
+                        (error) => {
+                          if (attempt < 2 && isNetworkError(error)) {
+                            const delay = 2000 * (attempt + 1);
+                            console.warn(`[RETRY] situação SSE: tentativa ${attempt + 1} falhou (rede), aguardando ${delay}ms...`);
+                            setTimeout(() => startSituacaoSSE(attempt + 1), delay);
+                          } else {
+                            setSituacaoAtual(null);
+                            setBackgroundLoading(prev => ({ ...prev, situacao: false }));
+                            console.warn("Erro ao buscar situação atual via SSE:", error);
+                            toast({ title: "Erro ao Gerar Situação Atual", description: typeof error === 'string' ? error : "Falha na conexão", variant: "destructive" });
+                          }
+                        },
+                      );
+                    };
+                    startSituacaoSSE();
+                  }
+                }}>
+                  <TabsList className="w-full">
+                    <TabsTrigger value="entendimento" className="flex-1">Entendimento</TabsTrigger>
+                    <TabsTrigger value="situacao" className="flex-1">Situação Atual</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="entendimento">
+                    {processSummary !== null && processSummary !== undefined && processSummary.length > 0 ? (
+                      <div>
+                        <pre className="text-lg whitespace-pre-wrap break-words font-sans leading-relaxed">{processSummary}</pre>
+                        {backgroundLoading.resumo && (
+                          <span className="inline-block w-2 h-5 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
+                        )}
+                      </div>
+                    ) : backgroundLoading.resumo ? (
+                      <div className="flex items-center justify-center p-6">
+                        <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                        <p className="ml-2 text-lg text-muted-foreground">Gerando resumo...</p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center p-6 text-muted-foreground text-lg">
+                        <Info className="mr-2 h-5 w-5" />
+                        {"Nenhum resumo dispon\u00edvel."}
+                      </div>
                     )}
-                  </div>
-                ) : backgroundLoading.resumo ? (
-                  <div className="flex items-center justify-center p-6">
-                    <Loader2 className="h-6 w-6 text-primary animate-spin" />
-                    <p className="ml-2 text-lg text-muted-foreground">Gerando resumo...</p>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center p-6 text-muted-foreground text-lg">
-                    <Info className="mr-2 h-5 w-5" />
-                    {"Nenhum resumo dispon\u00edvel."}
-                  </div>
-                )}
+                  </TabsContent>
+
+                  <TabsContent value="situacao">
+                    {situacaoAtual !== null && situacaoAtual !== undefined && situacaoAtual.length > 0 ? (
+                      <div>
+                        <pre className="text-lg whitespace-pre-wrap break-words font-sans leading-relaxed">{situacaoAtual}</pre>
+                        {backgroundLoading.situacao && (
+                          <span className="inline-block w-2 h-5 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
+                        )}
+                      </div>
+                    ) : backgroundLoading.situacao ? (
+                      <div className="flex items-center justify-center p-6">
+                        <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                        <p className="ml-2 text-lg text-muted-foreground">Gerando situação atual...</p>
+                      </div>
+                    ) : situacaoAtual === null ? (
+                      <div className="flex items-center justify-center p-6 text-muted-foreground text-lg">
+                        <Info className="mr-2 h-5 w-5" />
+                        Clique nesta aba para gerar a situação atual.
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center p-6 text-muted-foreground text-lg">
+                        <Info className="mr-2 h-5 w-5" />
+                        {"Nenhuma situação disponível."}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </div>
             </div>
 
@@ -777,7 +907,8 @@ export default function VisualizarProcessoPage() {
                   Clique em uma unidade em aberto para foca-la na linha do tempo
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <Separator />
+              <CardContent className="pt-4">
                 {isLoadingOpenUnits ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -826,7 +957,8 @@ export default function VisualizarProcessoPage() {
                   <GanttChartSquare className="h-5 w-5" /> Linha do Tempo
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 overflow-hidden p-0 px-6 pb-6">
+              <Separator />
+              <CardContent className="flex-1 overflow-hidden p-0 px-6 pb-6 pt-4">
                 <ProcessFlowClient
                   processedFlowData={processedFlowData}
                   taskToScrollTo={taskToScrollTo}

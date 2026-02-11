@@ -2,6 +2,7 @@
 
 import AppHeader from '@/components/AppHeader';
 import AppFooter from '@/components/AppFooter';
+import { OfflineBanner } from '@/components/OfflineBanner';
 
 export default function AuthenticatedLayout({
   children,
@@ -11,6 +12,7 @@ export default function AuthenticatedLayout({
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 w-full">
       <AppHeader />
+      <OfflineBanner />
       <main className="flex-1 flex flex-col w-full">{children}</main>
       <AppFooter />
     </div>

@@ -12,11 +12,12 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { fetchSSEStream, getStreamDocumentSummaryUrl } from '@/lib/streaming';
+import { isNetworkError } from '@/lib/network-retry';
 import React, { useState, useEffect } from 'react';
 import { formatDisplayDate } from '@/lib/process-flow-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, CheckCircle, User, Briefcase, CalendarClock, FileText, Sparkles, Layers, Loader2, ExternalLink, PenTool, TriangleAlert, Lock } from 'lucide-react';
+import { AlertCircle, CheckCircle, User, Briefcase, CalendarClock, FileText, Sparkles, Layers, Loader2, ExternalLink, PenTool, TriangleAlert, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 interface TaskDetailsModalProps {
@@ -37,6 +38,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
   const [isLoadingDocumentSummary, setIsLoadingDocumentSummary] = useState<boolean>(false);
   const [documentSummaryError, setDocumentSummaryError] = useState<string | null>(null);
   const [matchedDocument, setMatchedDocument] = useState<Documento | null>(null);
+  const [isSignatureExpanded, setIsSignatureExpanded] = useState(false);
+  const [isResumoExpanded, setIsResumoExpanded] = useState(true);
 
   useEffect(() => {
     // Reset document summary states when modal opens or task changes
@@ -45,6 +48,8 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
     setDocumentSummaryError(null);
     setIsLoadingDocumentSummary(false);
     setMatchedDocument(null);
+    setIsSignatureExpanded(false);
+    setIsResumoExpanded(true);
 
     if (task && isOpen) {
       // Extract document number with multiple flexible patterns
@@ -135,6 +140,14 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
     }
   }, [extractedDocumentNumber, documents]);
 
+  // Auto-fetch document summary when a matched document is found
+  useEffect(() => {
+    if (matchedDocument && isOpen && extractedDocumentNumber && sessionToken && selectedUnidadeFiltro && !documentSummary && !isLoadingDocumentSummary && !documentSummaryError) {
+      handleFetchDocumentSummary();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedDocument]);
+
   // Auto-scroll quando o resumo do documento é gerado
   useEffect(() => {
     if (documentSummary && !isLoadingDocumentSummary) {
@@ -148,7 +161,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
     }
   }, [documentSummary, isLoadingDocumentSummary]);
 
-  const handleFetchDocumentSummary = () => {
+  const handleFetchDocumentSummary = (attempt = 0) => {
     if (!extractedDocumentNumber || !sessionToken || !task || !selectedUnidadeFiltro) {
       setDocumentSummaryError("Não foi possível carregar o resumo do documento. Verifique se você está logado e se o documento é válido.");
       return;
@@ -172,9 +185,15 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
         setIsLoadingDocumentSummary(false);
       },
       (error) => {
-        setDocumentSummaryError(error || "Não foi possível obter o resumo do documento. Tente novamente.");
-        setDocumentSummary(null);
-        setIsLoadingDocumentSummary(false);
+        if (attempt < 2 && isNetworkError(error)) {
+          const delay = 2000 * (attempt + 1);
+          console.warn(`[RETRY] resumo documento SSE: tentativa ${attempt + 1} falhou (rede), aguardando ${delay}ms...`);
+          setTimeout(() => handleFetchDocumentSummary(attempt + 1), delay);
+        } else {
+          setDocumentSummaryError(error || "Não foi possível obter o resumo do documento. Tente novamente.");
+          setDocumentSummary(null);
+          setIsLoadingDocumentSummary(false);
+        }
       },
     );
   };
@@ -277,18 +296,39 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
                             {matchedDocument.Data} - {matchedDocument.UnidadeElaboradora.Sigla}
                           </div>
                         </div>
-                        <Button
-                          onClick={() => window.open(matchedDocument.LinkAcesso, '_blank')}
-                          variant="outline"
-                          size="sm"
-                          className="ml-3 flex-shrink-0"
-                        >
-                          <ExternalLink className="h-4 w-4 mr-1" />
-                          Abrir
-                        </Button>
+                        <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                          {/* Assinar — disabled placeholder when signature is pending */}
+                          {matchedDocument.Serie.IdSerie === '11' && (!matchedDocument.Assinaturas || matchedDocument.Assinaturas.length === 0) && (
+                            <Button variant="outline" size="sm" disabled>
+                              <PenTool className="mr-1 h-4 w-4" />
+                              Assinar
+                            </Button>
+                          )}
+                          <Button
+                            onClick={() => handleFetchDocumentSummary()}
+                            disabled={isLoadingDocumentSummary || !!documentSummary || !sessionToken}
+                            variant="outline"
+                            size="sm"
+                          >
+                            {isLoadingDocumentSummary ? (
+                              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="mr-1 h-4 w-4" />
+                            )}
+                            Resumir
+                          </Button>
+                          <Button
+                            onClick={() => window.open(matchedDocument.LinkAcesso, '_blank')}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            Abrir
+                          </Button>
+                        </div>
                       </div>
 
-                      {/* Signature status for Serie 11 (Oficio) documents */}
+                      {/* Signature status for Serie 11 (Oficio) documents — collapsible */}
                       {matchedDocument.Serie.IdSerie === '11' && (
                         <div className="mt-3 pt-3 border-t border-blue-200">
                           {(!matchedDocument.Assinaturas || matchedDocument.Assinaturas.length === 0) ? (
@@ -298,62 +338,72 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
                             </div>
                           ) : (
                             <div className="space-y-2">
-                              <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="flex items-center gap-2 w-full text-left"
+                                onClick={() => setIsSignatureExpanded(prev => !prev)}
+                              >
                                 <PenTool className="h-4 w-4 text-green-600 flex-shrink-0" />
                                 <span className="text-sm font-medium text-green-800">
                                   {matchedDocument.Assinaturas.length === 1 ? '1 assinatura' : `${matchedDocument.Assinaturas.length} assinaturas`}
                                 </span>
-                              </div>
-                              <div className="space-y-1">
-                                {matchedDocument.Assinaturas.map((assinatura, idx) => (
-                                  <div key={idx} className="flex items-start gap-2 pl-6 text-sm text-muted-foreground">
-                                    <User className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-green-600" />
-                                    <div>
-                                      <span className="font-medium text-foreground">{assinatura.Nome}</span>
-                                      {assinatura.CargoFuncao && (
-                                        <span className="text-xs ml-1">({assinatura.CargoFuncao})</span>
-                                      )}
-                                      <div className="text-xs">{assinatura.DataHora}</div>
+                                {isSignatureExpanded ? (
+                                  <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto" />
+                                )}
+                              </button>
+                              {isSignatureExpanded && (
+                                <div className="space-y-1">
+                                  {matchedDocument.Assinaturas.map((assinatura, idx) => (
+                                    <div key={idx} className="flex items-start gap-2 pl-6 text-sm text-muted-foreground">
+                                      <User className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-green-600" />
+                                      <div>
+                                        <span className="font-medium text-foreground">{assinatura.Nome}</span>
+                                        {assinatura.CargoFuncao && (
+                                          <span className="text-xs ml-1">({assinatura.CargoFuncao})</span>
+                                        )}
+                                        <div className="text-xs">{assinatura.DataHora}</div>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
-                              </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
                       )}
 
-                      {/* Botão e resumo do documento */}
-                      <div className="mt-3 pt-3 border-t border-blue-200">
-                        <Button
-                          onClick={handleFetchDocumentSummary}
-                          disabled={isLoadingDocumentSummary || !sessionToken}
-                          variant="outline"
-                          size="sm"
-                          className="w-full sm:w-auto"
-                        >
-                          {isLoadingDocumentSummary ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="mr-2 h-4 w-4" />
-                          )}
-                          Gerar Resumo do Documento
-                        </Button>
-                        
-                        {documentSummaryError && (
-                          <p className="text-sm text-destructive flex items-center mt-2">
+                      {/* Resumo do documento — collapsible, default open */}
+                      {documentSummaryError && (
+                        <div className="mt-3 pt-3 border-t border-blue-200">
+                          <p className="text-sm text-destructive flex items-center">
                             <AlertCircle className="h-4 w-4 mr-1" /> {documentSummaryError}
                           </p>
-                        )}
-                        
-                        {documentSummary !== null && documentSummary !== undefined && documentSummary.length > 0 && (
-                          <div className="mt-3 p-3 border rounded-md bg-white/80">
-                            <div className="flex items-center mb-2">
-                              <Sparkles className="h-4 w-4 mr-1 text-accent" />
-                              <span className="text-sm font-medium text-foreground">
-                                {isLoadingDocumentSummary ? "Gerando resumo..." : "Resumo Gerado"}
-                              </span>
-                            </div>
+                        </div>
+                      )}
+
+                      {(isLoadingDocumentSummary || (documentSummary !== null && documentSummary !== undefined && documentSummary.length > 0)) && (
+                        <div className="mt-3 pt-3 border-t border-blue-200">
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 w-full text-left mb-2"
+                            onClick={() => setIsResumoExpanded(prev => !prev)}
+                          >
+                            <Sparkles className="h-4 w-4 text-accent flex-shrink-0" />
+                            <span className="text-sm font-medium text-foreground">
+                              {isLoadingDocumentSummary ? "Gerando resumo..." : "Resumo Gerado"}
+                            </span>
+                            {isLoadingDocumentSummary && (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                            )}
+                            {isResumoExpanded ? (
+                              <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto" />
+                            )}
+                          </button>
+                          {isResumoExpanded && (
                             <div className="border rounded-md bg-muted/20 p-3">
                               <div className="text-sm text-secondary-foreground whitespace-pre-wrap">
                                 {documentSummary}
@@ -362,9 +412,9 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
                                 )}
                               </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                   

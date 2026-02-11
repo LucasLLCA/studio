@@ -101,6 +101,14 @@ export function getStreamProcessSummaryUrl(
   return `${SUMMARY_API_BASE_URL}/processo/resumo-completo-stream/${encodeURIComponent(formatted)}?id_unidade=${encodeURIComponent(unidadeId)}`;
 }
 
+export function getStreamSituacaoAtualUrl(
+  processNumber: string,
+  unidadeId: string,
+): string {
+  const formatted = processNumber.replace(/[.\/-]/g, "");
+  return `${SUMMARY_API_BASE_URL}/processo/resumo-situacao-stream/${encodeURIComponent(formatted)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+}
+
 export function getStreamDocumentSummaryUrl(
   documentoFormatado: string,
   unidadeId: string,

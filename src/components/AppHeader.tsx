@@ -35,7 +35,7 @@ export default function AppHeader() {
 
   return (
     <>
-      <div className="p-3 border-b border-border shadow-sm sticky top-0 z-30 bg-card">
+      <div className="p-3 border-b border-border shadow-sm sticky top-0 z-40 bg-card">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
             {mounted && isAuthenticated && (
