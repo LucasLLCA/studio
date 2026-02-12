@@ -357,7 +357,7 @@ export default function ProcessoPage() {
               </div>
 
               <Button
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white mt-6"
+                className="w-full bg-[#4885ed] hover:bg-[#3a6fd4] text-white mt-6"
                 onClick={handleAcessarProcesso}
                 disabled={!hasSelection}
               >

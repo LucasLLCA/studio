@@ -20,11 +20,11 @@ interface FeatureCardProps {
 
 function FeatureCard({ icon, title, subtitle }: FeatureCardProps) {
   return (
-    <div className="bg-white rounded-lg p-5 min-h-36 flex flex-col gap-3 border border-emerald-200 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />
-      <div className="text-emerald-700">{icon}</div>
+    <div className="bg-white rounded-lg p-5 min-h-36 flex flex-col gap-3 border border-[#b3d0f7] relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-1 bg-[#4885ed]" />
+      <div className="text-[#4885ed]">{icon}</div>
       <div className="space-y-1">
-        <p className="text-emerald-700 font-semibold leading-tight">{title}</p>
+        <p className="text-[#4885ed] font-semibold leading-tight">{title}</p>
         <p className="text-sm text-gray-600 leading-snug">{subtitle}</p>
       </div>
     </div>
@@ -140,7 +140,7 @@ function HomeContent() {
           </p>
         </div>
 
-        <h1 className="text-3xl font-bold text-emerald-600">
+        <h1 className="text-3xl font-bold text-[#4885ed]">
           O que analisaremos juntos ?
         </h1>
 
@@ -188,7 +188,7 @@ function HomeContent() {
                 <Button
                   onClick={() => handleSearchClick()}
                   disabled={!mounted || !isAuthenticated || !processoNumeroInput}
-                  className="absolute right-2 top-2 h-10 w-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white p-0"
+                  className="absolute right-2 top-2 h-10 w-10 rounded-full bg-[#4885ed] hover:bg-[#3a6fd4] text-white p-0"
                 >
                   <Search className="h-5 w-5" />
                 </Button>
@@ -199,15 +199,15 @@ function HomeContent() {
           <section>
             <Tabs defaultValue="historico" className="w-full">
               <div className="mb-3">
-                <TabsList className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-emerald-600 w-full grid grid-cols-4 h-auto gap-1 bg-transparent">
-                  <TabsTrigger value="historico" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-emerald-600 text-xs px-2 py-2 whitespace-normal leading-tight">{"\u00daltimas pesquisas"}</TabsTrigger>
+                <TabsList className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#4885ed] w-full grid grid-cols-4 h-auto gap-1 bg-transparent">
+                  <TabsTrigger value="historico" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#4885ed] text-xs px-2 py-2 whitespace-normal leading-tight">{"\u00daltimas pesquisas"}</TabsTrigger>
                   <TabsTrigger value="espaco" disabled className="text-xs px-2 py-2 whitespace-normal leading-tight">
                     <Lock className="h-3.5 w-3.5 mr-1" /> {"Meu Espa\u00e7o"}
                   </TabsTrigger>
                   <TabsTrigger value="compartilhados" disabled className="text-xs px-2 py-2 whitespace-normal leading-tight">
                     <Lock className="h-3.5 w-3.5 mr-1" /> Compartilhados comigo
                   </TabsTrigger>
-                  <TabsTrigger value="paineis" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-emerald-600 text-xs px-2 py-2 whitespace-normal leading-tight">{"Pain\u00e9is de Intelig\u00eancia"}</TabsTrigger>
+                  <TabsTrigger value="paineis" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#4885ed] text-xs px-2 py-2 whitespace-normal leading-tight">{"Pain\u00e9is de Intelig\u00eancia"}</TabsTrigger>
                 </TabsList>
               </div>
               <div className="bg-white border border-gray-300 rounded-lg p-4 min-h-[360px]">

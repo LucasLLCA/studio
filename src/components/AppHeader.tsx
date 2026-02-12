@@ -39,7 +39,7 @@ export default function AppHeader() {
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
             {mounted && isAuthenticated && (
-              <Button variant="ghost" className="inline-flex items-center px-3 py-1 text-xl font-bold text-emerald-600 mr-1 hover:bg-transparent hover:text-emerald-700" onClick={() => router.push('/')}>
+              <Button variant="ghost" className="inline-flex items-center px-3 py-1 text-xl font-bold text-[#4885ed] mr-1 hover:bg-transparent hover:text-[#3a6fd4]" onClick={() => router.push('/')}>
                 Visualizador de Processos
               </Button>
             )}
