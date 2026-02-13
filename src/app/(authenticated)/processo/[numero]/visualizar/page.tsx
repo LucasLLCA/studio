@@ -305,7 +305,7 @@ function VisualizarProcessoContent() {
                       )}
                       <Separator orientation="vertical" className="h-5" />
                       <Button onClick={handleScrollToFirstTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
-                        <ChevronsLeft className="mr-1 h-4 w-4" /> Início
+                        <ChevronsLeft className="mr-1 h-4 w-4" /> Procurar Novo Processo
                       </Button>
                       <Button onClick={handleScrollToLastTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
                         <ChevronsRight className="mr-1 h-4 w-4" /> Fim

@@ -48,15 +48,11 @@ export default function AppHeader() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/')} title={"P\u00e1gina Inicial"}>
               <HomeIcon className="mr-2 h-4 w-4" />
-              {"In\u00edcio"}
+              {"Procurar Novo Processo"}
             </Button>
             <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => setIsInfoModalOpen(true)} title={"Informa\u00e7\u00f5es do Sistema"}>
               <Newspaper className="h-4 w-4" />
-              {"Not\u00edcias"}
-            </Button>
-            <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => setIsApiStatusModalOpen(true)} title="Status das APIs">
-              <Activity className="h-4 w-4" />
-              {"Sa\u00fade das APIs"}
+              {"Atualizações"}
             </Button>
             {mounted && isAuthenticated && (
               <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Sair </Button>
