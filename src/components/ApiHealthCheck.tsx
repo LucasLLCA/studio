@@ -108,32 +108,11 @@ const ApiHealthCheck: React.FC<ApiHealthCheckProps> = ({
   }
 
   if (isChecking) {
-    return (
-      <Alert className={`mb-4 ${className}`}>
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <AlertDescription>
-          <strong>Verificando APIs...</strong> Verificando conectividade com as APIs.
-        </AlertDescription>
-      </Alert>
-    );
+    return null;
   }
 
   if (hasOfflineApis || hasApiErrors) {
-    const offlineApis = [];
-    if (!seiApiStatus?.isOnline) offlineApis.push('API SEI');
-    if (!summaryApiStatus?.isOnline) offlineApis.push('API de Resumo');
-
-    return (
-      <Alert variant="destructive" className={`mb-4 ${className}`}>
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>
-          <strong>APIs Indisponíveis:</strong> {offlineApis.join(' e ')} 
-          {offlineApis.length > 1 ? ' não estão' : ' não está'} respondendo. 
-          Algumas funcionalidades podem não funcionar corretamente.
-          {lastCheck && ` Última verificação: ${lastCheck.toLocaleTimeString()}`}
-        </AlertDescription>
-      </Alert>
-    );
+    return null;
   }
 
   return null;
