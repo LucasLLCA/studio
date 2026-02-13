@@ -3,6 +3,7 @@
 
 import type { UnidadeAberta, ProcessedAndamento, ProcessedFlowData } from '@/types/process-flow';
 import { User, Info, AlertTriangle } from 'lucide-react';
+import { findOpenTaskForUnit } from '@/lib/process-flow-utils';
 import {
   Card,
   CardContent,
@@ -41,23 +42,12 @@ export function ProcessMetadataSidebar({
   };
   const openUnitsMessage = getOpenUnitsMessage();
 
-  const findOpenTaskForUnit = (unitId: string): ProcessedAndamento | undefined => {
-    if (!processedFlowData || !processedFlowData.tasks) {
-      return undefined;
-    }
-    const openTasksInUnit = processedFlowData.tasks
-      .filter(task => task.Unidade.IdUnidade === unitId && typeof task.daysOpen === 'number' && task.daysOpen >= 0)
-      .sort((a, b) => b.globalSequence - a.globalSequence);
-
-    return openTasksInUnit[0];
-  };
-
   return (
     <div className="w-full">
         <div className="space-y-3">
           {openUnitsInProcess && openUnitsInProcess.length > 0 && (
             openUnitsInProcess.map(unitInfo => {
-              const openTaskDetails = findOpenTaskForUnit(unitInfo.Unidade.IdUnidade);
+              const openTaskDetails = findOpenTaskForUnit(processedFlowData?.tasks, unitInfo.Unidade.IdUnidade);
               const cardIsClickable = !!openTaskDetails;
 
               return (

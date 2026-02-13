@@ -6,6 +6,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Remove toda formatação de um número de processo, retornando apenas dígitos.
+ */
+export function stripProcessNumber(numero: string): string {
+  return numero.replace(/\D/g, '');
+}
+
+/**
  * Formata um número de processo no padrão brasileiro
  * Exemplo: 12345678901234567890 -> 12345.678901/2345-67
  */

@@ -58,7 +58,7 @@ export function ProcessInfoCards({
       {/* Card de Informações Gerais */}
       <Card>
         <CardHeader className="p-2">
-          <CardTitle className="text-md flex items-center text-green-600">
+          <CardTitle className="text-md flex items-center text-primary">
             <FileText className="mr-2 h-5 w-5" /> Número: {processNumber}
           </CardTitle>
         </CardHeader>
@@ -91,7 +91,7 @@ export function ProcessInfoCards({
                 href={processLinkAcesso}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium ml-1 text-blue-600 hover:text-blue-800 underline"
+                className="font-medium ml-1 text-primary hover:text-primary-hover underline"
               >
                 Abrir no SEI
               </a>
@@ -101,14 +101,14 @@ export function ProcessInfoCards({
             <div className="flex items-center">
               {openUnitsInProcess.length === 0 ? (
                 <>
-                  <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                  Status: <span className="font-medium ml-1 text-green-600">Concluído</span>
+                  <CheckCircle className="mr-2 h-4 w-4 text-success" />
+                  Status: <span className="font-medium ml-1 text-success">Concluído</span>
                 </>
               ) : (
                 <>
-                  <Clock className="mr-2 h-4 w-4 text-yellow-600" />
+                  <Clock className="mr-2 h-4 w-4 text-warning" />
                   Status:{' '}
-                  <span className="font-medium ml-1 text-yellow-600">
+                  <span className="font-medium ml-1 text-warning">
                     Em andamento ({openUnitsInProcess.length} unidade
                     {openUnitsInProcess.length !== 1 ? 's' : ''} aberta
                     {openUnitsInProcess.length !== 1 ? 's' : ''})
@@ -124,7 +124,7 @@ export function ProcessInfoCards({
               <div className="flex items-start space-x-2">
                 <Loader2 className="h-4 w-4 text-primary animate-spin flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h4 className="text-xs font-medium mb-1 text-green-600">Atualizando dados...</h4>
+                  <h4 className="text-xs font-medium mb-1 text-primary">Atualizando dados...</h4>
                   <div className="space-y-0.5">
                     {loadingTasks.map((task, index) => (
                       <div key={index} className="flex items-center space-x-1.5 text-xs">
@@ -143,7 +143,7 @@ export function ProcessInfoCards({
       {/* Card de Resumo IA */}
       <Card>
         <CardHeader className="p-2">
-          <CardTitle className="text-md flex items-center text-green-600">
+          <CardTitle className="text-md flex items-center text-primary">
             <BookText className="mr-2 h-5 w-5" /> Entendimento Automatizado (IA)
           </CardTitle>
         </CardHeader>

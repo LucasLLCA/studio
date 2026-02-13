@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { LogOut, Activity, Newspaper, Info, HelpCircle, Home as HomeIcon, Clock } from 'lucide-react';
+import { AlertBox } from '@/components/ui/alert-box';
 import { Button } from '@/components/ui/button';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useRouter } from 'next/navigation';
@@ -39,7 +40,7 @@ export default function AppHeader() {
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
             {mounted && isAuthenticated && (
-              <Button variant="ghost" className="inline-flex items-center px-3 py-1 text-xl font-bold text-[#4885ed] mr-1 hover:bg-transparent hover:text-[#3a6fd4]" onClick={() => router.push('/')}>
+              <Button variant="ghost" className="inline-flex items-center px-3 py-1 text-xl font-bold text-primary mr-1 hover:bg-transparent hover:text-primary-hover" onClick={() => router.push('/')}>
                 Visualizador de Processos
               </Button>
             )}
@@ -78,7 +79,7 @@ export default function AppHeader() {
       <Dialog open={isInfoModalOpen} onOpenChange={setIsInfoModalOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center text-blue-600">
+            <DialogTitle className="flex items-center text-primary">
               <Newspaper className="mr-2 h-5 w-5" />
               {"Informa\u00e7\u00f5es do Sistema"}
             </DialogTitle>
@@ -87,41 +88,17 @@ export default function AppHeader() {
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-4">
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h4 className="font-semibold text-blue-900 mb-1">Arquivos Suportados</h4>
-                  <p className="text-sm text-blue-700">
-                    Nesta fase atual o sistema consegue ler e processar apenas arquivos gerados internamente pelo SEI.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <AlertBox variant="info" icon={<Info />} title="Arquivos Suportados" className="p-4 rounded-lg">
+              Nesta fase atual o sistema consegue ler e processar apenas arquivos gerados internamente pelo SEI.
+            </AlertBox>
 
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <Clock className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h4 className="font-semibold text-yellow-900 mb-1">Documentos PDF</h4>
-                  <p className="text-sm text-yellow-700">
-                    {"Documentos PDFs ainda n\u00e3o s\u00e3o processados e est\u00e1 no cronograma de desenvolvimento."}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <AlertBox variant="warning" icon={<Clock />} title="Documentos PDF" className="p-4 rounded-lg">
+              {"Documentos PDFs ainda n\u00e3o s\u00e3o processados e est\u00e1 no cronograma de desenvolvimento."}
+            </AlertBox>
 
-            <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <div className="flex items-start space-x-3">
-                <HelpCircle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h4 className="font-semibold text-orange-900 mb-1">Problema Conhecido</h4>
-                  <p className="text-sm text-orange-700">
-                    {"Alguns processos com grande volume de andamentos (>500) podem apresentar lentid\u00e3o na renderiza\u00e7\u00e3o do gr\u00e1fico. Recomenda-se usar a op\u00e7\u00e3o \"Resumido\" para melhor desempenho."}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <AlertBox variant="warning" icon={<HelpCircle />} title="Problema Conhecido" className="p-4 rounded-lg">
+              {"Alguns processos com grande volume de andamentos (>500) podem apresentar lentid\u00e3o na renderiza\u00e7\u00e3o do gr\u00e1fico. Recomenda-se usar a op\u00e7\u00e3o \"Resumido\" para melhor desempenho."}
+            </AlertBox>
           </div>
           <DialogFooter>
             <Button onClick={() => setIsInfoModalOpen(false)} variant="outline">

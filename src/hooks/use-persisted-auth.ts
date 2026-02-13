@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { LoginCredentials, UnidadeFiltro } from '@/types/process-flow';
+import { AUTH_CONFIG } from '@/config/constants';
 
 interface PersistedAuthData {
   isAuthenticated: boolean;
@@ -10,13 +11,16 @@ interface PersistedAuthData {
   orgao: string | null; // Órgão do usuário (ex: "SEAD-PI")
   usuario: string | null; // Email/username do usuário
   nomeUsuario: string | null; // Nome do usuário para exibição
+  idUsuario: string | null; // IdUsuario — needed for document signing
+  idLogin: string | null; // IdLogin — needed for document signing
+  cargoAssinatura: string | null; // UltimoCargoAssinatura — needed for document signing
   unidadesFiltroList: UnidadeFiltro[];
   selectedUnidadeFiltro: string | undefined;
   timestamp: number;
 }
 
-const AUTH_STORAGE_KEY = 'sei_auth_data';
-const AUTH_EXPIRY_HOURS = 8; // Expira em 8 horas
+const AUTH_STORAGE_KEY = AUTH_CONFIG.STORAGE_KEY;
+const AUTH_EXPIRY_HOURS = AUTH_CONFIG.EXPIRY_HOURS;
 
 function sanitizeDisplayName(name?: string | null): string | null {
   if (!name) return null;
@@ -97,6 +101,21 @@ export function usePersistedAuth() {
     return stored?.nomeUsuario || null;
   });
 
+  const [idUsuario, setIdUsuario] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.idUsuario || null;
+  });
+
+  const [idLogin, setIdLogin] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.idLogin || null;
+  });
+
+  const [cargoAssinatura, setCargoAssinatura] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.cargoAssinatura || null;
+  });
+
   const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>(() => {
     const stored = loadFromStorage();
     return stored?.unidadesFiltroList || [];
@@ -119,6 +138,9 @@ export function usePersistedAuth() {
         orgao: null,
         usuario: null,
         nomeUsuario: null,
+        idUsuario: null,
+        idLogin: null,
+        cargoAssinatura: null,
         unidadesFiltroList: [],
         selectedUnidadeFiltro: undefined,
         timestamp: Date.now()
@@ -138,7 +160,7 @@ export function usePersistedAuth() {
   }, [loadFromStorage]);
 
   // Função para fazer login
-  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string, userEmail?: string, userName?: string) => {
+  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string, userEmail?: string, userName?: string, userIdUsuario?: string, userIdLogin?: string, userCargoAssinatura?: string) => {
     console.log('[DEBUG] Login iniciado - Token type:', typeof token);
     console.log('[DEBUG] Login - Token raw value:', token);
     console.log('[DEBUG] Login - Unidades:', unidades.length);
@@ -165,6 +187,9 @@ export function usePersistedAuth() {
     setUsuario(userEmail || null);
     const cleanUserName = sanitizeDisplayName(userName);
     setNomeUsuario(cleanUserName);
+    setIdUsuario(userIdUsuario || null);
+    setIdLogin(userIdLogin || null);
+    setCargoAssinatura(userCargoAssinatura || null);
     setUnidadesFiltroList(unidades);
 
     const dataToSave = {
@@ -174,6 +199,9 @@ export function usePersistedAuth() {
       orgao: userOrgao || null,
       usuario: userEmail || null,
       nomeUsuario: cleanUserName,
+      idUsuario: userIdUsuario || null,
+      idLogin: userIdLogin || null,
+      cargoAssinatura: userCargoAssinatura || null,
       unidadesFiltroList: unidades
     };
 
@@ -198,6 +226,9 @@ export function usePersistedAuth() {
     setOrgao(null);
     setUsuario(null);
     setNomeUsuario(null);
+    setIdUsuario(null);
+    setIdLogin(null);
+    setCargoAssinatura(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
 
@@ -224,6 +255,9 @@ export function usePersistedAuth() {
     setOrgao(null);
     setUsuario(null);
     setNomeUsuario(null);
+    setIdUsuario(null);
+    setIdLogin(null);
+    setCargoAssinatura(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
     if (typeof window !== 'undefined') {
@@ -250,6 +284,9 @@ export function usePersistedAuth() {
     orgao,
     usuario,
     nomeUsuario,
+    idUsuario,
+    idLogin,
+    cargoAssinatura,
     unidadesFiltroList,
     selectedUnidadeFiltro,
     login,

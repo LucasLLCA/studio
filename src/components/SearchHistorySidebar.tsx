@@ -176,7 +176,7 @@ export function SearchHistorySidebar({ isOpen, onClose, onSearchSelect }: Search
                       onClick={() => handleHistoryItemClick(item)}
                       className="w-full text-left px-3 py-2.5 pr-10 rounded-lg hover:bg-accent transition-colors"
                     >
-                      <div className="font-medium text-sm text-blue-600 dark:text-blue-400 group-hover/item:text-blue-700 dark:group-hover/item:text-blue-300">
+                      <div className="font-medium text-sm text-primary dark:text-primary group-hover/item:text-primary-hover dark:group-hover/item:text-primary">
                         {item.numero_processo_formatado || formatProcessNumber(item.numero_processo)}
                       </div>
                       {item.caixa_contexto && (

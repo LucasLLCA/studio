@@ -32,7 +32,7 @@ const ApiHealthCheck: React.FC<ApiHealthCheckProps> = ({
     switch (status.status) {
       case 'online':
         return (
-          <Badge variant="default" className="bg-green-500 text-white">
+          <Badge variant="default" className="bg-success text-success-foreground">
             <CheckCircle className="h-3 w-3 mr-1" />
             Online
           </Badge>

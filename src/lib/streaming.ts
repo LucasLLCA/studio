@@ -1,4 +1,6 @@
 import { MOCK_PROCESS_SUMMARY_TEXT } from '@/lib/mock-data';
+import { isNetworkError } from '@/lib/network-retry';
+import { stripProcessNumber } from '@/lib/utils';
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_DATA === 'true';
 
@@ -94,16 +96,16 @@ export function getStreamProcessSummaryUrl(
   processNumber: string,
   unidadeId: string,
 ): string {
-  const formatted = processNumber.replace(/[.\/-]/g, "");
-  return `/api/stream/resumo-completo/${encodeURIComponent(formatted)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  const cleaned = stripProcessNumber(processNumber);
+  return `/api/stream/resumo-completo/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
 }
 
 export function getStreamSituacaoAtualUrl(
   processNumber: string,
   unidadeId: string,
 ): string {
-  const formatted = processNumber.replace(/[.\/-]/g, "");
-  return `/api/stream/resumo-situacao/${encodeURIComponent(formatted)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  const cleaned = stripProcessNumber(processNumber);
+  return `/api/stream/resumo-situacao/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
 }
 
 export function getStreamDocumentSummaryUrl(
@@ -111,4 +113,40 @@ export function getStreamDocumentSummaryUrl(
   unidadeId: string,
 ): string {
   return `/api/stream/resumo-documento/${encodeURIComponent(documentoFormatado)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+}
+
+/**
+ * Wraps fetchSSEStream with automatic retry on network errors.
+ * Retries up to `maxRetries` (default 2) with exponential backoff.
+ */
+export function fetchSSEStreamWithRetry(
+  url: string,
+  token: string,
+  onChunk: (text: string) => void,
+  onDone: (fullResult: any) => void,
+  onError: (error: string) => void,
+  options?: { maxRetries?: number; signal?: AbortSignal },
+): void {
+  const maxRetries = options?.maxRetries ?? 2;
+
+  const attempt = (n: number) => {
+    fetchSSEStream(
+      url,
+      token,
+      onChunk,
+      onDone,
+      (error) => {
+        if (n < maxRetries && isNetworkError(error)) {
+          const delay = 2000 * (n + 1);
+          console.warn(`[RETRY] SSE: tentativa ${n + 1} falhou (rede), aguardando ${delay}ms...`);
+          setTimeout(() => attempt(n + 1), delay);
+        } else {
+          onError(error);
+        }
+      },
+      options?.signal,
+    );
+  };
+
+  attempt(0);
 }

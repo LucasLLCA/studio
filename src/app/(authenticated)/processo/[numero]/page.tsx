@@ -5,11 +5,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, AlertTriangle } from 'lucide-react';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import { useToast } from '@/hooks/use-toast';
-import { formatProcessNumber } from '@/lib/utils';
+import { formatProcessNumber, stripProcessNumber } from '@/lib/utils';
 import { saveSearchHistory } from '@/lib/history-api-client';
 
 export default function ProcessoPage() {
@@ -57,8 +57,13 @@ export default function ProcessoPage() {
     }
   }, [isAuthenticated, sessionToken, router, toast]);
 
+  const isAccessDenied = hasError && queryError && (
+    queryError.message.includes('422') ||
+    queryError.message.toLowerCase().includes('acesso')
+  );
+
   useEffect(() => {
-    if (hasError && queryError) {
+    if (hasError && queryError && !isAccessDenied) {
       console.error('[DEBUG] Erro ao buscar unidades abertas:', queryError);
 
       let errorMessage = queryError.message;
@@ -73,7 +78,7 @@ export default function ProcessoPage() {
         duration: 7000
       });
     }
-  }, [hasError, queryError, numeroProcesso, toast]);
+  }, [hasError, queryError, isAccessDenied, numeroProcesso, toast]);
 
   const filteredUnidades = useMemo(() => {
     if (!searchTerm || !unidadesFiltroList) return unidadesFiltroList || [];
@@ -151,13 +156,14 @@ export default function ProcessoPage() {
     const unidadeNome = unidadeSelecionada ? `${unidadeSelecionada.Sigla} - ${unidadeSelecionada.Descricao}` : 'Unidade n\u00e3o identificada';
 
     if (usuario) {
-      const numeroProcessoLimpo = numeroProcesso.replace(/[.\/-]/g, '');
+      const numeroProcessoLimpo = stripProcessNumber(numeroProcesso);
       const numeroProcessoFormatado = formatProcessNumber(numeroProcessoLimpo);
 
       saveSearchHistory({
         numero_processo: numeroProcessoLimpo,
         numero_processo_formatado: numeroProcessoFormatado,
         usuario: usuario,
+        id_unidade: unidadeIdSelecionada,
         caixa_contexto: unidadeNome
       }).catch(error => {
         console.error('[DEBUG] Erro ao salvar hist\u00f3rico:', error);
@@ -214,6 +220,33 @@ export default function ProcessoPage() {
               </div>
             </div>
           </CardHeader>
+          {isAccessDenied && (
+            <div className="mx-4 mb-3 p-3 rounded-md border border-warning/30 bg-warning/10 flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-warning-foreground">
+                  A consulta de unidades em aberto falhou para sua unidade padrão.
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Selecione manualmente uma de suas unidades abaixo ou continue sem acesso a documentos.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-xs border-warning/40 text-warning-foreground hover:bg-warning/10"
+                  onClick={() => {
+                    const unidade = selectedMinhaUnidade || selectedUnidadeFavorita || idUnidadeAtual || '';
+                    if (unidade) {
+                      updateSelectedUnidade(unidade);
+                    }
+                    router.push(`/processo/${encodeURIComponent(numeroProcesso)}/visualizar?noDocAccess=1`);
+                  }}
+                >
+                  Continuar sem documentos
+                </Button>
+              </div>
+            </div>
+          )}
           <CardContent className="p-4 md:p-5 h-full flex flex-col">
             <div className="space-y-3 flex-1 min-h-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-h-0">
@@ -221,12 +254,17 @@ export default function ProcessoPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Unidades em aberto
                     {unidadesAbertas && unidadesAbertas.length > 0 && (
-                      <span className="ml-2 text-sm font-semibold text-green-700">
+                      <span className="ml-2 text-sm font-semibold text-primary">
                         ({unidadesAbertas.length})
                       </span>
                     )}
                   </label>
-                  {unidadesAbertas && unidadesAbertas.length > 0 ? (
+                  {isAccessDenied ? (
+                    <div className="text-center text-sm text-warning-foreground p-3 border rounded-md bg-warning/10 border-warning/30">
+                      <AlertTriangle className="h-4 w-4 inline-block mr-1 mb-0.5" />
+                      Não foi possível consultar unidades em aberto
+                    </div>
+                  ) : unidadesAbertas && unidadesAbertas.length > 0 ? (
                     <div className="min-h-0">
                       <div className="relative mb-1.5">
                         <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -250,7 +288,7 @@ export default function ProcessoPage() {
                                   setUserClearedSelection(false);
                                 }
                               }}
-                              className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${selectedUnidadeAberta === unidadeAberta.Unidade.IdUnidade ? 'bg-green-50 border-l-4 border-green-500' : ''
+                              className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${selectedUnidadeAberta === unidadeAberta.Unidade.IdUnidade ? 'bg-primary-light/20 border-l-4 border-primary' : ''
                                 } ${selectedMinhaUnidade || selectedUnidadeFavorita ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                               <div className="font-medium text-sm">{unidadeAberta.Unidade.Sigla}</div>
@@ -307,7 +345,7 @@ export default function ProcessoPage() {
                                   setUserClearedSelection(false);
                                 }
                               }}
-                              className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${selectedMinhaUnidade === unidade.Id ? 'bg-green-50 border-l-4 border-green-500' : ''
+                              className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${selectedMinhaUnidade === unidade.Id ? 'bg-primary-light/20 border-l-4 border-primary' : ''
                                 } ${selectedUnidadeAberta || selectedUnidadeFavorita ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                               <div className="font-medium text-sm">{unidade.Sigla}</div>
@@ -342,7 +380,7 @@ export default function ProcessoPage() {
                           setUserClearedSelection(false);
                         }
                       }}
-                      className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${selectedUnidadeFavorita === unidadeFavorita.Id ? 'bg-green-50 border-l-4 border-green-500' : ''
+                      className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${selectedUnidadeFavorita === unidadeFavorita.Id ? 'bg-primary-light/20 border-l-4 border-primary' : ''
                         } ${selectedUnidadeAberta || selectedMinhaUnidade ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <div className="font-medium text-sm">{"\u2B50"} {unidadeFavorita.Sigla}</div>
@@ -357,7 +395,7 @@ export default function ProcessoPage() {
               </div>
 
               <Button
-                className="w-full bg-[#4885ed] hover:bg-[#3a6fd4] text-white mt-6"
+                className="w-full bg-primary hover:bg-primary-hover text-white mt-6"
                 onClick={handleAcessarProcesso}
                 disabled={!hasSelection}
               >

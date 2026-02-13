@@ -17,8 +17,10 @@ body {
     --popover: 0 0% 100%; /* White */
     --popover-foreground: 222 47% 11%;
 
-    --primary: 207 86% 74%; /* Soft Blue #64B5F6 */
-    --primary-foreground: 222 47% 11%; /* Dark text on soft blue */
+    --primary: 219 82% 60%; /* Brand Blue #4885ed */
+    --primary-foreground: 0 0% 100%; /* White text on brand blue */
+    --primary-hover: 219 74% 53%; /* Hover/dark variant #3a6fd4 */
+    --primary-light: 215 76% 83%; /* Light backgrounds #b3d0f7 */
 
     --secondary: 210 40% 97%; /* Slightly off-white */
     --secondary-foreground: 222 47% 11%;
@@ -26,15 +28,22 @@ body {
     --muted: 210 40% 90%; /* Muted gray */
     --muted-foreground: 222 40% 45%; /* Lighter gray text */
 
-    --accent: 125 37% 72%; /* Pale Green #A5D6A7 */
-    --accent-foreground: 222 47% 11%; /* Dark text on pale green */
+    --accent: 215 76% 93%; /* Light Blue tint */
+    --accent-foreground: 222 47% 11%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 210 20% 88%; /* Lighter border for cards etc. */
     --input: 210 20% 92%;
-    --ring: 207 86% 74%; /* Soft blue for rings */
+    --ring: 219 82% 60%; /* Match primary for focus rings */
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 30 80% 20%;
+    --info: 219 82% 60%;
+    --info-foreground: 0 0% 100%;
 
     --radius: 0.5rem;
 
@@ -63,8 +72,10 @@ body {
     --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 207 86% 74%;
+    --primary: 219 74% 68%; /* Lighter brand blue for dark mode #6da3f5 */
     --primary-foreground: 222 47% 11%;
+    --primary-hover: 219 82% 60%; /* Original brand becomes hover in dark */
+    --primary-light: 219 82% 20%; /* Dark blue background variant */
 
     --secondary: 222 47% 18%;
     --secondary-foreground: 210 40% 98%;
@@ -72,16 +83,23 @@ body {
     --muted: 222 47% 22%;
     --muted-foreground: 210 40% 60%;
 
-    --accent: 125 37% 72%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 215 40% 25%;
+    --accent-foreground: 210 40% 98%;
     
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 222 47% 20%;
     --input: 222 47% 20%;
-    --ring: 207 86% 74%;
-    
+    --ring: 219 74% 68%;
+
+    --success: 142 71% 55%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 60%;
+    --warning-foreground: 38 92% 90%;
+    --info: 219 74% 68%;
+    --info-foreground: 219 74% 95%;
+
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;

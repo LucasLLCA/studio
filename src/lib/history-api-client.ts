@@ -8,6 +8,7 @@ export interface SaveHistoryRequest {
   numero_processo: string;
   numero_processo_formatado: string;
   usuario: string;
+  id_unidade?: string;
   caixa_contexto?: string;
 }
 
@@ -16,6 +17,7 @@ export interface HistoryItem {
   numero_processo: string;
   numero_processo_formatado: string;
   usuario: string;
+  id_unidade?: string;
   caixa_contexto?: string;
   criado_em: string;
   atualizado_em: string;

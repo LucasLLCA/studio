@@ -8,14 +8,24 @@ import {
 } from '@/types/process-flow';
 import { differenceInDays } from 'date-fns';
 
-export const NODE_RADIUS = 18; 
+export const MARKER_COLORS = {
+  unsignedOficio: { fill: 'hsl(var(--warning))', stroke: 'hsl(var(--warning-foreground))', text: 'hsl(var(--warning-foreground))' },
+  signedOficio:   { fill: 'hsl(var(--success))', stroke: 'hsl(var(--success-foreground))' },
+  document:       { fill: 'hsl(var(--warning))', stroke: '#000' },
+  restricted:     { fill: '#94a3b8', stroke: '#64748b' },
+} as const;
+
+export const NODE_RADIUS = 18;
 const HORIZONTAL_SPACING_BASE = 60; 
 export const VERTICAL_LANE_SPACING = 100;
 export const INITIAL_X_OFFSET = NODE_RADIUS + 30; 
 export const INITIAL_Y_OFFSET = VERTICAL_LANE_SPACING / 2; 
 
 export const SYMBOLIC_TASK_COLORS: Record<string, string> = {
-  'GERACAO-PROCEDIMENTO': 'hsl(30, 80%, 55%)',          // Laranja - único nó colorido
+  'GERACAO-PROCEDIMENTO': 'hsl(30, 80%, 55%)',          // Laranja - geração
+  'REABERTURA-PROCESSO-UNIDADE': 'hsl(30, 80%, 55%)',   // Laranja - reabertura
+  'CONCLUSAO-PROCESSO-UNIDADE': 'hsl(var(--success))',   // Verde - conclusão manual
+  'CONCLUSAO-AUTOMATICA-UNIDADE': 'hsl(var(--success))', // Verde - conclusão automática
   'ACOES-DIVERSAS-AGRUPADAS': 'hsl(var(--muted))',       // Cinza para nós agrupados
 };
 const DEFAULT_TASK_COLOR = 'hsl(var(--muted))';         // Cinza
@@ -185,8 +195,9 @@ export function processAndamentos(
       const lastActionInCurrentLane = latestTaskInLane.get(currentTask.Unidade.IdUnidade);
       if (lastActionInCurrentLane) { 
           if(lastActionInCurrentLane.IdAndamento !== currentTask.IdAndamento || lastActionInCurrentLane.globalSequence !== currentTask.globalSequence) {
-             // Do not draw a connection if the last action was an automatic conclusion.
-             if (lastActionInCurrentLane.Tarefa !== 'CONCLUSAO-AUTOMATICA-UNIDADE') {
+             // Do not draw a connection if the last action was a conclusion (manual or automatic).
+             if (lastActionInCurrentLane.Tarefa !== 'CONCLUSAO-AUTOMATICA-UNIDADE' &&
+                 lastActionInCurrentLane.Tarefa !== 'CONCLUSAO-PROCESSO-UNIDADE') {
                 connections.push({ sourceTask: lastActionInCurrentLane, targetTask: currentTask });
              }
           }
@@ -222,12 +233,8 @@ export function processAndamentos(
         }
 
         if (isEffectivelyTheLatestActionInUnit) {
-          if (latestOriginalInThisUnit.Tarefa !== 'CONCLUSAO-PROCESSO-UNIDADE' &&
-              latestOriginalInThisUnit.Tarefa !== 'CONCLUSAO-AUTOMATICA-UNIDADE' &&
-              latestOriginalInThisUnit.Tarefa !== 'PROCESSO-REMETIDO-UNIDADE') {
-            taskColor = OPEN_END_NODE_COLOR;
-            daysOpen = differenceInDays(currentDate, latestOriginalInThisUnit.parsedDate);
-          }
+          taskColor = OPEN_END_NODE_COLOR;
+          daysOpen = differenceInDays(currentDate, latestOriginalInThisUnit.parsedDate);
         }
       }
     }
@@ -247,4 +254,14 @@ export function processAndamentos(
     laneMap,
     processNumber: numeroProcesso,
   };
+}
+
+export function findOpenTaskForUnit(
+  tasks: ProcessedAndamento[] | undefined,
+  unitId: string
+): ProcessedAndamento | undefined {
+  if (!tasks) return undefined;
+  return tasks
+    .filter(task => task.Unidade.IdUnidade === unitId && typeof task.daysOpen === 'number' && task.daysOpen >= 0)
+    .sort((a, b) => b.globalSequence - a.globalSequence)[0];
 }

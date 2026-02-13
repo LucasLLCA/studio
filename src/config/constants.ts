@@ -9,33 +9,6 @@ export const AUTH_CONFIG = {
   TOKEN_CACHE_DURATION_MS: 30 * 60 * 1000, // 30 minutos
 } as const;
 
-// Tipos de tarefas significativas no fluxo
-export const SIGNIFICANT_TASK_TYPES = [
-  'GERACAO-PROCEDIMENTO',
-  'PROCESSO-REMETIDO-UNIDADE',
-  'PROCESSO-RECEBIDO-UNIDADE',
-  'CONCLUSAO-PROCESSO-UNIDADE',
-  'CONCLUSAO-AUTOMATICA-UNIDADE',
-  'REABERTURA-PROCESSO-UNIDADE',
-] as const;
-
-// Cores simbólicas para tarefas
-export const TASK_COLORS = {
-  GENERATION: 'hsl(30, 80%, 55%)',      // Laranja - geração
-  GROUPED: 'hsl(var(--muted))',          // Cinza - ações agrupadas
-  DEFAULT: 'hsl(var(--muted))',          // Cinza - padrão
-  OPEN_END: 'hsl(var(--destructive))',   // Vermelho - pontas abertas
-} as const;
-
-// Configurações de layout do diagrama
-export const DIAGRAM_CONFIG = {
-  NODE_RADIUS: 18,
-  HORIZONTAL_SPACING_BASE: 60,
-  VERTICAL_LANE_SPACING: 100,
-  INITIAL_X_OFFSET: 48, // NODE_RADIUS + 30
-  INITIAL_Y_OFFSET: 50, // VERTICAL_LANE_SPACING / 2
-} as const;
-
 // Lista de órgãos do Piauí
 export const ORGAOS_PIAUI = [
   'GOV-PI',

@@ -170,6 +170,9 @@ export interface ClientLoginResponse {
   idUnidadeAtual?: string; // ID da unidade atual para requisições
   nomeUsuario?: string; // Nome do usuário retornado pela API de login
   unidades?: UnidadeFiltro[]; // Uses UnidadeFiltro for consistency with Select
+  idUsuario?: string; // IdUsuario from Login response — needed for document signing
+  idLogin?: string; // IdLogin from Login response — needed for document signing
+  cargoAssinatura?: string; // UltimoCargoAssinatura from Login response — needed for document signing
   error?: string;
   status?: number;
   details?: any; // To pass through any additional error details from SEI API

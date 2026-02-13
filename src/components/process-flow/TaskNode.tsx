@@ -1,87 +1,20 @@
 
 "use client";
 
-import type { ProcessedAndamento, Documento } from '@/types/process-flow';
+import type { ProcessedAndamento } from '@/types/process-flow';
 import React from 'react';
-import { formatDisplayDate } from '@/lib/process-flow-utils';
-import { Layers } from 'lucide-react'; // For summary node indication
-
-// Função para detectar se o nó possui documento extraível para resumo
-// EXATAMENTE a mesma lógica do TaskDetailsModal
-function hasExtractableDocument(task: ProcessedAndamento): string | null {
-  const patterns = [
-    // Padrão original (8-9 dígitos isolados) - mais confiável
-    { name: 'isolado', regex: /\b(\d{8,9})\b/, priority: 1 },
-
-    // Com prefixos comuns (DOC, DOCUMENTO, ANEXO, etc.)
-    { name: 'prefixo_doc', regex: /(?:DOC|DOCUMENTO|ANEXO|PROCESS)[O]?[:\s#-]*(\d{7,10})/i, priority: 2 },
-
-    // Protocolo ou número de processo
-    { name: 'protocolo', regex: /(?:PROTOCOLO|PROCESSO|SEI)[:\s#-]*(\d{7,10})/i, priority: 2 },
-
-    // Entre parênteses ou colchetes
-    { name: 'parenteses', regex: /[\(\[](\d{7,10})[\)\]]/, priority: 3 },
-
-    // Precedido por "nº", "n°", "num", "número"
-    { name: 'numero', regex: /(?:n[ºo°]?|num|número)[:\s]*(\d{7,10})/i, priority: 3 },
-
-    // Qualquer sequência de 7-10 dígitos (menos confiável)
-    { name: 'generico', regex: /(\d{7,10})(?=\s|$|[^\d])/g, priority: 4 }
-  ];
-
-  let bestMatch = null;
-  let bestPriority = 999;
-
-  for (const pattern of patterns) {
-    const matches = pattern.regex.global ?
-      [...task.Descricao.matchAll(pattern.regex)] :
-      [task.Descricao.match(pattern.regex)];
-
-    for (const match of matches) {
-      if (match && match[1] && pattern.priority < bestPriority) {
-        const number = match[1];
-
-        // Rejeitar números muito pequenos (menos de 7 dígitos)
-        if (number.length < 7) continue;
-
-        // Rejeitar números muito grandes (mais de 12 dígitos)
-        if (number.length > 12) continue;
-
-        // Rejeitar padrões óbvios de data (formato YYYYMMDD ou DDMMYYYY)
-        if (number.length === 8) {
-          const year = parseInt(number.substring(0, 4));
-          const year2 = parseInt(number.substring(4, 8));
-          if ((year >= 1990 && year <= 2030) || (year2 >= 1990 && year2 <= 2030)) {
-            continue;
-          }
-        }
-
-        bestMatch = number;
-        bestPriority = pattern.priority;
-      }
-    }
-  }
-
-  return bestMatch;
-}
-
-function findMatchedDocument(docNumber: string, documents: Documento[]): Documento | null {
-  return documents.find(doc =>
-    doc.DocumentoFormatado === docNumber ||
-    doc.Numero === docNumber ||
-    doc.DocumentoFormatado.includes(docNumber) ||
-    docNumber.includes(doc.DocumentoFormatado)
-  ) || null;
-}
+import { formatDisplayDate, MARKER_COLORS } from '@/lib/process-flow-utils';
+import { extractDocumentNumber, findMatchedDocument } from '@/lib/document-extraction';
+import { Layers } from 'lucide-react';
+import { useProcessContext } from '@/contexts/process-context';
 
 interface TaskNodeProps {
   task: ProcessedAndamento;
   onTaskClick: (task: ProcessedAndamento) => void;
-  documents?: Documento[] | null;
-  isLoadingDocuments?: boolean;
 }
 
-export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents, isLoadingDocuments }) => {
+export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick }) => {
+  const { documents, isLoadingDocuments } = useProcessContext();
   const handleNodeClick = () => {
     onTaskClick(task);
   };
@@ -89,19 +22,19 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents
   const radius = task.nodeRadius || 18;
   const showDaysOpenLabel = typeof task.daysOpen === 'number' && task.daysOpen >= 0 && !task.isSummaryNode;
 
-  const extractableDocument = hasExtractableDocument(task);
+  const extractableDocument = extractDocumentNumber(task.Descricao);
   const hasDocument = extractableDocument !== null;
 
-  // Determine signature status for Serie 11 (Oficio) documents
+  // Determine signature status for Ofício documents (Serie.Nome contains "oficio")
   const matchedDoc = hasDocument && documents?.length
     ? findMatchedDocument(extractableDocument!, documents)
     : null;
-  const isOficio = matchedDoc?.Serie?.IdSerie === '11';
+  const isOficio = matchedDoc?.Serie?.Nome?.toLowerCase().includes('oficio') ?? false;
   const hasSigned = isOficio && matchedDoc?.Assinaturas && matchedDoc.Assinaturas.length > 0;
   const isUnsignedOficio = isOficio && (!matchedDoc?.Assinaturas || matchedDoc.Assinaturas.length === 0);
 
   // Document exists in task description but user can't access it
-  const isDocumentInaccessible = hasDocument && !matchedDoc && !isOficio
+  const isDocumentInaccessible = hasDocument && !matchedDoc
     && Array.isArray(documents) && !isLoadingDocuments;
 
   // Marker positioning
@@ -170,8 +103,8 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents
           {/* Orange/amber warning triangle for unsigned Oficio */}
           <polygon
             points={`0,${-markerSize} ${markerSize},${markerSize} ${-markerSize},${markerSize}`}
-            fill="#f59e0b"
-            stroke="#92400e"
+            fill={MARKER_COLORS.unsignedOficio.fill}
+            stroke={MARKER_COLORS.unsignedOficio.stroke}
             strokeWidth="1"
           />
           <text
@@ -179,7 +112,7 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents
             textAnchor="middle"
             fontSize={markerSize * 1.1}
             fontWeight="bold"
-            fill="#92400e"
+            fill={MARKER_COLORS.unsignedOficio.text}
           >
             !
           </text>
@@ -189,7 +122,7 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents
       {hasSigned && (
         <g transform={`translate(${markerX}, ${markerY})`} style={{ pointerEvents: 'none' }}>
           {/* Green circle with pen icon for signed Oficio */}
-          <circle r={markerSize} fill="#16a34a" stroke="#15803d" strokeWidth="1" />
+          <circle r={markerSize} fill={MARKER_COLORS.signedOficio.fill} stroke={MARKER_COLORS.signedOficio.stroke} strokeWidth="1" />
           {/* Pen/signature SVG path */}
           <g transform={`scale(${markerSize / 8}) translate(-8, -8)`}>
             <path
@@ -207,8 +140,8 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents
           r={radius / 4}
           cx={markerX}
           cy={markerY}
-          fill="#f59e0b"
-          stroke="#000"
+          fill={MARKER_COLORS.document.fill}
+          stroke={MARKER_COLORS.document.stroke}
           strokeWidth="1"
           style={{ pointerEvents: 'none' }}
         />
@@ -217,7 +150,7 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, documents
       {/* Gray lock badge for inaccessible documents */}
       {isDocumentInaccessible && (
         <g transform={`translate(${markerX}, ${markerY})`} style={{ pointerEvents: 'none' }}>
-          <circle r={markerSize} fill="#94a3b8" stroke="#64748b" strokeWidth="1" />
+          <circle r={markerSize} fill={MARKER_COLORS.restricted.fill} stroke={MARKER_COLORS.restricted.stroke} strokeWidth="1" />
           {/* Lock SVG icon */}
           <g transform={`scale(${markerSize / 8}) translate(-8, -8)`}>
             <rect x="5" y="8" width="10" height="8" rx="1" fill="white" />

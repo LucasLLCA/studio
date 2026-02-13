@@ -59,10 +59,10 @@ export function HomeContent({
           data-ai-hint="logo government"
         />
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold" style={{ color: '#107527' }}>
+          <h1 className="text-2xl font-semibold text-primary">
             Visualizador de Processos
           </h1>
-          <span className="text-sm font-semibold text-blue-500 bg-blue-100 px-3 py-1 rounded-full">
+          <span className="text-sm font-semibold text-primary bg-primary-light/40 px-3 py-1 rounded-full">
             Beta
           </span>
         </div>
@@ -76,7 +76,7 @@ export function HomeContent({
             <Input
               type="text"
               placeholder="Digite o número do processo..."
-              className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg"
+              className="h-14 text-lg w-full pr-16 rounded-full border-2 border-gray-300 focus:border-primary shadow-lg"
               value={processoNumeroInput}
               onChange={(e) => onProcessoNumeroChange(e.target.value)}
               disabled={isLoading || !isAuthenticated}
@@ -90,7 +90,7 @@ export function HomeContent({
             <Button
               onClick={onSearchClick}
               disabled={!canSearch}
-              className="absolute right-2 top-2 h-10 w-10 rounded-full bg-green-600 hover:bg-green-700 text-white p-0"
+              className="absolute right-2 top-2 h-10 w-10 rounded-full bg-primary hover:bg-primary-hover text-white p-0"
             >
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -107,7 +107,7 @@ export function HomeContent({
               onValueChange={onUnidadeFiltroChange}
               disabled={isLoading || !isAuthenticated || unidadesFiltroList.length === 0}
             >
-              <SelectTrigger className="h-12 text-lg w-full rounded-full border-2 border-gray-300 focus:border-green-500 shadow-lg">
+              <SelectTrigger className="h-12 text-lg w-full rounded-full border-2 border-gray-300 focus:border-primary shadow-lg">
                 <SelectValue
                   placeholder={
                     isAuthenticated

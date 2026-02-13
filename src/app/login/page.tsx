@@ -105,7 +105,7 @@ function LoginPageContent() {
           const unidadesRecebidas = response.unidades || [];
           const idUnidadeAtual = response.idUnidadeAtual;
 
-          persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, credentials.orgao, credentials.usuario);
+          persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, credentials.orgao, credentials.usuario, undefined, response.idUsuario, response.idLogin, response.cargoAssinatura);
           router.push('/');
           return;
         }
@@ -144,7 +144,7 @@ function LoginPageContent() {
         const nomeUsuario = response.nomeUsuario || nomeFromQuery || data.usuario.split('@')[0];
 
         // Passar o idUnidadeAtual, o órgão, o usuário e o nome para o persistLogin
-        persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, data.orgao, data.usuario, nomeUsuario);
+        persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, data.orgao, data.usuario, nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura);
 
         toast({
           title: "Login realizado com sucesso!",

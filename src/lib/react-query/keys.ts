@@ -1,3 +1,5 @@
+import { stripProcessNumber } from '@/lib/utils';
+
 /**
  * Factory de Query Keys para React Query
  *
@@ -11,36 +13,36 @@ export const queryKeys = {
   // Unidades em aberto de um processo
   openUnits: {
     all: ['openUnits'] as const,
-    byProcess: (processo: string) => ['openUnits', processo] as const,
+    byProcess: (processo: string) => ['openUnits', stripProcessNumber(processo)] as const,
     detail: (processo: string, unidade: string) =>
-      ['openUnits', processo, unidade] as const,
+      ['openUnits', stripProcessNumber(processo), unidade] as const,
   },
 
   // Dados do processo (andamentos)
   processData: {
     all: ['processData'] as const,
-    byProcess: (processo: string) => ['processData', processo] as const,
+    byProcess: (processo: string) => ['processData', stripProcessNumber(processo)] as const,
     detail: (processo: string, unidade: string) =>
-      ['processData', processo, unidade] as const,
+      ['processData', stripProcessNumber(processo), unidade] as const,
   },
 
   // Documentos do processo
   documents: {
     all: ['documents'] as const,
-    byProcess: (processo: string) => ['documents', processo] as const,
+    byProcess: (processo: string) => ['documents', stripProcessNumber(processo)] as const,
     paginated: (
       processo: string,
       unidade: string,
       page: number,
       pageSize: number
-    ) => ['documents', processo, unidade, page, pageSize] as const,
+    ) => ['documents', stripProcessNumber(processo), unidade, page, pageSize] as const,
   },
 
   // Resumos de processo (IA)
   processSummary: {
     all: ['processSummary'] as const,
     detail: (processo: string, unidade: string) =>
-      ['processSummary', processo, unidade] as const,
+      ['processSummary', stripProcessNumber(processo), unidade] as const,
   },
 
   // Resumos de documento (IA)

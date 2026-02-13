@@ -1,13 +1,14 @@
 
 "use client";
 
-import type { ProcessedAndamento, Connection, Documento, UnidadeAberta } from '@/types/process-flow';
+import type { ProcessedAndamento, Connection } from '@/types/process-flow';
 import { TaskNode } from './TaskNode';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils';
 import { ProcessTimelineBar } from './ProcessTimelineBar';
+import { useProcessContext } from '@/contexts/process-context';
 
 interface ProcessFlowDiagramProps {
   tasks: ProcessedAndamento[];
@@ -16,14 +17,7 @@ interface ProcessFlowDiagramProps {
   svgHeight: number;
   laneMap: Map<string, number>;
   taskToScrollTo?: ProcessedAndamento | null;
-  sessionToken: string | null;
-  isAuthenticated: boolean;
-  selectedUnidadeFiltro: string | undefined;
-  processNumber?: string;
-  documents?: Documento[] | null;
-  isLoadingDocuments?: boolean;
   filteredLaneUnits?: string[];
-  openUnitsInProcess?: UnidadeAberta[] | null;
 }
 
 export function ProcessFlowDiagram({
@@ -33,15 +27,9 @@ export function ProcessFlowDiagram({
   svgHeight,
   laneMap,
   taskToScrollTo,
-  sessionToken,
-  isAuthenticated,
-  selectedUnidadeFiltro,
-  processNumber,
-  documents,
-  isLoadingDocuments,
   filteredLaneUnits = [],
-  openUnitsInProcess,
 }: ProcessFlowDiagramProps) {
+  const { sessionToken, isAuthenticated, selectedUnidadeFiltro, processNumber, documents, isLoadingDocuments, openUnitsInProcess } = useProcessContext();
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
@@ -505,7 +493,7 @@ export function ProcessFlowDiagram({
                 return (
                   <div
                     key={`lane-label-${sigla}`}
-                    className={`flex items-center pl-4 pr-2 text-sm font-semibold ${unitIsOpen ? 'text-red-600' : 'text-muted-foreground'
+                    className={`flex items-center pl-4 pr-2 text-sm font-semibold ${unitIsOpen ? 'text-destructive' : 'text-muted-foreground'
                       }`}
                     style={{
                       position: 'absolute',
@@ -596,8 +584,6 @@ export function ProcessFlowDiagram({
                   key={`${task.IdAndamento}-${task.globalSequence}`}
                   task={task}
                   onTaskClick={handleTaskClick}
-                  documents={documents}
-                  isLoadingDocuments={isLoadingDocuments}
                 />
               ))}
             </svg>
@@ -611,12 +597,6 @@ export function ProcessFlowDiagram({
         task={selectedTask}
         isOpen={isDetailsModalOpen}
         onClose={handleCloseDetailsModal}
-        sessionToken={sessionToken}
-        isAuthenticated={isAuthenticated}
-        selectedUnidadeFiltro={selectedUnidadeFiltro}
-        processNumber={processNumber}
-        documents={documents}
-        isLoadingDocuments={isLoadingDocuments}
       />
     </div>
   );

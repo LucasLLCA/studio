@@ -11,28 +11,32 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { fetchSSEStream, getStreamDocumentSummaryUrl } from '@/lib/streaming';
-import { isNetworkError } from '@/lib/network-retry';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { fetchSSEStreamWithRetry, getStreamDocumentSummaryUrl } from '@/lib/streaming';
+import { extractDocumentNumber } from '@/lib/document-extraction';
+import { assinarDocumento } from '@/lib/api/documents';
 import React, { useState, useEffect } from 'react';
 import { formatDisplayDate } from '@/lib/process-flow-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle, CheckCircle, User, Briefcase, CalendarClock, FileText, Sparkles, Layers, Loader2, ExternalLink, PenTool, TriangleAlert, Lock, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertBox } from '@/components/ui/alert-box';
 import { Separator } from '@/components/ui/separator';
+import { useProcessContext } from '@/contexts/process-context';
+import { usePersistedAuth } from '@/hooks/use-persisted-auth';
+import { useToast } from '@/hooks/use-toast';
 
 interface TaskDetailsModalProps {
   task: ProcessedAndamento | null;
   isOpen: boolean;
   onClose: () => void;
-  sessionToken: string | null;
-  isAuthenticated: boolean;
-  selectedUnidadeFiltro: string | undefined;
-  processNumber?: string;
-  documents?: Documento[] | null;
-  isLoadingDocuments?: boolean;
 }
 
-export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthenticated, selectedUnidadeFiltro, processNumber, documents, isLoadingDocuments }: TaskDetailsModalProps) {
+export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProps) {
+  const { sessionToken, isAuthenticated, selectedUnidadeFiltro, documents, isLoadingDocuments, refresh } = useProcessContext();
+  const { orgao, idUsuario, idLogin, cargoAssinatura, unidadesFiltroList } = usePersistedAuth();
+  const { toast } = useToast();
   const [extractedDocumentNumber, setExtractedDocumentNumber] = useState<string | null>(null);
   const [documentSummary, setDocumentSummary] = useState<string | null>(null);
   const [isLoadingDocumentSummary, setIsLoadingDocumentSummary] = useState<boolean>(false);
@@ -40,6 +44,14 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
   const [matchedDocument, setMatchedDocument] = useState<Documento | null>(null);
   const [isSignatureExpanded, setIsSignatureExpanded] = useState(false);
   const [isResumoExpanded, setIsResumoExpanded] = useState(true);
+
+  // Signing state
+  const [isSignModalOpen, setIsSignModalOpen] = useState(false);
+  const [isSigning, setIsSigning] = useState(false);
+  const [signError, setSignError] = useState<string | null>(null);
+  const [signPassword, setSignPassword] = useState('');
+  const [signUnidade, setSignUnidade] = useState<string>('');
+  const [signCargo, setSignCargo] = useState('');
 
   useEffect(() => {
     // Reset document summary states when modal opens or task changes
@@ -50,72 +62,20 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
     setMatchedDocument(null);
     setIsSignatureExpanded(false);
     setIsResumoExpanded(true);
+    setIsSignModalOpen(false);
+    setIsSigning(false);
+    setSignError(null);
+    setSignPassword('');
+    setSignCargo(cargoAssinatura || '');
+    setSignUnidade(selectedUnidadeFiltro || '');
 
     if (task && isOpen) {
-      // Extract document number with multiple flexible patterns
-      const patterns = [
-        // Padrão original (8-9 dígitos isolados) - mais confiável
-        { name: 'isolado', regex: /\b(\d{8,9})\b/, priority: 1 },
-        
-        // Com prefixos comuns (DOC, DOCUMENTO, ANEXO, etc.)
-        { name: 'prefixo_doc', regex: /(?:DOC|DOCUMENTO|ANEXO|PROCESS)[O]?[:\s#-]*(\d{7,18})/i, priority: 2 },
-        
-        // Protocolo ou número de processo
-        { name: 'protocolo', regex: /(?:PROTOCOLO|PROCESSO|SEI)[:\s#-]*(\d{7,10})/i, priority: 2 },
-        
-        // Entre parênteses ou colchetes
-        { name: 'parenteses', regex: /[\(\[](\d{7,10})[\)\]]/, priority: 3 },
-        
-        // Precedido por "nº", "n°", "num", "número"
-        { name: 'numero', regex: /(?:n[ºo°]?|num|número)[:\s]*(\d{7,10})/i, priority: 3 },
-        
-        // Qualquer sequência de 7-10 dígitos (menos confiável)
-        { name: 'generico', regex: /(\d{7,10})(?=\s|$|[^\d])/g, priority: 4 }
-      ];
-
-      let bestMatch = null;
-      let bestPriority = 999;
-
-      for (const pattern of patterns) {
-        const matches = pattern.regex.global ? 
-          [...task.Descricao.matchAll(pattern.regex)] : 
-          [task.Descricao.match(pattern.regex)];
-
-        for (const match of matches) {
-          if (match && match[1] && pattern.priority < bestPriority) {
-            // Validações adicionais
-            const number = match[1];
-            
-            // Rejeitar números muito pequenos (menos de 7 dígitos)
-            if (number.length < 7) continue;
-            
-            // Rejeitar números muito grandes (mais de 12 dígitos)  
-            if (number.length > 12) continue;
-            
-            // Rejeitar padrões óbvios de data (formato YYYYMMDD ou DDMMYYYY)
-            if (number.length === 8) {
-              const year = parseInt(number.substring(0, 4));
-              const year2 = parseInt(number.substring(4, 8));
-              if ((year >= 1990 && year <= 2030) || (year2 >= 1990 && year2 <= 2030)) {
-                console.log(`Rejeitando possível data: ${number}`);
-                continue;
-              }
-            }
-
-            bestMatch = number;
-            bestPriority = pattern.priority;
-            console.log(`Número do documento extraído (${pattern.name}): ${number} da descrição: "${task.Descricao.substring(0, 100)}..."`);
-          }
-        }
-      }
-
-      if (bestMatch) {
-        setExtractedDocumentNumber(bestMatch);
-      } else {
-        console.log(`Nenhum número de documento encontrado na descrição: "${task.Descricao}"`);
+      const docNumber = extractDocumentNumber(task.Descricao);
+      if (docNumber) {
+        setExtractedDocumentNumber(docNumber);
       }
     }
-  }, [task, isOpen]);
+  }, [task, isOpen, cargoAssinatura, selectedUnidadeFiltro]);
 
   // Buscar documento correspondente quando número é extraído (busca local)
   useEffect(() => {
@@ -134,7 +94,6 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
 
     if (matchedDoc) {
       setMatchedDocument(matchedDoc);
-      console.log(`Documento correspondente encontrado: ${matchedDoc.DocumentoFormatado} - ${matchedDoc.Serie.Nome}`);
     } else {
       setMatchedDocument(null);
     }
@@ -161,7 +120,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
     }
   }, [documentSummary, isLoadingDocumentSummary]);
 
-  const handleFetchDocumentSummary = (attempt = 0) => {
+  const handleFetchDocumentSummary = () => {
     if (!extractedDocumentNumber || !sessionToken || !task || !selectedUnidadeFiltro) {
       setDocumentSummaryError("Não foi possível carregar o resumo do documento. Verifique se você está logado e se o documento é válido.");
       return;
@@ -171,7 +130,7 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
     setDocumentSummary("");
     setDocumentSummaryError(null);
 
-    fetchSSEStream(
+    fetchSSEStreamWithRetry(
       getStreamDocumentSummaryUrl(extractedDocumentNumber, selectedUnidadeFiltro!),
       sessionToken!,
       (chunk) => {
@@ -185,17 +144,61 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
         setIsLoadingDocumentSummary(false);
       },
       (error) => {
-        if (attempt < 2 && isNetworkError(error)) {
-          const delay = 2000 * (attempt + 1);
-          console.warn(`[RETRY] resumo documento SSE: tentativa ${attempt + 1} falhou (rede), aguardando ${delay}ms...`);
-          setTimeout(() => handleFetchDocumentSummary(attempt + 1), delay);
-        } else {
-          setDocumentSummaryError(error || "Não foi possível obter o resumo do documento. Tente novamente.");
-          setDocumentSummary(null);
-          setIsLoadingDocumentSummary(false);
-        }
+        setDocumentSummaryError(error || "Não foi possível obter o resumo do documento. Tente novamente.");
+        setDocumentSummary(null);
+        setIsLoadingDocumentSummary(false);
       },
     );
+  };
+
+  const handleOpenSignModal = () => {
+    setSignError(null);
+    setSignPassword('');
+    setSignCargo(cargoAssinatura || '');
+    setSignUnidade(selectedUnidadeFiltro || '');
+    setIsSignModalOpen(true);
+  };
+
+  const handleSign = async () => {
+    if (!matchedDocument || !sessionToken || !signPassword || !signUnidade) return;
+
+    if (!idUsuario || !idLogin || !orgao) {
+      setSignError('Dados de autenticação incompletos. Faça login novamente.');
+      return;
+    }
+
+    if (!signCargo) {
+      setSignError('Informe o cargo para assinatura.');
+      return;
+    }
+
+    setIsSigning(true);
+    setSignError(null);
+
+    const result = await assinarDocumento({
+      protocoloDocumento: matchedDocument.DocumentoFormatado,
+      idUnidade: signUnidade,
+      token: sessionToken,
+      orgao,
+      cargo: signCargo,
+      idLogin,
+      senha: signPassword,
+      idUsuario,
+    });
+
+    setIsSigning(false);
+
+    if (result.success) {
+      setIsSignModalOpen(false);
+      onClose();
+      toast({
+        title: 'Documento assinado',
+        description: `O documento ${matchedDocument.DocumentoFormatado} foi assinado com sucesso.`,
+      });
+      refresh?.();
+    } else {
+      setSignError(result.error || 'Erro ao assinar documento.');
+    }
   };
 
   if (!task) return null;
@@ -277,16 +280,16 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
                 {/* Link do Documento */}
                 <div className="space-y-3">
                   <h3 className="font-medium text-foreground flex items-center">
-                    <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                    <FileText className="h-5 w-5 mr-2 text-primary" />
                     Documento Identificado ({extractedDocumentNumber})
                   </h3>
                   
                   {matchedDocument && (
-                    <div className="p-3 border rounded-md bg-blue-50/50 border-blue-200">
+                    <div className="p-3 border rounded-md bg-info/5 border-info/30">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="font-medium text-blue-900">{matchedDocument.Serie.Nome}</div>
-                          <div className="text-sm text-blue-700 mt-1">
+                          <div className="font-medium text-foreground">{matchedDocument.Serie.Nome}</div>
+                          <div className="text-sm text-muted-foreground mt-1">
                             Doc: {matchedDocument.DocumentoFormatado} | Nº: {matchedDocument.Numero}
                           </div>
                           {matchedDocument.Descricao && (
@@ -297,9 +300,9 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
                           </div>
                         </div>
                         <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                          {/* Assinar — disabled placeholder when signature is pending */}
-                          {matchedDocument.Serie.IdSerie === '11' && (!matchedDocument.Assinaturas || matchedDocument.Assinaturas.length === 0) && (
-                            <Button variant="outline" size="sm" disabled>
+                          {/* Assinar — available for unsigned Ofício documents */}
+                          {matchedDocument.Serie.Nome.toLowerCase().includes('oficio') && (!matchedDocument.Assinaturas || matchedDocument.Assinaturas.length === 0) && (
+                            <Button variant="outline" size="sm" onClick={handleOpenSignModal} disabled={!sessionToken || !idUsuario || !idLogin}>
                               <PenTool className="mr-1 h-4 w-4" />
                               Assinar
                             </Button>
@@ -328,55 +331,53 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
                         </div>
                       </div>
 
-                      {/* Signature status for Serie 11 (Oficio) documents — collapsible */}
-                      {matchedDocument.Serie.IdSerie === '11' && (
-                        <div className="mt-3 pt-3 border-t border-blue-200">
-                          {(!matchedDocument.Assinaturas || matchedDocument.Assinaturas.length === 0) ? (
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-50 border border-amber-200">
-                              <TriangleAlert className="h-4 w-4 text-amber-600 flex-shrink-0" />
-                              <span className="text-sm font-medium text-amber-800">Sem assinatura</span>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <button
-                                type="button"
-                                className="flex items-center gap-2 w-full text-left"
-                                onClick={() => setIsSignatureExpanded(prev => !prev)}
-                              >
-                                <PenTool className="h-4 w-4 text-green-600 flex-shrink-0" />
-                                <span className="text-sm font-medium text-green-800">
-                                  {matchedDocument.Assinaturas.length === 1 ? '1 assinatura' : `${matchedDocument.Assinaturas.length} assinaturas`}
-                                </span>
-                                {isSignatureExpanded ? (
-                                  <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto" />
-                                )}
-                              </button>
-                              {isSignatureExpanded && (
-                                <div className="space-y-1">
-                                  {matchedDocument.Assinaturas.map((assinatura, idx) => (
-                                    <div key={idx} className="flex items-start gap-2 pl-6 text-sm text-muted-foreground">
-                                      <User className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-green-600" />
-                                      <div>
-                                        <span className="font-medium text-foreground">{assinatura.Nome}</span>
-                                        {assinatura.CargoFuncao && (
-                                          <span className="text-xs ml-1">({assinatura.CargoFuncao})</span>
-                                        )}
-                                        <div className="text-xs">{assinatura.DataHora}</div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
+                      {/* Signature status — collapsible */}
+                      <div className="mt-3 pt-3 border-t border-info/30">
+                        {(!matchedDocument.Assinaturas || matchedDocument.Assinaturas.length === 0) ? (
+                          <div className="flex items-center gap-2">
+                            <TriangleAlert className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+                            <span className="text-sm font-medium text-yellow-600">Sem assinatura</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 w-full text-left"
+                              onClick={() => setIsSignatureExpanded(prev => !prev)}
+                            >
+                              <PenTool className="h-4 w-4 text-success flex-shrink-0" />
+                              <span className="text-sm font-medium text-success">
+                                {matchedDocument.Assinaturas.length === 1 ? '1 assinatura' : `${matchedDocument.Assinaturas.length} assinaturas`}
+                              </span>
+                              {isSignatureExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto" />
                               )}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                            </button>
+                            {isSignatureExpanded && (
+                              <div className="space-y-1">
+                                {matchedDocument.Assinaturas.map((assinatura, idx) => (
+                                  <div key={idx} className="flex items-start gap-2 pl-6 text-sm text-muted-foreground">
+                                    <User className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-success" />
+                                    <div>
+                                      <span className="font-medium text-foreground">{assinatura.Nome}</span>
+                                      {assinatura.CargoFuncao && (
+                                        <span className="text-xs ml-1">({assinatura.CargoFuncao})</span>
+                                      )}
+                                      <div className="text-xs">{assinatura.DataHora}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Resumo do documento — collapsible, default open */}
                       {documentSummaryError && (
-                        <div className="mt-3 pt-3 border-t border-blue-200">
+                        <div className="mt-3 pt-3 border-t border-info/30">
                           <p className="text-sm text-destructive flex items-center">
                             <AlertCircle className="h-4 w-4 mr-1" /> {documentSummaryError}
                           </p>
@@ -384,13 +385,13 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
                       )}
 
                       {(isLoadingDocumentSummary || (documentSummary !== null && documentSummary !== undefined && documentSummary.length > 0)) && (
-                        <div className="mt-3 pt-3 border-t border-blue-200">
+                        <div className="mt-3 pt-3 border-t border-info/30">
                           <button
                             type="button"
                             className="flex items-center gap-2 w-full text-left mb-2"
                             onClick={() => setIsResumoExpanded(prev => !prev)}
                           >
-                            <Sparkles className="h-4 w-4 text-accent flex-shrink-0" />
+                            <Sparkles className="h-4 w-4 text-primary flex-shrink-0" />
                             <span className="text-sm font-medium text-foreground">
                               {isLoadingDocumentSummary ? "Gerando resumo..." : "Resumo Gerado"}
                             </span>
@@ -419,15 +420,9 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
                   )}
                   
                   {!matchedDocument && extractedDocumentNumber && !isLoadingDocuments && (
-                    <div className="p-3 border rounded-md bg-slate-50 border-slate-300">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Lock className="h-4 w-4 text-slate-500 flex-shrink-0" />
-                        <span className="text-sm font-medium text-slate-700">Documento restrito</span>
-                      </div>
-                      <p className="text-sm text-slate-600 pl-6">
-                        Você não possui permissão para acessar este documento. Entre em contato com a unidade responsável caso precise de acesso.
-                      </p>
-                    </div>
+                    <AlertBox variant="error" icon={<Lock />} title="Documento restrito">
+                      Você não possui permissão para acessar este documento. Entre em contato com a unidade responsável caso precise de acesso.
+                    </AlertBox>
                   )}
                   
                   {!matchedDocument && extractedDocumentNumber && isLoadingDocuments && (
@@ -447,6 +442,81 @@ export function TaskDetailsModal({ task, isOpen, onClose, sessionToken, isAuthen
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Signing confirmation dialog */}
+      <Dialog open={isSignModalOpen} onOpenChange={setIsSignModalOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <PenTool className="mr-2 h-5 w-5" />
+              Assinar Documento
+            </DialogTitle>
+            <DialogDescription>
+              {matchedDocument?.DocumentoFormatado} — {matchedDocument?.Serie.Nome}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="sign-unidade">Unidade</Label>
+              <Select value={signUnidade} onValueChange={setSignUnidade}>
+                <SelectTrigger id="sign-unidade">
+                  <SelectValue placeholder="Selecione a unidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unidadesFiltroList.map((u) => (
+                    <SelectItem key={u.Id} value={u.Id}>
+                      {u.Sigla} — {u.Descricao}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sign-cargo">Cargo / Função</Label>
+              <Input
+                id="sign-cargo"
+                value={signCargo}
+                onChange={(e) => setSignCargo(e.target.value)}
+                placeholder="Ex: Assessor Técnico"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sign-senha">Senha SEI</Label>
+              <Input
+                id="sign-senha"
+                type="password"
+                value={signPassword}
+                onChange={(e) => setSignPassword(e.target.value)}
+                placeholder="Sua senha de login SEI"
+                autoComplete="off"
+              />
+            </div>
+            {signError && (
+              <p className="text-sm text-destructive flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1 flex-shrink-0" /> {signError}
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setIsSignModalOpen(false)} disabled={isSigning}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSign} disabled={isSigning || !signPassword || !signUnidade || !signCargo}>
+              {isSigning ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Assinando...
+                </>
+              ) : (
+                <>
+                  <PenTool className="mr-2 h-4 w-4" />
+                  Assinar
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
