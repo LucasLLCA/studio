@@ -90,8 +90,13 @@ export function useOpenUnits({
     staleTime, // Dados "fresh" por 5 minutos
     gcTime, // Cache mantido por 2 horas
 
-    // Retry em caso de erro
-    retry: 2,
+    // Retry only on transient errors (not 4xx client errors)
+    retry: (failureCount, error) => {
+      if (error.message.includes('422') || error.message.includes('401') || error.message.includes('403')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
 
     // Configurações de refetch

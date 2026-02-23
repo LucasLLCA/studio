@@ -5,8 +5,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, Search, AlertTriangle } from 'lucide-react';
+import { Search, AlertTriangle } from 'lucide-react';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
+import { LoadingFeedback } from '@/components/home/LoadingFeedback';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import { useToast } from '@/hooks/use-toast';
 import { formatProcessNumber, stripProcessNumber } from '@/lib/utils';
@@ -110,14 +111,11 @@ export default function ProcessoPage() {
 
   if (isLoadingUnidadesAbertas) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4 md:p-6">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">
-            Carregando unidades em aberto...
-          </p>
-        </div>
-      </div>
+      <LoadingFeedback
+        title="Buscando processo..."
+        subtitle="Consultando unidades em aberto no SEI"
+        loadingTasks={["Carregando unidades em aberto"]}
+      />
     );
   }
 
