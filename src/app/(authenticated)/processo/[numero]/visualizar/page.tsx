@@ -2,7 +2,7 @@
 
 import { ProcessFlowDiagram } from '@/components/process-flow/ProcessFlowDiagram';
 import type { ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
-import { Loader2, GanttChartSquare, BookText, Info, ChevronsLeft, ChevronsRight, HelpCircle } from 'lucide-react';
+import { Loader2, GanttChartSquare, BookText, Info, ChevronsLeft, ChevronsRight, HelpCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { LoadingFeedback } from '@/components/home/LoadingFeedback';
 import React, { Suspense, useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -123,6 +123,7 @@ function VisualizarProcessoContent() {
     loadingTasks,
     refresh,
     isPartialData,
+    andamentosFailed,
   } = useProcessData({
     numeroProcesso,
     sessionToken,
@@ -202,6 +203,25 @@ function VisualizarProcessoContent() {
             title="Carregando dados..."
             loadingTasks={allLoadingTasks}
           />
+        )}
+
+        {/* Error card when andamentos failed */}
+        {andamentosFailed && !rawProcessData && !hasBackgroundLoading && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardContent className="flex flex-col items-center gap-4 py-10">
+              <AlertTriangle className="h-10 w-10 text-destructive" />
+              <div className="text-center space-y-1">
+                <h2 className="text-lg font-semibold">Falha ao carregar o processo</h2>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Não foi possível buscar os andamentos do processo {formatProcessNumber(numeroProcesso)}.
+                  Verifique sua conexão ou tente novamente.
+                </p>
+              </div>
+              <Button onClick={refresh} variant="outline">
+                <RefreshCw className="mr-2 h-4 w-4" /> Tentar novamente
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
         {/* Toolbar */}

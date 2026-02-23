@@ -38,6 +38,7 @@ export function useProcessData({
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const [isPartialData, setIsPartialData] = useState<boolean>(false);
+  const [andamentosFailed, setAndamentosFailed] = useState<boolean>(false);
 
   // Ref to track phase-2 timeout for cleanup
   const phase2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -82,6 +83,7 @@ export function useProcessData({
       setProcessSummary(null);
       setSituacaoAtual(null);
       setIsPartialData(false);
+      setAndamentosFailed(false);
 
       setBackgroundLoading({
         andamentos: true,
@@ -124,6 +126,7 @@ export function useProcessData({
             else if (processData.status === 500) { errorTitle = "Erro no servidor SEI"; errorDescription = `O sistema SEI está temporariamente indisponível. Aguarde alguns minutos e tente novamente.`; }
             toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
             setRawProcessData(null);
+            setAndamentosFailed(true);
             setIsLoading(false);
             setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
             return;
@@ -162,12 +165,14 @@ export function useProcessData({
           } else {
             toast({ title: "Formato de dados inesperado", description: "Os dados recebidos não estão no formato esperado. Entre em contato com o suporte técnico.", variant: "destructive" });
             setRawProcessData(null);
+            setAndamentosFailed(true);
           }
           setIsLoading(false);
           setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
         })
         .catch(() => {
           setRawProcessData(null);
+          setAndamentosFailed(true);
           toast({ title: "Erro ao Buscar Andamentos", description: "Falha na requisição de andamentos.", variant: "destructive" });
           setIsLoading(false);
           setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
@@ -323,5 +328,6 @@ export function useProcessData({
     loadingTasks,
     refresh,
     isPartialData,
+    andamentosFailed,
   };
 }
