@@ -1,3 +1,5 @@
+'use server';
+
 import type { ApiError } from '@/types/process-flow';
 import type { Tag, TagWithProcessos, SavedProcesso, ProcessoSalvoCheck } from '@/types/teams';
 

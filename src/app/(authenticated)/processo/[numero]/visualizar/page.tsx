@@ -190,21 +190,19 @@ function VisualizarProcessoContent() {
           />
         )}
 
-        {/* Toolbar */}
-        {(rawProcessData || processCreationInfo) && (
-          <ProcessToolbar
-            rawProcessData={rawProcessData}
-            numeroProcesso={numeroProcesso}
-            processLinkAcesso={processLinkAcesso}
-            openUnitsInProcess={openUnitsInProcess}
-            hasBackgroundLoading={hasBackgroundLoading}
-            lastFetchedAt={lastFetchedAt}
-            isRefreshing={isRefreshing}
-            isDetailsSheetOpen={isDetailsSheetOpen}
-            onOpenDetailsSheet={() => setIsDetailsSheetOpen(true)}
-            onRefresh={refresh}
-          />
-        )}
+        {/* Toolbar — renders immediately so tags/bookmark check starts in parallel with andamentos */}
+        <ProcessToolbar
+          rawProcessData={rawProcessData}
+          numeroProcesso={numeroProcesso}
+          processLinkAcesso={processLinkAcesso}
+          openUnitsInProcess={openUnitsInProcess}
+          hasBackgroundLoading={hasBackgroundLoading}
+          lastFetchedAt={lastFetchedAt}
+          isRefreshing={isRefreshing}
+          isDetailsSheetOpen={isDetailsSheetOpen}
+          onOpenDetailsSheet={() => setIsDetailsSheetOpen(true)}
+          onRefresh={refresh}
+        />
 
         {/* Details sheet */}
         <ProcessDetailsSheet
