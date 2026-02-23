@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import type { ProcessoData, UnidadeAberta } from '@/types/process-flow';
 import { Loader2, ExternalLink, PanelRight, Bookmark, BookmarkCheck, Bell, RefreshCw, MessageSquare } from 'lucide-react';
 import { StatusIndicator } from '@/components/ui/status-indicator';
@@ -10,8 +10,6 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { SaveProcessoModal } from './SaveProcessoModal';
 import { ObservacoesSheet } from './ObservacoesSheet';
-import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { checkProcessoSalvo } from '@/lib/api/tags-api-client';
 
 interface ProcessToolbarProps {
   rawProcessData: ProcessoData | null;
@@ -24,6 +22,8 @@ interface ProcessToolbarProps {
   isDetailsSheetOpen: boolean;
   onOpenDetailsSheet: () => void;
   onRefresh: () => void;
+  initialIsSaved: boolean;
+  onSavedStatusChange: (saved: boolean) => void;
 }
 
 export function ProcessToolbar({
@@ -37,23 +37,11 @@ export function ProcessToolbar({
   isDetailsSheetOpen,
   onOpenDetailsSheet,
   onRefresh,
+  initialIsSaved,
+  onSavedStatusChange,
 }: ProcessToolbarProps) {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isObservacoesOpen, setIsObservacoesOpen] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  const { usuario } = usePersistedAuth();
-
-  const refreshSavedStatus = useCallback(async () => {
-    if (!usuario || !numeroProcesso) return;
-    const result = await checkProcessoSalvo(usuario, numeroProcesso);
-    if (!('error' in result)) {
-      setIsSaved(result.salvo);
-    }
-  }, [usuario, numeroProcesso]);
-
-  useEffect(() => {
-    refreshSavedStatus();
-  }, [refreshSavedStatus]);
 
   return (
     <div className="mb-8 space-y-2">
@@ -110,11 +98,11 @@ export function ProcessToolbar({
           <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> Atualizar
         </Button>
         <Button
-          variant={isSaved ? "default" : "outline"}
+          variant={initialIsSaved ? "default" : "outline"}
           size="sm"
           onClick={() => setIsSaveModalOpen(true)}
         >
-          {isSaved ? (
+          {initialIsSaved ? (
             <><BookmarkCheck className="mr-2 h-4 w-4" /> Salvo</>
           ) : (
             <><Bookmark className="mr-2 h-4 w-4" /> Salvar</>
@@ -137,7 +125,7 @@ export function ProcessToolbar({
         onOpenChange={setIsSaveModalOpen}
         numeroProcesso={numeroProcesso}
         numeroProcessoFormatado={formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso)}
-        onSaveSuccess={refreshSavedStatus}
+        onSaveSuccess={() => onSavedStatusChange(true)}
       />
 
       <ObservacoesSheet

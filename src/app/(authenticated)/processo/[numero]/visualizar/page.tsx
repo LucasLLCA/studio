@@ -4,7 +4,7 @@ import { ProcessFlowDiagram } from '@/components/process-flow/ProcessFlowDiagram
 import type { ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
 import { Loader2, GanttChartSquare, BookText, Info, ChevronsLeft, ChevronsRight, HelpCircle } from 'lucide-react';
 import { LoadingFeedback } from '@/components/home/LoadingFeedback';
-import React, { Suspense, useState, useEffect, useMemo } from 'react';
+import React, { Suspense, useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
@@ -39,6 +39,7 @@ import { ProcessToolbar } from '@/components/process-flow/ProcessToolbar';
 import { ProcessDetailsSheet } from '@/components/process-flow/ProcessDetailsSheet';
 import { OpenUnitsCard } from '@/components/process-flow/OpenUnitsCard';
 import { ProcessProvider } from '@/contexts/process-context';
+import { checkProcessoSalvo } from '@/lib/api/tags-api-client';
 
 export default function VisualizarProcessoPage() {
   return (
@@ -62,6 +63,7 @@ function VisualizarProcessoContent() {
     sessionToken,
     selectedUnidadeFiltro,
     orgao: userOrgao,
+    usuario,
     logout: persistLogout,
   } = usePersistedAuth();
 
@@ -72,6 +74,18 @@ function VisualizarProcessoContent() {
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [selectedLaneUnits, setSelectedLaneUnits] = useState<string[]>([]);
+
+  // Tag/bookmark status — fetched independently of andamentos
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    if (!usuario || !numeroProcesso) return;
+    checkProcessoSalvo(usuario, numeroProcesso).then((result) => {
+      if (!('error' in result)) {
+        setIsSaved(result.salvo);
+      }
+    });
+  }, [usuario, numeroProcesso]);
 
   // Open units via React Query
   const {
@@ -190,19 +204,23 @@ function VisualizarProcessoContent() {
           />
         )}
 
-        {/* Toolbar — renders immediately so tags/bookmark check starts in parallel with andamentos */}
-        <ProcessToolbar
-          rawProcessData={rawProcessData}
-          numeroProcesso={numeroProcesso}
-          processLinkAcesso={processLinkAcesso}
-          openUnitsInProcess={openUnitsInProcess}
-          hasBackgroundLoading={hasBackgroundLoading}
-          lastFetchedAt={lastFetchedAt}
-          isRefreshing={isRefreshing}
-          isDetailsSheetOpen={isDetailsSheetOpen}
-          onOpenDetailsSheet={() => setIsDetailsSheetOpen(true)}
-          onRefresh={refresh}
-        />
+        {/* Toolbar */}
+        {(rawProcessData || processCreationInfo) && (
+          <ProcessToolbar
+            rawProcessData={rawProcessData}
+            numeroProcesso={numeroProcesso}
+            processLinkAcesso={processLinkAcesso}
+            openUnitsInProcess={openUnitsInProcess}
+            hasBackgroundLoading={hasBackgroundLoading}
+            lastFetchedAt={lastFetchedAt}
+            isRefreshing={isRefreshing}
+            isDetailsSheetOpen={isDetailsSheetOpen}
+            onOpenDetailsSheet={() => setIsDetailsSheetOpen(true)}
+            onRefresh={refresh}
+            initialIsSaved={isSaved}
+            onSavedStatusChange={setIsSaved}
+          />
+        )}
 
         {/* Details sheet */}
         <ProcessDetailsSheet
