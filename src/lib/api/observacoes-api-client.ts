@@ -1,5 +1,3 @@
-'use server';
-
 import type { ApiError } from '@/types/process-flow';
 import type { Observacao } from '@/types/teams';
 
