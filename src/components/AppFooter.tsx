@@ -2,7 +2,7 @@
 
 export default function AppFooter() {
   return (
-    <footer className="bg-gray-100 py-8 px-8">
+    <footer className="bg-gray-100 py-6 px-4 sm:py-8 sm:px-8">
       <div className="flex flex-col items-center gap-6 max-w-6xl mx-auto">
         <div className="flex items-center justify-center gap-4 flex-wrap">
           <a href="https://soberania.ai/">

@@ -179,7 +179,7 @@ export default function ProcessoPage() {
       <div className="w-full max-w-5xl">
         <Card className="shadow-lg max-h-[calc(100dvh-220px)] overflow-hidden">
           <CardHeader>
-            <div className="flex items-start gap-4 mb-3">
+            <div className="flex flex-col sm:flex-row items-start gap-4 mb-3">
               <div className="flex-1">
                 <h1 className="text-lg font-semibold text-gray-700 mb-1">
                   Processo
@@ -200,7 +200,7 @@ export default function ProcessoPage() {
               </div>
 
               <div className="flex flex-col">
-                <div className="flex-shrink-0 max-w-[260px] rounded-md border border-gray-300 bg-gray-50 p-2.5 text-left mb-2">
+                <div className="flex-shrink-0 max-w-full sm:max-w-[260px] rounded-md border border-gray-300 bg-gray-50 p-2.5 text-left mb-2">
                   <p className="text-xs text-gray-600">
                     <strong>{"Aten\u00e7\u00e3o:"}</strong> {"Todo processo precisa ser visualizado sob o contexto de um usu\u00e1rio + unidade."}
                   </p>

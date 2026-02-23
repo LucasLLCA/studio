@@ -40,26 +40,26 @@ export default function AppHeader() {
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
             {mounted && isAuthenticated && (
-              <Button variant="ghost" className="inline-flex items-center px-3 py-1 text-xl font-bold text-primary mr-1 hover:bg-transparent hover:text-primary-hover" onClick={() => router.push('/')}>
+              <Button variant="ghost" className="inline-flex items-center px-3 py-1 text-base sm:text-xl font-bold text-primary mr-1 hover:bg-transparent hover:text-primary-hover" onClick={() => router.push('/')}>
                 Visualizador de Processos
               </Button>
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/')} title={"P\u00e1gina Inicial"}>
-              <Search className="mr-2 h-4 w-4" />
-              {"Procurar Novo Processo"}
+              <Search className="sm:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Procurar Novo Processo</span>
             </Button>
             <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/equipes')} title="Equipes">
-              <Users className="mr-2 h-4 w-4" />
-              Equipes
+              <Users className="sm:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Equipes</span>
             </Button>
             <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => setIsInfoModalOpen(true)} title={"Informa\u00e7\u00f5es do Sistema"}>
               <Newspaper className="h-4 w-4" />
-              {"Atualizações"}
+              <span className="hidden sm:inline ml-2">{"Atualizações"}</span>
             </Button>
             {mounted && isAuthenticated && (
-              <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={handleLogout}> <LogOut className="mr-2 h-4 w-4" /> Sair </Button>
+              <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={handleLogout}> <LogOut className="sm:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Sair</span> </Button>
             )}
           </div>
         </div>

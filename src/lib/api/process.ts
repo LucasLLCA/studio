@@ -10,7 +10,8 @@ import { stripProcessNumber } from '@/lib/utils';
 export async function fetchProcessData(
   token: string,
   protocoloProcedimento: string,
-  unidadeId: string
+  unidadeId: string,
+  parcial: boolean = false
 ): Promise<ProcessoData | ApiError> {
   if (!protocoloProcedimento || !unidadeId) {
     return { error: "Número do processo e unidade são obrigatórios para buscar andamentos.", status: 400 };
@@ -19,7 +20,8 @@ export async function fetchProcessData(
   const tokenError = validateToken(token);
   if (tokenError) return tokenError;
 
-  const url = `${API_BASE_URL}/sei/andamentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  const parcialParam = parcial ? '&parcial=true' : '';
+  const url = `${API_BASE_URL}/sei/andamentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}${parcialParam}`;
 
   return fetchWithErrorHandling<ProcessoData>(
     url,
@@ -152,7 +154,8 @@ export async function fetchDocumentSummary(
 export async function fetchDocuments(
   token: string,
   protocoloProcedimento: string,
-  unidadeId: string
+  unidadeId: string,
+  parcial: boolean = false
 ): Promise<DocumentosResponse | ApiError> {
   if (!protocoloProcedimento || !unidadeId) {
     return { error: "Número do processo e unidade são obrigatórios para buscar documentos.", status: 400 };
@@ -161,7 +164,8 @@ export async function fetchDocuments(
   const tokenError = validateToken(token);
   if (tokenError) return tokenError;
 
-  const url = `${API_BASE_URL}/sei/documentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  const parcialParam = parcial ? '&parcial=true' : '';
+  const url = `${API_BASE_URL}/sei/documentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}${parcialParam}`;
 
   return fetchWithErrorHandling<DocumentosResponse>(
     url,

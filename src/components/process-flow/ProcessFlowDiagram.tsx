@@ -6,7 +6,7 @@ import { TaskNode } from './TaskNode';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { VERTICAL_LANE_SPACING } from '@/lib/process-flow-utils';
+import { VERTICAL_LANE_SPACING, detectPartialDataGap } from '@/lib/process-flow-utils';
 import { ProcessTimelineBar } from './ProcessTimelineBar';
 import { useProcessContext } from '@/contexts/process-context';
 
@@ -18,6 +18,7 @@ interface ProcessFlowDiagramProps {
   laneMap: Map<string, number>;
   taskToScrollTo?: ProcessedAndamento | null;
   filteredLaneUnits?: string[];
+  isPartialData?: boolean;
 }
 
 export function ProcessFlowDiagram({
@@ -28,6 +29,7 @@ export function ProcessFlowDiagram({
   laneMap,
   taskToScrollTo,
   filteredLaneUnits = [],
+  isPartialData = false,
 }: ProcessFlowDiagramProps) {
   const { sessionToken, isAuthenticated, selectedUnidadeFiltro, processNumber, documents, isLoadingDocuments, openUnitsInProcess } = useProcessContext();
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
@@ -112,6 +114,9 @@ export function ProcessFlowDiagram({
   // Usar os dados reposicionados no lugar dos originais
   const laneEntries = Array.from(repositionedLaneMap.entries());
   const filteredConnections = repositionedConnections;
+
+  // Detect gap for partial data visual separator
+  const gapInfo = isPartialData ? detectPartialDataGap(repositionedTasks) : null;
 
   const LANE_LABEL_AREA_WIDTH = 150;
 
@@ -413,7 +418,7 @@ export function ProcessFlowDiagram({
             transform: `translateX(-${diagramScrollLeft}px)`,
             willChange: 'transform',
           }}>
-            <ProcessTimelineBar tasks={repositionedTasks} svgWidth={svgWidth} />
+            <ProcessTimelineBar tasks={repositionedTasks} svgWidth={svgWidth} isPartialData={isPartialData} />
           </div>
         </div>
       </div>
@@ -451,7 +456,7 @@ export function ProcessFlowDiagram({
               transform: `translateX(-${diagramScrollLeft}px)`,
               willChange: 'transform',
             }}>
-              <ProcessTimelineBar tasks={repositionedTasks} svgWidth={svgWidth} />
+              <ProcessTimelineBar tasks={repositionedTasks} svgWidth={svgWidth} isPartialData={isPartialData} />
             </div>
           </div>
         </div>
@@ -579,11 +584,60 @@ export function ProcessFlowDiagram({
                 />
               ))}
 
+              {/* Partial data gap separator */}
+              {gapInfo && (() => {
+                const midX = (gapInfo.leftX + gapInfo.rightX) / 2;
+                const halfGap = 10;
+                return (
+                  <g>
+                    {/* Semi-transparent background strip */}
+                    <rect
+                      x={midX - halfGap}
+                      y={0}
+                      width={halfGap * 2}
+                      height={svgHeight}
+                      fill="hsl(var(--muted))"
+                      opacity="0.15"
+                    />
+                    {/* Left vertical cut line */}
+                    <line
+                      x1={midX - halfGap} y1={0}
+                      x2={midX - halfGap} y2={svgHeight}
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeDasharray="6 4"
+                      strokeWidth="1.5"
+                      opacity="0.4"
+                    />
+                    {/* Right vertical cut line */}
+                    <line
+                      x1={midX + halfGap} y1={0}
+                      x2={midX + halfGap} y2={svgHeight}
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeDasharray="6 4"
+                      strokeWidth="1.5"
+                      opacity="0.4"
+                    />
+                    {/* Loading dots between cut lines */}
+                    <text
+                      x={midX}
+                      y={svgHeight / 2}
+                      textAnchor="middle"
+                      fontSize="11"
+                      fill="hsl(var(--muted-foreground))"
+                      opacity="0.5"
+                    >
+                      •••
+                    </text>
+                  </g>
+                );
+              })()}
+
               {repositionedTasks.map((task) => (
                 <TaskNode
                   key={`${task.IdAndamento}-${task.globalSequence}`}
                   task={task}
                   onTaskClick={handleTaskClick}
+                  hideSequence={!!(gapInfo && task.x >= gapInfo.rightX)}
                 />
               ))}
             </svg>

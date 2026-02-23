@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { ProcessoData, Documento } from '@/types/process-flow';
 import { fetchProcessDataFromSEIWithToken, fetchDocumentsFromSEIWithToken, invalidateProcessCache } from '@/app/sei-actions';
 import { fetchSSEStreamWithRetry, getStreamProcessSummaryUrl, getStreamSituacaoAtualUrl } from '@/lib/streaming';
@@ -37,6 +37,10 @@ export function useProcessData({
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
+  const [isPartialData, setIsPartialData] = useState<boolean>(false);
+
+  // Ref to track phase-2 timeout for cleanup
+  const phase2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [backgroundLoading, setBackgroundLoading] = useState({
     andamentos: false,
@@ -59,10 +63,16 @@ export function useProcessData({
     },
   });
 
-  // Load process data
+  // Load process data (two-phase: partial first, then full)
   useEffect(() => {
     if (!isAuthenticated || !sessionToken || !selectedUnidadeFiltro || !numeroProcesso) {
       return;
+    }
+
+    // Clear any pending phase-2 timer from previous render
+    if (phase2TimerRef.current) {
+      clearTimeout(phase2TimerRef.current);
+      phase2TimerRef.current = null;
     }
 
     const loadProcessData = async () => {
@@ -71,6 +81,7 @@ export function useProcessData({
       setDocuments(null);
       setProcessSummary(null);
       setSituacaoAtual(null);
+      setIsPartialData(false);
 
       setBackgroundLoading({
         andamentos: true,
@@ -91,16 +102,17 @@ export function useProcessData({
         return;
       }
 
+      // Phase 1: Fetch partial data (first+last pages) for fast initial render
       const andamentosPromise = withNetworkRetry(
-        () => fetchProcessDataFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro),
+        () => fetchProcessDataFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro, true),
         'andamentos',
       );
       const documentosPromise = unitAccessDenied ? null : withNetworkRetry(
-        () => fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro),
+        () => fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro, true),
         'documentos',
       );
 
-      // Handle andamentos result
+      // Handle andamentos result (Phase 1)
       andamentosPromise
         .then((processData: any) => {
           if ('error' in processData && typeof processData.error === 'string') {
@@ -112,10 +124,41 @@ export function useProcessData({
             else if (processData.status === 500) { errorTitle = "Erro no servidor SEI"; errorDescription = `O sistema SEI está temporariamente indisponível. Aguarde alguns minutos e tente novamente.`; }
             toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
             setRawProcessData(null);
-          } else if (!('error' in processData) && processData.Andamentos && Array.isArray(processData.Andamentos)) {
+            setIsLoading(false);
+            setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
+            return;
+          }
+
+          if (!('error' in processData) && processData.Andamentos && Array.isArray(processData.Andamentos)) {
+            const isParcial = processData.Info?.Parcial === true;
             setRawProcessData(processData);
             setLastFetchedAt(new Date());
-            toast({ title: "Processo carregado com sucesso", description: `Encontrados ${processData.Andamentos.length} andamentos para visualização.` });
+            setIsPartialData(isParcial);
+
+            if (isParcial) {
+              toast({ title: "Processo carregado", description: `Exibindo ${processData.Andamentos.length} de ${processData.Info?.TotalItens || '?'} andamentos. Carregando restante...` });
+            } else {
+              toast({ title: "Processo carregado com sucesso", description: `Encontrados ${processData.Andamentos.length} andamentos para visualização.` });
+            }
+
+            // Phase 2: If partial, schedule full data fetch after delay
+            if (isParcial) {
+              phase2TimerRef.current = setTimeout(() => {
+                withNetworkRetry(
+                  () => fetchProcessDataFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro, false),
+                  'andamentos-full',
+                ).then((fullData: any) => {
+                  if (!('error' in fullData) && fullData.Andamentos && Array.isArray(fullData.Andamentos)) {
+                    setRawProcessData(fullData);
+                    setIsPartialData(false);
+                    toast({ title: "Dados completos carregados", description: `Todos os ${fullData.Andamentos.length} andamentos foram carregados.` });
+                  }
+                }).catch(() => {
+                  // Partial data is still usable, just log
+                  console.warn('Phase 2 full andamentos fetch failed, partial data remains');
+                });
+              }, 4000);
+            }
           } else {
             toast({ title: "Formato de dados inesperado", description: "Os dados recebidos não estão no formato esperado. Entre em contato com o suporte técnico.", variant: "destructive" });
             setRawProcessData(null);
@@ -130,7 +173,7 @@ export function useProcessData({
           setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
         });
 
-      // Handle documents result
+      // Handle documents result (Phase 1 — partial)
       if (documentosPromise) {
         documentosPromise
           .then((documentsResponse: any) => {
@@ -138,6 +181,23 @@ export function useProcessData({
               setDocuments([]);
             } else {
               setDocuments(documentsResponse.Documentos);
+
+              // Phase 2: If partial docs, schedule full fetch
+              const isDocsParcial = documentsResponse.Info?.Parcial === true;
+              if (isDocsParcial) {
+                setTimeout(() => {
+                  withNetworkRetry(
+                    () => fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro, false),
+                    'documentos-full',
+                  ).then((fullDocsResponse: any) => {
+                    if (!('error' in fullDocsResponse) && fullDocsResponse.Documentos) {
+                      setDocuments(fullDocsResponse.Documentos);
+                    }
+                  }).catch(() => {
+                    console.warn('Phase 2 full documents fetch failed, partial data remains');
+                  });
+                }, 4000);
+              }
             }
             setBackgroundLoading(prev => ({ ...prev, documentos: false }));
           })
@@ -174,6 +234,13 @@ export function useProcessData({
     };
 
     loadProcessData();
+
+    return () => {
+      if (phase2TimerRef.current) {
+        clearTimeout(phase2TimerRef.current);
+        phase2TimerRef.current = null;
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, sessionToken, selectedUnidadeFiltro, numeroProcesso, refreshKey, unitAccessDenied]);
 
@@ -247,5 +314,6 @@ export function useProcessData({
     hasBackgroundLoading,
     loadingTasks,
     refresh,
+    isPartialData,
   };
 }

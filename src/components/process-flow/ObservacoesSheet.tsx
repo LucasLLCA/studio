@@ -112,7 +112,7 @@ export function ObservacoesSheet({
         side="right"
         showOverlay={false}
         showCloseButton={false}
-        className="w-[480px] sm:max-w-[480px] flex flex-col overflow-hidden"
+        className="w-full sm:w-[480px] sm:max-w-[480px] flex flex-col overflow-hidden"
       >
         {/* Header */}
         <SheetHeader className="flex-shrink-0">
@@ -133,6 +133,37 @@ export function ObservacoesSheet({
           <SheetDescription className="sr-only">Observacoes do processo</SheetDescription>
           <Separator />
         </SheetHeader>
+
+        {/* Input box at top */}
+        <div className="flex-shrink-0 border-b pb-3 bg-white dark:bg-background">
+          <div className="flex gap-2 items-end">
+            <textarea
+              ref={textareaRef}
+              value={conteudo}
+              onChange={(e) => setConteudo(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Escreva uma observacao..."
+              rows={2}
+              className="flex-1 resize-none rounded-md border border-input bg-white dark:bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            />
+            <Button
+              size="sm"
+              onClick={handleSend}
+              disabled={!conteudo.trim() || isSending}
+              className="h-9 w-9 p-0 flex-shrink-0"
+              aria-label="Enviar observacao"
+            >
+              {isSending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Enter para enviar, Shift+Enter para nova linha
+          </p>
+        </div>
 
         {/* Scrollable body */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto mt-4 pr-1 space-y-4">
@@ -181,37 +212,6 @@ export function ObservacoesSheet({
               </div>
             ))
           )}
-        </div>
-
-        {/* Footer: input */}
-        <div className="flex-shrink-0 border-t pt-3 mt-3">
-          <div className="flex gap-2 items-end">
-            <textarea
-              ref={textareaRef}
-              value={conteudo}
-              onChange={(e) => setConteudo(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Escreva uma observacao..."
-              rows={2}
-              className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            />
-            <Button
-              size="sm"
-              onClick={handleSend}
-              disabled={!conteudo.trim() || isSending}
-              className="h-9 w-9 p-0 flex-shrink-0"
-              aria-label="Enviar observacao"
-            >
-              {isSending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Enter para enviar, Shift+Enter para nova linha
-          </p>
         </div>
       </SheetContent>
     </Sheet>

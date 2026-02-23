@@ -256,6 +256,41 @@ export function processAndamentos(
   };
 }
 
+/** Detect the largest date gap in a set of tasks, used to show partial data breaks. */
+export function detectPartialDataGap(
+  tasks: ProcessedAndamento[]
+): { leftX: number; rightX: number } | null {
+  if (tasks.length < 4) return null;
+
+  const sortedByX = [...tasks].sort((a, b) => a.x - b.x);
+  let maxDateGapMs = 0;
+  let gapIdx = -1;
+
+  for (let i = 0; i < sortedByX.length - 1; i++) {
+    const dateGap =
+      sortedByX[i + 1].parsedDate.getTime() - sortedByX[i].parsedDate.getTime();
+    if (dateGap > maxDateGapMs) {
+      maxDateGapMs = dateGap;
+      gapIdx = i;
+    }
+  }
+
+  if (gapIdx < 0) return null;
+
+  const totalSpan =
+    sortedByX[sortedByX.length - 1].parsedDate.getTime() -
+    sortedByX[0].parsedDate.getTime();
+  const avgGap =
+    sortedByX.length > 1 ? totalSpan / (sortedByX.length - 1) : 0;
+
+  if (avgGap <= 0 || maxDateGapMs <= avgGap * 2) return null;
+
+  return {
+    leftX: sortedByX[gapIdx].x,
+    rightX: sortedByX[gapIdx + 1].x,
+  };
+}
+
 export function findOpenTaskForUnit(
   tasks: ProcessedAndamento[] | undefined,
   unitId: string

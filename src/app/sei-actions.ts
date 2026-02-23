@@ -57,14 +57,16 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
 
 /**
  * Busca dados do processo (andamentos) usando sessionToken
+ * Se parcial=true, retorna apenas primeiros+últimos andamentos para render rápido
  */
 export async function fetchProcessDataFromSEIWithToken(
   token: string,
   protocoloProcedimento: string,
-  unidadeId: string
+  unidadeId: string,
+  parcial: boolean = false
 ): Promise<ProcessoData | ApiError> {
   if (MOCK_MODE) return mockProcessData();
-  return fetchProcessData(token, protocoloProcedimento, unidadeId);
+  return fetchProcessData(token, protocoloProcedimento, unidadeId, parcial);
 }
 
 /**
@@ -93,15 +95,16 @@ export async function fetchProcessSummaryWithToken(
 
 /**
  * Busca documentos usando sessionToken
- * Backend faz paginação paralela e retorna todos os documentos
+ * Se parcial=true, retorna apenas primeira+última página para render rápido
  */
 export async function fetchDocumentsFromSEIWithToken(
   token: string,
   protocoloProcedimento: string,
-  unidadeId: string
+  unidadeId: string,
+  parcial: boolean = false
 ): Promise<DocumentosResponse | ApiError> {
   if (MOCK_MODE) return mockDocuments();
-  return fetchDocuments(token, protocoloProcedimento, unidadeId);
+  return fetchDocuments(token, protocoloProcedimento, unidadeId, parcial);
 }
 
 /**

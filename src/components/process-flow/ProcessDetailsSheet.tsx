@@ -63,7 +63,7 @@ export function ProcessDetailsSheet({
         side="left"
         showOverlay={false}
         showCloseButton={false}
-        className="w-[720px] sm:max-w-[720px] flex flex-col overflow-hidden"
+        className="w-full sm:w-[720px] sm:max-w-[720px] flex flex-col overflow-hidden"
       >
         {/* Header */}
         <SheetHeader className="flex-shrink-0">

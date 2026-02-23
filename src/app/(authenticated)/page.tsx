@@ -159,14 +159,14 @@ function HomeContent() {
   };
 
   return (
-    <div className="flex flex-1 items-center justify-center p-8">
+    <div className="flex flex-1 items-center justify-center p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         <div className="mb-1">
           <p className="text-gray-700">{"Ol\u00e1, "}<span className="font-semibold">{mounted ? (nomeUsuario || 'Usu\u00e1rio') : 'Usu\u00e1rio'}</span>
           </p>
         </div>
 
-        <h1 className="text-3xl font-bold text-primary">
+        <h1 className="text-2xl sm:text-3xl font-bold text-primary">
           O que analisaremos juntos ?
         </h1>
 
@@ -236,7 +236,7 @@ function HomeContent() {
                   </TabsTrigger>
                 </TabsList>
               </div>
-              <div className="bg-white border border-gray-300 rounded-lg p-4 min-h-[360px]">
+              <div className="bg-white border border-gray-300 rounded-lg p-3 sm:p-4 min-h-[280px] sm:min-h-[360px]">
                 <TabsContent value="historico" className="mt-0">
                   <HistoricoContent
                     history={history}

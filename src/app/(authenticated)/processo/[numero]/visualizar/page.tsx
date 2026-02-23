@@ -108,6 +108,7 @@ function VisualizarProcessoContent() {
     hasBackgroundLoading,
     loadingTasks,
     refresh,
+    isPartialData,
   } = useProcessData({
     numeroProcesso,
     sessionToken,
@@ -290,7 +291,13 @@ function VisualizarProcessoContent() {
                         <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading} />
                         <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
                       </div>
-                      {totalAndamentos > 100 && (
+                      {isPartialData && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Carregando andamentos restantes...</span>
+                        </div>
+                      )}
+                      {totalAndamentos > 100 && !isPartialData && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -393,6 +400,7 @@ function VisualizarProcessoContent() {
                         laneMap={processedFlowData.laneMap}
                         taskToScrollTo={taskToScrollTo}
                         filteredLaneUnits={selectedLaneUnits}
+                        isPartialData={isPartialData}
                       />
                     </div>
                   ) : (

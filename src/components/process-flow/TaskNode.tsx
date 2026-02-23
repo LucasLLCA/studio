@@ -11,9 +11,10 @@ import { useProcessContext } from '@/contexts/process-context';
 interface TaskNodeProps {
   task: ProcessedAndamento;
   onTaskClick: (task: ProcessedAndamento) => void;
+  hideSequence?: boolean;
 }
 
-export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick }) => {
+export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, hideSequence = false }) => {
   const { documents, isLoadingDocuments } = useProcessContext();
   const handleNodeClick = () => {
     onTaskClick(task);
@@ -93,7 +94,7 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick }) => {
           fill="hsl(var(--primary-foreground))"
           className="select-none"
         >
-          {task.globalSequence}
+          {hideSequence ? '?' : task.globalSequence}
         </text>
       )}
 

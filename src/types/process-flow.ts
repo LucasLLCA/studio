@@ -36,7 +36,8 @@ export interface ProcessoInfo {
   TotalPaginas: number;
   QuantidadeItens: number;
   TotalItens: number;
-  NumeroProcesso?: string; 
+  NumeroProcesso?: string;
+  Parcial?: boolean;
 }
 
 export interface ProcessoData {
@@ -230,6 +231,7 @@ export interface DocumentosInfo {
   TotalPaginas: number;
   QuantidadeItens: number;
   TotalItens: number;
+  Parcial?: boolean;
 }
 
 export interface DocumentosResponse {
