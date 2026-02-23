@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { LogOut, Activity, Newspaper, Info, HelpCircle, Home as HomeIcon, Clock } from 'lucide-react';
+import { LogOut, Activity, Newspaper, Info, HelpCircle, Search, Clock, Users } from 'lucide-react';
 import { AlertBox } from '@/components/ui/alert-box';
 import { Button } from '@/components/ui/button';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
@@ -47,8 +47,12 @@ export default function AppHeader() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/')} title={"P\u00e1gina Inicial"}>
-              <HomeIcon className="mr-2 h-4 w-4" />
+              <Search className="mr-2 h-4 w-4" />
               {"Procurar Novo Processo"}
+            </Button>
+            <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/equipes')} title="Equipes">
+              <Users className="mr-2 h-4 w-4" />
+              Equipes
             </Button>
             <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => setIsInfoModalOpen(true)} title={"Informa\u00e7\u00f5es do Sistema"}>
               <Newspaper className="h-4 w-4" />

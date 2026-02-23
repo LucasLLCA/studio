@@ -1,13 +1,17 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { ProcessoData, UnidadeAberta } from '@/types/process-flow';
-import { Loader2, ExternalLink, PanelRight, Bookmark, Bell, RefreshCw } from 'lucide-react';
+import { Loader2, ExternalLink, PanelRight, Bookmark, BookmarkCheck, Bell, RefreshCw, MessageSquare } from 'lucide-react';
 import { StatusIndicator } from '@/components/ui/status-indicator';
 import { Button } from '@/components/ui/button';
 import { formatProcessNumber } from '@/lib/utils';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { SaveProcessoModal } from './SaveProcessoModal';
+import { ObservacoesSheet } from './ObservacoesSheet';
+import { usePersistedAuth } from '@/hooks/use-persisted-auth';
+import { checkProcessoSalvo } from '@/lib/api/tags-api-client';
 
 interface ProcessToolbarProps {
   rawProcessData: ProcessoData | null;
@@ -34,6 +38,23 @@ export function ProcessToolbar({
   onOpenDetailsSheet,
   onRefresh,
 }: ProcessToolbarProps) {
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isObservacoesOpen, setIsObservacoesOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const { usuario } = usePersistedAuth();
+
+  const refreshSavedStatus = useCallback(async () => {
+    if (!usuario || !numeroProcesso) return;
+    const result = await checkProcessoSalvo(usuario, numeroProcesso);
+    if (!('error' in result)) {
+      setIsSaved(result.salvo);
+    }
+  }, [usuario, numeroProcesso]);
+
+  useEffect(() => {
+    refreshSavedStatus();
+  }, [refreshSavedStatus]);
+
   return (
     <div className="mb-8 space-y-2">
       {/* Status acima do número */}
@@ -72,7 +93,7 @@ export function ProcessToolbar({
         )}
       </div>
 
-      {/* Buttons row: Detalhes, Atualizar, Salvar, Notificações */}
+      {/* Buttons row: Detalhes, Atualizar, Salvar, Observacoes, Notificações */}
       <div className="flex items-center gap-2">
         {!isDetailsSheetOpen && (
           <Button variant="outline" size="sm" onClick={onOpenDetailsSheet} aria-label="Abrir painel de detalhes">
@@ -88,13 +109,42 @@ export function ProcessToolbar({
         >
           <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> Atualizar
         </Button>
-        <Button variant="outline" size="sm" disabled>
-          <Bookmark className="mr-2 h-4 w-4" /> Salvar
+        <Button
+          variant={isSaved ? "default" : "outline"}
+          size="sm"
+          onClick={() => setIsSaveModalOpen(true)}
+        >
+          {isSaved ? (
+            <><BookmarkCheck className="mr-2 h-4 w-4" /> Salvo</>
+          ) : (
+            <><Bookmark className="mr-2 h-4 w-4" /> Salvar</>
+          )}
+        </Button>
+        <Button
+          variant={isObservacoesOpen ? "default" : "outline"}
+          size="sm"
+          onClick={() => setIsObservacoesOpen(!isObservacoesOpen)}
+        >
+          <MessageSquare className="mr-2 h-4 w-4" /> Observacoes
         </Button>
         <Button variant="outline" size="sm" disabled>
-          <Bell className="mr-2 h-4 w-4" /> Notificações diárias
+          <Bell className="mr-2 h-4 w-4" /> Notificacoes diarias
         </Button>
       </div>
+
+      <SaveProcessoModal
+        open={isSaveModalOpen}
+        onOpenChange={setIsSaveModalOpen}
+        numeroProcesso={numeroProcesso}
+        numeroProcessoFormatado={formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso)}
+        onSaveSuccess={refreshSavedStatus}
+      />
+
+      <ObservacoesSheet
+        isOpen={isObservacoesOpen}
+        onOpenChange={setIsObservacoesOpen}
+        numeroProcesso={numeroProcesso}
+      />
     </div>
   );
 }

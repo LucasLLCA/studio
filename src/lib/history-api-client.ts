@@ -35,14 +35,12 @@ export interface DeleteHistoryResponse {
 }
 
 /**
- * Salva uma pesquisa no histórico
+ * Salva uma pesquisa no historico
  */
 export async function saveSearchHistory(
   data: SaveHistoryRequest
 ): Promise<SaveHistoryResponse | ApiError> {
   const url = `${HISTORY_API_BASE_URL}/historico`;
-  console.log('[DEBUG] Salvando histórico - URL:', url);
-  console.log('[DEBUG] Salvando histórico - Dados:', data);
 
   try {
     const response = await fetch(url, {
@@ -55,32 +53,27 @@ export async function saveSearchHistory(
       cache: 'no-store',
     });
 
-    console.log('[DEBUG] Salvando histórico - Status:', response.status);
-
     if (!response.ok) {
       let errorDetails;
       try {
         errorDetails = await response.json();
-        console.log('[DEBUG] Salvando histórico - Erro JSON:', errorDetails);
-      } catch (e) {
+      } catch {
         errorDetails = await response.text();
-        console.log('[DEBUG] Salvando histórico - Erro texto:', errorDetails);
       }
 
       return {
-        error: `Falha ao salvar histórico: ${response.status}`,
+        error: `Falha ao salvar historico: ${response.status}`,
         details: errorDetails,
         status: response.status
       };
     }
 
     const result = await response.json();
-    console.log('[DEBUG] Salvando histórico - Sucesso:', result);
-    return { success: true, message: result.message || 'Histórico salvo com sucesso' };
+    return { success: true, message: result.message || 'Historico salvo com sucesso' };
   } catch (error) {
-    console.error('[DEBUG] Salvando histórico - Exceção:', error);
+    console.error('Erro ao salvar historico:', error);
     return {
-      error: 'Erro ao conectar com o serviço de histórico',
+      error: 'Erro ao conectar com o servico de historico',
       details: error instanceof Error ? error.message : String(error),
       status: 500
     };
@@ -88,7 +81,7 @@ export async function saveSearchHistory(
 }
 
 /**
- * Busca o histórico de pesquisas de um usuário
+ * Busca o historico de pesquisas de um usuario
  */
 export async function getSearchHistory(
   usuario: string,
@@ -103,7 +96,6 @@ export async function getSearchHistory(
   });
 
   const url = `${HISTORY_API_BASE_URL}/historico/${encodeURIComponent(usuario)}?${queryParams.toString()}`;
-  console.log('[DEBUG] Buscando histórico - URL:', url);
 
   try {
     const response = await fetch(url, {
@@ -114,46 +106,37 @@ export async function getSearchHistory(
       cache: 'no-store',
     });
 
-    console.log('[DEBUG] Buscando histórico - Status:', response.status);
-
     if (!response.ok) {
       let errorDetails;
       try {
         errorDetails = await response.json();
-        console.log('[DEBUG] Buscando histórico - Erro JSON:', errorDetails);
-      } catch (e) {
+      } catch {
         errorDetails = await response.text();
-        console.log('[DEBUG] Buscando histórico - Erro texto:', errorDetails);
       }
 
       return {
-        error: `Falha ao buscar histórico: ${response.status}`,
+        error: `Falha ao buscar historico: ${response.status}`,
         details: errorDetails,
         status: response.status
       };
     }
 
     const data = await response.json();
-    console.log('[DEBUG] Buscando histórico - Resposta:', data);
 
     // A API retorna os dados no formato: { status: "success", data: { pesquisas: [...] } }
     if (data.data && Array.isArray(data.data.pesquisas)) {
-      console.log('[DEBUG] Buscando histórico - Array em data.data.pesquisas:', data.data.pesquisas.length, 'itens');
       return data.data.pesquisas as HistoryItem[];
     } else if (Array.isArray(data)) {
-      console.log('[DEBUG] Buscando histórico - Array direto:', data.length, 'itens');
       return data as HistoryItem[];
     } else if (data.historico && Array.isArray(data.historico)) {
-      console.log('[DEBUG] Buscando histórico - Array em data.historico:', data.historico.length, 'itens');
       return data.historico as HistoryItem[];
     } else {
-      console.log('[DEBUG] Buscando histórico - Formato inesperado, retornando vazio');
       return [];
     }
   } catch (error) {
-    console.error('[DEBUG] Buscando histórico - Exceção:', error);
+    console.error('Erro ao buscar historico:', error);
     return {
-      error: 'Erro ao conectar com o serviço de histórico',
+      error: 'Erro ao conectar com o servico de historico',
       details: error instanceof Error ? error.message : String(error),
       status: 500
     };
@@ -161,13 +144,12 @@ export async function getSearchHistory(
 }
 
 /**
- * Deleta (soft delete) uma pesquisa do histórico
+ * Deleta (soft delete) uma pesquisa do historico
  */
 export async function deleteSearchHistory(
   id: string
 ): Promise<DeleteHistoryResponse | ApiError> {
   const url = `${HISTORY_API_BASE_URL}/historico/pesquisa/${id}`;
-  console.log('[DEBUG] Deletando histórico - URL:', url);
 
   try {
     const response = await fetch(url, {
@@ -178,32 +160,27 @@ export async function deleteSearchHistory(
       cache: 'no-store',
     });
 
-    console.log('[DEBUG] Deletando histórico - Status:', response.status);
-
     if (!response.ok) {
       let errorDetails;
       try {
         errorDetails = await response.json();
-        console.log('[DEBUG] Deletando histórico - Erro JSON:', errorDetails);
-      } catch (e) {
+      } catch {
         errorDetails = await response.text();
-        console.log('[DEBUG] Deletando histórico - Erro texto:', errorDetails);
       }
 
       return {
-        error: `Falha ao deletar histórico: ${response.status}`,
+        error: `Falha ao deletar historico: ${response.status}`,
         details: errorDetails,
         status: response.status
       };
     }
 
     const result = await response.json();
-    console.log('[DEBUG] Deletando histórico - Sucesso:', result);
-    return { success: true, message: result.message || 'Histórico deletado com sucesso' };
+    return { success: true, message: result.message || 'Historico deletado com sucesso' };
   } catch (error) {
-    console.error('[DEBUG] Deletando histórico - Exceção:', error);
+    console.error('Erro ao deletar historico:', error);
     return {
-      error: 'Erro ao conectar com o serviço de histórico',
+      error: 'Erro ao conectar com o servico de historico',
       details: error instanceof Error ? error.message : String(error),
       status: 500
     };

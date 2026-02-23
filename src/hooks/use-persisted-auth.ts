@@ -46,7 +46,6 @@ export function usePersistedAuth() {
       
       // Migração apenas se necessário
       if (rawData.loginCredentials && !rawData.sessionToken) {
-        console.log('[DEBUG] Migração de dados antigos');
         localStorage.removeItem(AUTH_STORAGE_KEY);
         return null;
       }
@@ -161,24 +160,17 @@ export function usePersistedAuth() {
 
   // Função para fazer login
   const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string, userEmail?: string, userName?: string, userIdUsuario?: string, userIdLogin?: string, userCargoAssinatura?: string) => {
-    console.log('[DEBUG] Login iniciado - Token type:', typeof token);
-    console.log('[DEBUG] Login - Token raw value:', token);
-    console.log('[DEBUG] Login - Unidades:', unidades.length);
-    console.log('[DEBUG] Login - Órgão:', userOrgao);
-
     // Tentar converter token para string se necessário
     let validToken: string;
     if (typeof token === 'string') {
       validToken = token;
     } else if (token && typeof token === 'object') {
-      console.warn('[DEBUG] Token é objeto - tentando converter:', token);
+      console.warn('Token recebido como objeto - convertendo para string');
       validToken = JSON.stringify(token);
     } else {
-      console.error('[DEBUG] Login FALHOU - Token inválido:', token);
+      console.error('Login falhou - token invalido');
       return;
     }
-
-    console.log('[DEBUG] Login - Token válido:', typeof validToken, validToken.substring(0, 20) + '...');
 
     setIsAuthenticated(true);
     setSessionToken(validToken);
@@ -192,7 +184,7 @@ export function usePersistedAuth() {
     setCargoAssinatura(userCargoAssinatura || null);
     setUnidadesFiltroList(unidades);
 
-    const dataToSave = {
+    saveToStorage({
       isAuthenticated: true,
       sessionToken: validToken,
       idUnidadeAtual: idUnidadeAtual || null,
@@ -203,23 +195,11 @@ export function usePersistedAuth() {
       idLogin: userIdLogin || null,
       cargoAssinatura: userCargoAssinatura || null,
       unidadesFiltroList: unidades
-    };
-
-    console.log('[DEBUG] Login - Salvando dados:', {
-      isAuthenticated: dataToSave.isAuthenticated,
-      tokenLength: dataToSave.sessionToken?.length,
-      unidadesCount: dataToSave.unidadesFiltroList.length,
-      orgao: dataToSave.orgao
     });
-
-    saveToStorage(dataToSave);
-
-    console.log('[DEBUG] Login concluído - isAuthenticated agora deve ser true');
   }, [saveToStorage]);
 
   // Função para fazer logout
   const logout = useCallback(() => {
-    console.log('[DEBUG] usePersistedAuth.logout - Iniciando...');
     setIsAuthenticated(false);
     setSessionToken(null);
     setIdUnidadeAtual(null);
@@ -232,12 +212,9 @@ export function usePersistedAuth() {
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
 
-    // Limpeza completa do localStorage
     if (typeof window !== 'undefined') {
       localStorage.removeItem(AUTH_STORAGE_KEY);
-      console.log('[DEBUG] localStorage limpo');
     }
-    console.log('[DEBUG] usePersistedAuth.logout - Concluído');
   }, []);
 
   // Função para atualizar unidade selecionada
@@ -248,7 +225,6 @@ export function usePersistedAuth() {
 
   // Função para forçar logout e limpeza
   const forceLogout = useCallback(() => {
-    console.log('[DEBUG] Forçando logout e limpeza');
     setIsAuthenticated(false);
     setSessionToken(null);
     setIdUnidadeAtual(null);
@@ -271,7 +247,6 @@ export function usePersistedAuth() {
 
     // Verificar se sessionToken contém dados corrompidos (credenciais em JSON)
     if (sessionToken && typeof sessionToken === 'string' && sessionToken.includes('usuario')) {
-      console.warn('[DEBUG] Dados corrompidos detectados no sessionToken - forçando limpeza');
       forceLogout();
     }
   }, [loadFromStorage, sessionToken, forceLogout]);

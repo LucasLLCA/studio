@@ -64,8 +64,6 @@ export function ProcessDetailsSheet({
         showOverlay={false}
         showCloseButton={false}
         className="w-[720px] sm:max-w-[720px] flex flex-col overflow-hidden"
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* Header */}
         <SheetHeader className="flex-shrink-0">

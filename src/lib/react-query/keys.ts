@@ -52,6 +52,27 @@ export const queryKeys = {
       ['documentSummary', documento, unidade] as const,
   },
 
+  // Equipes
+  teams: {
+    all: ['teams'] as const,
+    myTeams: (usuario: string) => ['teams', usuario] as const,
+    detail: (teamId: string) => ['teams', 'detail', teamId] as const,
+  },
+
+  // Tags / Meu Espaço
+  tags: {
+    all: ['tags'] as const,
+    myTags: (usuario: string) => ['tags', usuario] as const,
+    detail: (tagId: string) => ['tags', 'detail', tagId] as const,
+  },
+
+  // Compartilhamentos
+  shared: {
+    all: ['shared'] as const,
+    withMe: (usuario: string) => ['shared', 'withMe', usuario] as const,
+    byMe: (usuario: string) => ['shared', 'byMe', usuario] as const,
+  },
+
   // Health checks
   health: {
     seiApi: ['health', 'sei-api'] as const,
