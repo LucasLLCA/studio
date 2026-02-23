@@ -67,7 +67,6 @@ function VisualizarProcessoContent() {
   // UI-level state
   const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
   const [isSummarizedView, setIsSummarizedView] = useState<boolean>(true);
-  const [isPaginated, setIsPaginated] = useState<boolean>(true);
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false);
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
@@ -122,28 +121,12 @@ function VisualizarProcessoContent() {
   // Derived state hooks
   const processCreationInfo = useProcessCreationInfo(rawProcessData);
 
-  const PAGE_SIZE = 50;
-
-  const totalAndamentos = rawProcessData?.Andamentos?.length ?? 0;
-
-  const paginatedAndamentos = useMemo(() => {
-    const andamentos = rawProcessData?.Andamentos;
-    if (!andamentos) return null;
-    if (!isPaginated || andamentos.length <= PAGE_SIZE * 2) return andamentos;
-    const first = andamentos.slice(0, PAGE_SIZE);
-    const last = andamentos.slice(-PAGE_SIZE);
-    const seenIds = new Set(first.map(a => a.IdAndamento));
-    const deduped = [...first, ...last.filter(a => !seenIds.has(a.IdAndamento))];
-    return deduped;
-  }, [rawProcessData?.Andamentos, isPaginated]);
-
-  const displayedAndamentos = paginatedAndamentos?.length ?? 0;
-
   const processedFlowData: ProcessedFlowData | null = useMemo(() => {
-    if (!rawProcessData || !paginatedAndamentos) return null;
+    const andamentos = rawProcessData?.Andamentos;
+    if (!rawProcessData || !andamentos) return null;
     const processNumber = rawProcessData.Info?.NumeroProcesso || numeroProcesso;
-    return processAndamentos(paginatedAndamentos, openUnitsInProcess, processNumber, isSummarizedView);
-  }, [rawProcessData, paginatedAndamentos, openUnitsInProcess, numeroProcesso, isSummarizedView]);
+    return processAndamentos(andamentos, openUnitsInProcess, processNumber, isSummarizedView, isPartialData);
+  }, [rawProcessData, openUnitsInProcess, numeroProcesso, isSummarizedView, isPartialData]);
 
   const { isExternalProcess, daysOpenInUserOrgao } = useOrgaoMetrics({
     userOrgao,
@@ -291,24 +274,13 @@ function VisualizarProcessoContent() {
                         <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading} />
                         <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
                       </div>
-                      {isPartialData && (
+                      {isPartialData && rawProcessData?.Info && (
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
                           <Loader2 className="h-3 w-3 animate-spin" />
-                          <span>Carregando andamentos restantes...</span>
+                          <span>
+                            {rawProcessData.Andamentos?.length || 0} de {rawProcessData.Info.TotalItens} andamentos carregados
+                          </span>
                         </div>
-                      )}
-                      {totalAndamentos > 100 && !isPartialData && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setIsPaginated(!isPaginated)}
-                          disabled={!rawProcessData || isLoading}
-                          className="text-xs text-muted-foreground hover:text-foreground"
-                        >
-                          {isPaginated
-                            ? `Exibindo ${displayedAndamentos} de ${totalAndamentos} · Mostrar todos`
-                            : `Exibindo todos os ${totalAndamentos} · Paginar`}
-                        </Button>
                       )}
                       <Separator orientation="vertical" className="h-5" />
                       <Button onClick={handleScrollToFirstTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>

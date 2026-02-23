@@ -281,11 +281,19 @@ export function useProcessData({
   // Loading tasks for UI feedback
   const loadingTasks = useMemo(() => {
     const tasks: string[] = [];
-    if (backgroundLoading.andamentos) tasks.push("Buscando andamentos do processo");
+    if (backgroundLoading.andamentos) {
+      const total = rawProcessData?.Info?.TotalItens;
+      const loaded = rawProcessData?.Andamentos?.length;
+      if (total && loaded) {
+        tasks.push(`Buscando andamentos do processo (${loaded}/${total})`);
+      } else {
+        tasks.push("Buscando andamentos do processo");
+      }
+    }
     if (backgroundLoading.documentos) tasks.push("Carregando documentos");
     if (backgroundLoading.resumo) tasks.push("Gerando resumo com IA");
     return tasks;
-  }, [backgroundLoading]);
+  }, [backgroundLoading, rawProcessData?.Info?.TotalItens, rawProcessData?.Andamentos?.length]);
 
   const refresh = useCallback(async () => {
     if (isRefreshing || hasBackgroundLoading) return;

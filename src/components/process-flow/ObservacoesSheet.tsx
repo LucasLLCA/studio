@@ -135,7 +135,7 @@ export function ObservacoesSheet({
         </SheetHeader>
 
         {/* Input box at top */}
-        <div className="flex-shrink-0 border-b pb-3 bg-white dark:bg-background">
+        <div className="flex-shrink-0 border-b pb-3 dark:bg-background">
           <div className="flex gap-2 items-end">
             <textarea
               ref={textareaRef}
@@ -160,9 +160,6 @@ export function ObservacoesSheet({
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Enter para enviar, Shift+Enter para nova linha
-          </p>
         </div>
 
         {/* Scrollable body */}

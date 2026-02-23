@@ -70,10 +70,11 @@ interface AndamentoInternal extends Andamento {
 }
 
 export function processAndamentos(
-  andamentosInput: Andamento[], 
+  andamentosInput: Andamento[],
   openUnitsInProcess: UnidadeAberta[] | null,
   numeroProcesso?: string,
-  isSummarized: boolean = false
+  isSummarized: boolean = false,
+  isPartialData: boolean = false
 ): ProcessedFlowData {
 
   if (!andamentosInput || andamentosInput.length === 0) {
@@ -173,10 +174,23 @@ export function processAndamentos(
   });
   
   const connections: Connection[] = [];
-  const latestTaskInLane = new Map<string, ProcessedAndamento>(); 
+  const latestTaskInLane = new Map<string, ProcessedAndamento>();
+
+  // When showing partial data (first + last pages), find the gap boundary
+  // so we don't draw misleading connections across the missing middle pages.
+  const partialGap = isPartialData ? detectPartialDataGap(processedTasks) : null;
 
   for (let i = 0; i < processedTasks.length; i++) {
     const currentTask = processedTasks[i];
+
+    // If we just crossed the partial-data gap, reset lane tracking
+    // so no connections bridge the first-page and last-page halves.
+    if (partialGap && i > 0) {
+      const prevTask = processedTasks[i - 1];
+      if (prevTask.x <= partialGap.leftX && currentTask.x >= partialGap.rightX) {
+        latestTaskInLane.clear();
+      }
+    }
 
     if (currentTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
       const senderUnitAttribute = currentTask.Atributos?.find(attr => attr.Nome === "UNIDADE");
