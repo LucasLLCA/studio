@@ -272,7 +272,7 @@ export function ProcessDetailsSheet({
 
         {/* Footer */}
         <SheetFooter className="flex-shrink-0 border-t pt-4 mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full">
+          <Button onClick={() => onOpenChange(false)} className="w-full">
             Fechar
           </Button>
         </SheetFooter>

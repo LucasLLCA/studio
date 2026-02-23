@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { LogOut, Activity, Newspaper, Info, HelpCircle, Search, Clock, Users } from 'lucide-react';
+import { LogOut, Activity, Newspaper, Info, HelpCircle, Search, Clock, Users, Sparkles, CheckCircle2 } from 'lucide-react';
 import { AlertBox } from '@/components/ui/alert-box';
 import { Button } from '@/components/ui/button';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
@@ -80,28 +80,40 @@ export default function AppHeader() {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center text-primary">
-              <Newspaper className="mr-2 h-5 w-5" />
-              {"Informa\u00e7\u00f5es do Sistema"}
+              <Sparkles className="mr-2 h-5 w-5" />
+              Novidades e Atualizações
             </DialogTitle>
             <DialogDescription>
-              {"Informa\u00e7\u00f5es importantes sobre funcionalidades e limita\u00e7\u00f5es atuais"}
+              Confira as últimas funcionalidades adicionadas ao sistema
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 space-y-4">
-            <AlertBox variant="info" icon={<Info />} title="Arquivos Suportados" className="p-4 rounded-lg">
-              Nesta fase atual o sistema consegue ler e processar apenas arquivos gerados internamente pelo SEI.
+          <div className="mt-4 space-y-3">
+            <AlertBox variant="info" icon={<CheckCircle2 />} title="Leitura de PDFs" className="p-4 rounded-lg">
+              O sistema agora consegue ler e processar documentos PDF anexados aos processos, além dos documentos gerados internamente pelo SEI.
             </AlertBox>
 
-            <AlertBox variant="warning" icon={<Clock />} title="Documentos PDF" className="p-4 rounded-lg">
-              {"Documentos PDFs ainda n\u00e3o s\u00e3o processados e est\u00e1 no cronograma de desenvolvimento."}
+            <AlertBox variant="info" icon={<CheckCircle2 />} title="Situação Atual com IA" className="p-4 rounded-lg">
+              Novo resumo gerado por IA que analisa os últimos andamentos e documentos para descrever a situação corrente do processo.
+            </AlertBox>
+
+            <AlertBox variant="info" icon={<Users />} title="Equipes, Salvar e Compartilhar" className="p-4 rounded-lg">
+              Crie equipes, salve processos com tags e compartilhe com colegas. Também é possível compartilhar o link do processo via WhatsApp.
+            </AlertBox>
+
+            <AlertBox variant="info" icon={<CheckCircle2 />} title="Observações" className="p-4 rounded-lg">
+              Adicione observações e comentários diretamente nos processos para colaborar com sua equipe.
+            </AlertBox>
+
+            <AlertBox variant="info" icon={<CheckCircle2 />} title="Carregamento Otimizado" className="p-4 rounded-lg">
+              A visão inicial do processo agora carrega muito mais rápido, exibindo os primeiros e últimos andamentos enquanto o restante é carregado em segundo plano.
             </AlertBox>
 
             <AlertBox variant="warning" icon={<HelpCircle />} title="Problema Conhecido" className="p-4 rounded-lg">
-              {"Alguns processos com grande volume de andamentos (>500) podem apresentar lentid\u00e3o na renderiza\u00e7\u00e3o do gr\u00e1fico. Recomenda-se usar a op\u00e7\u00e3o \"Resumido\" para melhor desempenho."}
+              Alguns processos com grande volume de andamentos (&gt;500) podem apresentar lentidão na renderização do gráfico. Recomenda-se usar a opção &quot;Resumido&quot; para melhor desempenho.
             </AlertBox>
           </div>
           <DialogFooter>
-            <Button onClick={() => setIsInfoModalOpen(false)} variant="outline">
+            <Button onClick={() => setIsInfoModalOpen(false)} className="w-full">
               Fechar
             </Button>
           </DialogFooter>

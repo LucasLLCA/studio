@@ -10,6 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetFooter,
 } from "@/components/ui/sheet";
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
@@ -210,6 +211,13 @@ export function ObservacoesSheet({
             ))
           )}
         </div>
+
+        {/* Footer */}
+        <SheetFooter className="flex-shrink-0 border-t pt-4 mt-4">
+          <Button onClick={() => onOpenChange(false)} className="w-full">
+            Fechar
+          </Button>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );
