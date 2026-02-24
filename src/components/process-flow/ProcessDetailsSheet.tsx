@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from 'react';
-import type { ProcessoData, UnidadeAberta } from '@/types/process-flow';
+import type { ProcessoData, UnidadeAberta, Documento } from '@/types/process-flow';
+import { LinkedText } from '@/lib/linked-text';
 import type { ProcessCreationInfo } from '@/hooks/use-process-creation-info';
 import { Loader2, BookText, Info, CalendarDays, UserCircle, Building, CalendarClock, CheckCircle, Clock, ExternalLink, AlertTriangle, X, Share2, Copy } from 'lucide-react';
 import { AlertBox } from '@/components/ui/alert-box';
@@ -35,6 +36,8 @@ interface ProcessDetailsSheetProps {
   userOrgao: string | null;
   isExternalProcess: boolean;
   daysOpenInUserOrgao: number | null;
+  documents?: Documento[] | null;
+  onNodeNavigate?: (id: string, type: 'andamento' | 'document') => void;
 }
 
 export function ProcessDetailsSheet({
@@ -51,6 +54,8 @@ export function ProcessDetailsSheet({
   userOrgao,
   isExternalProcess,
   daysOpenInUserOrgao,
+  documents,
+  onNodeNavigate,
 }: ProcessDetailsSheetProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>('entendimento');
@@ -224,7 +229,14 @@ export function ProcessDetailsSheet({
                   </div>
                 ) : processSummary !== null && processSummary !== undefined && processSummary.length > 0 ? (
                   <div>
-                    <pre className="text-lg whitespace-pre-wrap break-words font-sans leading-relaxed">{processSummary}</pre>
+                    <pre className="text-lg whitespace-pre-wrap break-words font-sans leading-relaxed">
+                      <LinkedText
+                        text={processSummary}
+                        andamentos={rawProcessData?.Andamentos || null}
+                        documents={documents || null}
+                        onNavigate={onNodeNavigate}
+                      />
+                    </pre>
                     {backgroundLoading.resumo && (
                       <span className="inline-block w-2 h-5 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
                     )}
@@ -250,7 +262,14 @@ export function ProcessDetailsSheet({
                   </div>
                 ) : situacaoAtual !== null && situacaoAtual !== undefined && situacaoAtual.length > 0 ? (
                   <div>
-                    <pre className="text-lg whitespace-pre-wrap break-words font-sans leading-relaxed">{situacaoAtual}</pre>
+                    <pre className="text-lg whitespace-pre-wrap break-words font-sans leading-relaxed">
+                      <LinkedText
+                        text={situacaoAtual}
+                        andamentos={rawProcessData?.Andamentos || null}
+                        documents={documents || null}
+                        onNavigate={onNodeNavigate}
+                      />
+                    </pre>
                     {backgroundLoading.situacao && (
                       <span className="inline-block w-2 h-5 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
                     )}

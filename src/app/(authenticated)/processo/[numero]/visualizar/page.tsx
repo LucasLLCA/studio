@@ -69,6 +69,7 @@ function VisualizarProcessoContent() {
 
   // UI-level state
   const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
+  const [taskToSelect, setTaskToSelect] = useState<ProcessedAndamento | null>(null);
   const [isSummarizedView, setIsSummarizedView] = useState<boolean>(true);
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false);
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
@@ -184,6 +185,24 @@ function VisualizarProcessoContent() {
   const handleScrollToFirstTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[0]); };
   const handleScrollToLastTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[processedFlowData.tasks.length - 1]); };
 
+  const handleNodeNavigate = useCallback((id: string, type: 'andamento' | 'document') => {
+    if (!processedFlowData?.tasks) return;
+
+    let targetTask: ProcessedAndamento | undefined;
+
+    if (type === 'andamento') {
+      targetTask = processedFlowData.tasks.find(t => t.IdAndamento === id);
+    } else {
+      // Document: find andamento whose Descricao contains the document number
+      targetTask = processedFlowData.tasks.find(t => t.Descricao.includes(id));
+    }
+
+    if (targetTask) {
+      setTaskToScrollTo(targetTask);
+      setTaskToSelect(targetTask);
+    }
+  }, [processedFlowData]);
+
   const availableLaneUnits = useMemo(() => {
     if (!processedFlowData?.laneMap) return [];
     return Array.from(processedFlowData.laneMap.keys()).sort();
@@ -260,6 +279,8 @@ function VisualizarProcessoContent() {
           userOrgao={userOrgao}
           isExternalProcess={isExternalProcess}
           daysOpenInUserOrgao={daysOpenInUserOrgao}
+          documents={documents}
+          onNodeNavigate={handleNodeNavigate}
         />
 
         {rawProcessData && (
@@ -393,6 +414,7 @@ function VisualizarProcessoContent() {
                         svgHeight={processedFlowData.svgHeight}
                         laneMap={processedFlowData.laneMap}
                         taskToScrollTo={taskToScrollTo}
+                        taskToSelect={taskToSelect}
                         filteredLaneUnits={selectedLaneUnits}
                         isPartialData={isPartialData}
                       />

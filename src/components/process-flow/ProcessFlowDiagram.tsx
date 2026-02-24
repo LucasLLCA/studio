@@ -17,6 +17,7 @@ interface ProcessFlowDiagramProps {
   svgHeight: number;
   laneMap: Map<string, number>;
   taskToScrollTo?: ProcessedAndamento | null;
+  taskToSelect?: ProcessedAndamento | null;
   filteredLaneUnits?: string[];
   isPartialData?: boolean;
 }
@@ -28,6 +29,7 @@ export function ProcessFlowDiagram({
   svgHeight,
   laneMap,
   taskToScrollTo,
+  taskToSelect,
   filteredLaneUnits = [],
   isPartialData = false,
 }: ProcessFlowDiagramProps) {
@@ -214,6 +216,13 @@ export function ProcessFlowDiagram({
     }
   }, [taskToScrollTo, LANE_LABEL_AREA_WIDTH]);
 
+  // Open modal when taskToSelect is set (from external navigation like LinkedText)
+  useEffect(() => {
+    if (taskToSelect) {
+      setSelectedTask(taskToSelect);
+      setIsDetailsModalOpen(true);
+    }
+  }, [taskToSelect]);
 
   const handleTaskClick = (task: ProcessedAndamento) => {
     setSelectedTask(task);
