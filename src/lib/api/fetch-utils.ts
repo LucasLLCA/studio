@@ -2,6 +2,13 @@ import type { ApiError } from '@/types/process-flow';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
 
+export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    return '/api/proxy';
+  }
+  return API_BASE_URL;
+}
+
 export function validateToken(token: string | null | undefined): ApiError | null {
   if (!token || token === 'undefined' || token === 'null') {
     return { error: "Token de autenticação inválido", status: 401 };

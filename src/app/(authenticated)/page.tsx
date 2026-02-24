@@ -8,8 +8,9 @@ import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getSearchHistory, type HistoryItem } from '@/lib/history-api-client';
+import { getSearchHistory, deleteSearchHistory, type HistoryItem } from '@/lib/history-api-client';
 import { stripProcessNumber } from '@/lib/utils';
+import { SaveProcessoModal } from '@/components/process-flow/SaveProcessoModal';
 import { MeuEspacoContent } from '@/components/home/MeuEspacoContent';
 import { CompartilhadosContent } from '@/components/home/CompartilhadosContent';
 import { HistoricoContent } from '@/components/home/HistoricoContent';
@@ -59,6 +60,7 @@ function HomeContent() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [shareTagId, setShareTagId] = useState<string | null>(null);
+  const [saveProcessoNumero, setSaveProcessoNumero] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -158,6 +160,25 @@ function HomeContent() {
     }
   };
 
+  const handleHistorySave = (item: HistoryItem) => {
+    setSaveProcessoNumero(item.numero_processo);
+  };
+
+  const handleHistoryShare = (item: HistoryItem) => {
+    // Open save modal — user can save to a group and share from there
+    setSaveProcessoNumero(item.numero_processo);
+  };
+
+  const handleHistoryDelete = async (item: HistoryItem) => {
+    const result = await deleteSearchHistory(item.id);
+    if ('error' in result) {
+      toast({ title: "Erro ao excluir", description: result.error, variant: "destructive" });
+    } else {
+      setHistory(prev => prev.filter(h => h.id !== item.id));
+      toast({ title: "Pesquisa removida do historico" });
+    }
+  };
+
   return (
     <div className="flex flex-1 items-center justify-center p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
@@ -243,6 +264,9 @@ function HomeContent() {
                     isLoading={isHistoryLoading}
                     contextoMap={contextoMap}
                     onItemClick={handleHistoryItemClick}
+                    onSave={handleHistorySave}
+                    onShare={handleHistoryShare}
+                    onDelete={handleHistoryDelete}
                   />
                 </TabsContent>
 
@@ -285,6 +309,14 @@ function HomeContent() {
           usuario={usuario}
           open={!!shareTagId}
           onOpenChange={(open) => { if (!open) setShareTagId(null); }}
+        />
+      )}
+
+      {saveProcessoNumero && (
+        <SaveProcessoModal
+          open={!!saveProcessoNumero}
+          onOpenChange={(open) => { if (!open) setSaveProcessoNumero(null); }}
+          numeroProcesso={saveProcessoNumero}
         />
       )}
     </div>

@@ -99,7 +99,7 @@ export function SaveProcessoModal({
     try {
       const result = await createTag(usuario, newTagName.trim());
       if ('error' in result) {
-        toast({ title: "Erro ao criar tag", description: result.error, variant: "destructive" });
+        toast({ title: "Erro ao criar grupo", description: result.error, variant: "destructive" });
         return;
       }
       setTags(prev => [result, ...prev]);
@@ -160,7 +160,7 @@ export function SaveProcessoModal({
           <DialogTitle>Salvar Processo</DialogTitle>
           <DialogDescription>
             {step === 1
-              ? "Selecione ou crie uma tag para salvar o processo."
+              ? "Selecione ou crie um grupo de processos para salvar."
               : "Deseja compartilhar este grupo?"
             }
           </DialogDescription>
@@ -174,11 +174,30 @@ export function SaveProcessoModal({
           <div className="space-y-4">
             <Label>Processo: <span className="font-bold">{formatProcessNumber(numeroProcesso)}</span></Label>
 
+            {/* Create new tag inline */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Nome do novo grupo..."
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newTagName.trim()) handleCreateTag();
+                }}
+              />
+              <Button
+                size="sm"
+                onClick={handleCreateTag}
+                disabled={!newTagName.trim() || isCreatingTag}
+              >
+                {isCreatingTag ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              </Button>
+            </div>
+
             {/* Tag list */}
             <ScrollArea className="h-[200px] border rounded-md p-2">
               {tags.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhuma tag criada ainda. Crie uma abaixo.
+                  Nenhum grupo criado ainda. Crie um acima.
                 </p>
               ) : (
                 <div className="space-y-1">
@@ -206,25 +225,6 @@ export function SaveProcessoModal({
                 </div>
               )}
             </ScrollArea>
-
-            {/* Create new tag inline */}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Nome da nova tag..."
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newTagName.trim()) handleCreateTag();
-                }}
-              />
-              <Button
-                size="sm"
-                onClick={handleCreateTag}
-                disabled={!newTagName.trim() || isCreatingTag}
-              >
-                {isCreatingTag ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              </Button>
-            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -279,27 +279,27 @@ export function SaveProcessoModal({
           </div>
         )}
 
-        <DialogFooter className="flex justify-between">
-          {step === 2 && (
-            <Button variant="outline" onClick={() => setStep(1)} disabled={isSaving}>
-              Voltar
-            </Button>
-          )}
-          <div className="flex gap-2 ml-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
-              Cancelar
-            </Button>
-            {step === 1 ? (
+        <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+          {step === 1 ? (
+            <div className="grid grid-cols-2 gap-2 w-full">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
               <Button onClick={() => setStep(2)} disabled={!canProceedStep1}>
                 Proximo <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
-            ) : (
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 w-full">
+              <Button variant="outline" onClick={() => setStep(1)} disabled={isSaving}>
+                Voltar
+              </Button>
               <Button onClick={handleSave} disabled={!canSave || isSaving}>
                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Salvar
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

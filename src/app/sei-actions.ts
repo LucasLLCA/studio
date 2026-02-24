@@ -1,43 +1,33 @@
 /**
  * Server Actions para API SEI
  *
- * Este arquivo mantém a interface pública para o frontend.
- * A implementação está consolidada em src/lib/sei-api-client.ts
- * que agora roteia todas as chamadas pelo backend proxy.
+ * Kept only for operations that require server-only resources:
+ * - Login (writes cookies)
+ * - JWE decryption (uses JWE_SECRET_KEY)
+ * - Health checks (server-only)
+ *
+ * Data-fetching functions (andamentos, documents, tags, etc.) have been
+ * moved to regular modules that go through /api/proxy to avoid
+ * Next.js server action serialization.
  */
 
 'use server';
 
 import type {
-  ProcessoData,
-  ApiError,
-  ProcessSummaryResponse,
   LoginCredentials,
   ClientLoginResponse,
-  UnidadeAberta,
-  DocumentosResponse,
 } from '@/types/process-flow';
 
 import {
   loginToSEI as loginToSEIImpl,
-  fetchProcessData,
-  fetchOpenUnits,
-  fetchProcessSummary as fetchProcessSummaryImpl,
-  fetchDocuments,
-  fetchDocumentSummary as fetchDocumentSummaryImpl,
   checkSEIApiHealth as checkSEIApiHealthImpl,
   checkSummaryApiHealth as checkSummaryApiHealthImpl,
-  invalidateProcessCache as invalidateProcessCacheImpl,
 } from '@/lib/sei-api-client';
 
 import type { HealthCheckResponse } from '@/lib/sei-api-client';
 
 import {
   mockLogin,
-  mockProcessData,
-  mockDocuments,
-  mockOpenUnits,
-  mockProcessSummary,
   mockHealthCheck,
 } from '@/lib/mock-data';
 
@@ -53,79 +43,6 @@ const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_DATA === 'true';
 export async function loginToSEI(credentials: LoginCredentials): Promise<ClientLoginResponse> {
   if (MOCK_MODE) return mockLogin();
   return loginToSEIImpl(credentials);
-}
-
-/**
- * Busca dados do processo (andamentos) usando sessionToken
- * Se parcial=true, retorna apenas primeiros+últimos andamentos para render rápido
- */
-export async function fetchProcessDataFromSEIWithToken(
-  token: string,
-  protocoloProcedimento: string,
-  unidadeId: string,
-  parcial: boolean = false
-): Promise<ProcessoData | ApiError> {
-  if (MOCK_MODE) return mockProcessData();
-  return fetchProcessData(token, protocoloProcedimento, unidadeId, parcial);
-}
-
-/**
- * Busca unidades abertas usando sessionToken
- */
-export async function fetchOpenUnitsForProcessWithToken(
-  token: string,
-  protocoloProcedimento: string,
-  unidadeOrigemConsulta: string
-): Promise<{unidades: UnidadeAberta[], linkAcesso?: string} | ApiError> {
-  if (MOCK_MODE) return mockOpenUnits();
-  return fetchOpenUnits(token, protocoloProcedimento, unidadeOrigemConsulta);
-}
-
-/**
- * Busca resumo do processo usando sessionToken
- */
-export async function fetchProcessSummaryWithToken(
-  token: string,
-  protocoloProcedimento: string,
-  unidadeId: string
-): Promise<ProcessSummaryResponse | ApiError> {
-  if (MOCK_MODE) return mockProcessSummary();
-  return fetchProcessSummaryImpl(token, protocoloProcedimento, unidadeId);
-}
-
-/**
- * Busca documentos usando sessionToken
- * Se parcial=true, retorna apenas primeira+última página para render rápido
- */
-export async function fetchDocumentsFromSEIWithToken(
-  token: string,
-  protocoloProcedimento: string,
-  unidadeId: string,
-  parcial: boolean = false
-): Promise<DocumentosResponse | ApiError> {
-  if (MOCK_MODE) return mockDocuments();
-  return fetchDocuments(token, protocoloProcedimento, unidadeId, parcial);
-}
-
-/**
- * Busca resumo de documento específico usando sessionToken
- */
-export async function fetchDocumentSummaryWithToken(
-  token: string,
-  documentoFormatado: string,
-  unidadeId: string
-): Promise<ProcessSummaryResponse | ApiError> {
-  if (MOCK_MODE) return mockProcessSummary();
-  return fetchDocumentSummaryImpl(token, documentoFormatado, unidadeId);
-}
-
-/**
- * Invalida o cache proxy de um processo no backend
- */
-export async function invalidateProcessCache(
-  protocoloProcedimento: string
-): Promise<{ success: boolean; keysDeleted?: number }> {
-  return invalidateProcessCacheImpl(protocoloProcedimento);
 }
 
 /**

@@ -229,7 +229,7 @@ export default function EquipesPage() {
               <Card
                 key={team.id}
                 className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => handleOpenDetail(team.id)}
+                onClick={() => router.push(`/equipes/${team.id}`)}
               >
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">

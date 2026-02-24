@@ -1,9 +1,6 @@
-'use server';
-
 import type { ApiError } from '@/types/process-flow';
 import type { Team, TeamDetail, TeamMember } from '@/types/teams';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "https://api.sei.agentes.sead.pi.gov.br";
+import { getApiBaseUrl } from './fetch-utils';
 
 export async function createTeam(
   usuario: string,
@@ -11,7 +8,7 @@ export async function createTeam(
   descricao?: string,
 ): Promise<Team | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/equipes?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/equipes?usuario=${encodeURIComponent(usuario)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ nome, descricao }),
@@ -34,7 +31,7 @@ export async function getMyTeams(
   usuario: string,
 ): Promise<Team[] | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/equipes?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/equipes?usuario=${encodeURIComponent(usuario)}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store',
@@ -57,7 +54,7 @@ export async function getTeamDetail(
   usuario: string,
 ): Promise<TeamDetail | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/equipes/${teamId}?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/equipes/${teamId}?usuario=${encodeURIComponent(usuario)}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store',
@@ -81,7 +78,7 @@ export async function updateTeam(
   updates: { nome?: string; descricao?: string },
 ): Promise<Team | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/equipes/${teamId}?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/equipes/${teamId}?usuario=${encodeURIComponent(usuario)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(updates),
@@ -105,7 +102,7 @@ export async function deleteTeam(
   usuario: string,
 ): Promise<{ success: boolean } | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/equipes/${teamId}?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/equipes/${teamId}?usuario=${encodeURIComponent(usuario)}`, {
       method: 'DELETE',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store',
@@ -129,7 +126,7 @@ export async function addTeamMember(
   papel: string = 'member',
 ): Promise<TeamMember | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/equipes/${teamId}/membros?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/equipes/${teamId}/membros?usuario=${encodeURIComponent(usuario)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ usuario: membroUsuario, papel }),
@@ -155,7 +152,7 @@ export async function removeTeamMember(
 ): Promise<{ success: boolean } | ApiError> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/equipes/${teamId}/membros/${encodeURIComponent(membroUsuario)}?usuario=${encodeURIComponent(usuario)}`,
+      `${getApiBaseUrl()}/equipes/${teamId}/membros/${encodeURIComponent(membroUsuario)}?usuario=${encodeURIComponent(usuario)}`,
       { method: 'DELETE', headers: { 'Accept': 'application/json' }, cache: 'no-store' },
     );
 

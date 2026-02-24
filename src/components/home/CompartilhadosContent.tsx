@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { getSharedWithMe } from '@/lib/api/sharing-api-client';
@@ -86,18 +87,33 @@ export function CompartilhadosContent({ usuario, contextoMap = {} }: Compartilha
               {isExpanded && (
                 <div className="border-t border-gray-100 px-3 py-2">
                   {item.processos.length === 0 ? (
-                    <p className="text-xs text-gray-500 py-2">Nenhum processo nesta tag.</p>
+                    <p className="text-xs text-gray-500 py-2">Nenhum processo neste grupo.</p>
                   ) : (
                     <div className="space-y-1">
                       {item.processos.map((p) => (
-                        <ProcessoItemRow
-                          key={p.id}
-                          variant="compact"
-                          numeroProcesso={p.numero_processo}
-                          contexto={contextoMap[p.numero_processo]}
-                          nota={p.nota}
-                          onClick={() => router.push(`/processo/${encodeURIComponent(p.numero_processo)}/visualizar`)}
-                        />
+                        <div key={p.id}>
+                          <ProcessoItemRow
+                            variant="compact"
+                            numeroProcesso={p.numero_processo}
+                            contexto={contextoMap[p.numero_processo]}
+                            nota={p.nota}
+                            onClick={() => router.push(`/processo/${encodeURIComponent(p.numero_processo)}/visualizar`)}
+                          />
+                          {p.team_tags && p.team_tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 ml-2 mt-0.5 mb-1">
+                              {p.team_tags.map((tt) => (
+                                <Badge
+                                  key={tt.id}
+                                  variant="secondary"
+                                  className="text-[10px] px-1.5 py-0"
+                                  style={tt.cor ? { backgroundColor: tt.cor, color: '#fff' } : undefined}
+                                >
+                                  {tt.nome}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}

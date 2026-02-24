@@ -22,11 +22,11 @@ export function ProcessoItemRow({
 
   const content = (
     <>
-      <div className={isCompact ? "flex items-center gap-2" : "justify-between flex flex-row"}>
+      <div className="flex items-center gap-2">
         <span className={`font-medium text-gray-800 ${isCompact ? "text-sm" : ""}`}>
           {formatProcessNumber(numeroProcesso)}
         </span>
-        <ExternalLink className={isCompact ? "h-3 w-3 text-gray-400" : "h-4 w-4 text-gray-500 mt-0.5"} />
+        <ExternalLink className={isCompact ? "h-3 w-3 text-gray-400" : "h-3.5 w-3.5 text-gray-400"} />
       </div>
       {contexto && (
         <p

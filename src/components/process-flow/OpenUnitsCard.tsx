@@ -13,6 +13,7 @@ interface OpenUnitsCardProps {
   unitAccessDenied: boolean;
   processedFlowData: ProcessedFlowData | null;
   onTaskCardClick: (task: ProcessedAndamento) => void;
+  isPartialData?: boolean;
 }
 
 export function OpenUnitsCard({
@@ -21,6 +22,7 @@ export function OpenUnitsCard({
   unitAccessDenied,
   processedFlowData,
   onTaskCardClick,
+  isPartialData = false,
 }: OpenUnitsCardProps) {
   return (
     <Card>
@@ -49,6 +51,7 @@ export function OpenUnitsCard({
             openUnitsInProcess={openUnitsInProcess}
             processedFlowData={processedFlowData}
             onTaskCardClick={onTaskCardClick}
+            isPartialData={isPartialData}
           />
         ) : openUnitsInProcess && openUnitsInProcess.length === 0 ? (
           <div className="flex items-center gap-2 text-sm">
@@ -65,10 +68,12 @@ function SortedOpenUnits({
   openUnitsInProcess,
   processedFlowData,
   onTaskCardClick,
+  isPartialData = false,
 }: {
   openUnitsInProcess: UnidadeAberta[];
   processedFlowData: ProcessedFlowData | null;
   onTaskCardClick: (task: ProcessedAndamento) => void;
+  isPartialData?: boolean;
 }) {
   const sortedUnits = useMemo(() => {
     return openUnitsInProcess
@@ -97,12 +102,17 @@ function SortedOpenUnits({
               <User className="h-3 w-3 mr-1 flex-shrink-0" />
               {unitInfo.UsuarioAtribuicao?.Nome || "Sem atribuição"}
             </span>
-            {openTask && typeof openTask.daysOpen === 'number' && (
+            {openTask && typeof openTask.daysOpen === 'number' ? (
               <span className="text-xs text-muted-foreground flex items-center">
                 <Clock className="h-3 w-3 mr-1 flex-shrink-0" />
                 {openTask.daysOpen} {openTask.daysOpen === 1 ? 'dia' : 'dias'}
               </span>
-            )}
+            ) : isPartialData ? (
+              <span className="text-xs text-muted-foreground flex items-center">
+                <Loader2 className="h-3 w-3 mr-1 flex-shrink-0 animate-spin" />
+                Aguardando carregamento
+              </span>
+            ) : null}
           </div>
         </Card>
       ))}

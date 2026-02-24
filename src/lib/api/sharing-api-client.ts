@@ -1,9 +1,6 @@
-'use server';
-
 import type { ApiError } from '@/types/process-flow';
 import type { SharedWithMeItem, ShareRecord } from '@/types/teams';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "https://api.sei.agentes.sead.pi.gov.br";
+import { getApiBaseUrl } from './fetch-utils';
 
 export async function shareTag(
   usuario: string,
@@ -11,7 +8,7 @@ export async function shareTag(
   destino: { equipe_destino_id?: string; usuario_destino?: string },
 ): Promise<ShareRecord | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/compartilhamentos?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/compartilhamentos?usuario=${encodeURIComponent(usuario)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ tag_id: tagId, ...destino }),
@@ -34,7 +31,7 @@ export async function getSharedWithMe(
   usuario: string,
 ): Promise<SharedWithMeItem[] | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/compartilhamentos/recebidos?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/compartilhamentos/recebidos?usuario=${encodeURIComponent(usuario)}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store',
@@ -56,7 +53,7 @@ export async function getMyShares(
   usuario: string,
 ): Promise<ShareRecord[] | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/compartilhamentos/enviados?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/compartilhamentos/enviados?usuario=${encodeURIComponent(usuario)}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store',
@@ -80,7 +77,7 @@ export async function revokeShare(
 ): Promise<{ success: boolean } | ApiError> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/compartilhamentos/${compartilhamentoId}?usuario=${encodeURIComponent(usuario)}`,
+      `${getApiBaseUrl()}/compartilhamentos/${compartilhamentoId}?usuario=${encodeURIComponent(usuario)}`,
       { method: 'DELETE', headers: { 'Accept': 'application/json' }, cache: 'no-store' },
     );
 

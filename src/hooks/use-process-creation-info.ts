@@ -9,6 +9,7 @@ import { ptBR } from 'date-fns/locale';
 export interface ProcessCreationInfo {
   creatorUnit: string;
   creatorUser: string;
+  creatorSigla: string;
   creationDate: string;
   timeSinceCreation: string;
 }
@@ -32,6 +33,7 @@ export function useProcessCreationInfo(rawProcessData: ProcessoData | null): Pro
         setProcessCreationInfo({
           creatorUnit: generationEvent.Unidade.Sigla,
           creatorUser: generationEvent.Usuario.Nome,
+          creatorSigla: generationEvent.Usuario.Sigla,
           creationDate: formatDisplayDate(creationDate),
           timeSinceCreation: formatDistanceToNowStrict(creationDate, { addSuffix: true, locale: ptBR }),
         });

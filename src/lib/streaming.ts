@@ -16,6 +16,7 @@ export async function fetchSSEStream(
   onDone: (fullResult: any) => void,
   onError: (error: string) => void,
   signal?: AbortSignal,
+  onProgress?: (progress: { loaded: number; total: number }) => void,
 ): Promise<void> {
   if (MOCK_MODE) {
     const words = MOCK_PROCESS_SUMMARY_TEXT.split(' ');
@@ -72,6 +73,8 @@ export async function fetchSSEStream(
               const event = JSON.parse(jsonStr);
               if (event.type === "chunk") {
                 onChunk(event.content);
+              } else if (event.type === "progress") {
+                onProgress?.(event.content);
               } else if (event.type === "done") {
                 onDone(event.content);
                 return;
@@ -108,6 +111,14 @@ export function getStreamSituacaoAtualUrl(
   return `/api/stream/resumo-situacao/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
 }
 
+export function getStreamAndamentosProgressUrl(
+  processNumber: string,
+  unidadeId: string,
+): string {
+  const cleaned = stripProcessNumber(processNumber);
+  return `/api/stream/andamentos-progress/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+}
+
 export function getStreamDocumentSummaryUrl(
   documentoFormatado: string,
   unidadeId: string,
@@ -125,7 +136,7 @@ export function fetchSSEStreamWithRetry(
   onChunk: (text: string) => void,
   onDone: (fullResult: any) => void,
   onError: (error: string) => void,
-  options?: { maxRetries?: number; signal?: AbortSignal },
+  options?: { maxRetries?: number; signal?: AbortSignal; onProgress?: (progress: { loaded: number; total: number }) => void },
 ): void {
   const maxRetries = options?.maxRetries ?? 2;
 
@@ -145,6 +156,7 @@ export function fetchSSEStreamWithRetry(
         }
       },
       options?.signal,
+      options?.onProgress,
     );
   };
 

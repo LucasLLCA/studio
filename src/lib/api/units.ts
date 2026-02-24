@@ -1,5 +1,5 @@
 import type { ApiError, UnidadeAberta } from '@/types/process-flow';
-import { API_BASE_URL, validateToken, fetchWithErrorHandling } from './fetch-utils';
+import { getApiBaseUrl, validateToken, fetchWithErrorHandling } from './fetch-utils';
 import { stripProcessNumber } from '@/lib/utils';
 
 export async function fetchOpenUnits(
@@ -14,7 +14,7 @@ export async function fetchOpenUnits(
   const tokenError = validateToken(token);
   if (tokenError) return tokenError;
 
-  const url = `${API_BASE_URL}/sei/unidades-abertas/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeOrigemConsulta)}`;
+  const url = `${getApiBaseUrl()}/sei/unidades-abertas/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeOrigemConsulta)}`;
 
   const result = await fetchWithErrorHandling<{ UnidadesProcedimentoAberto?: UnidadeAberta[]; LinkAcesso?: string }>(
     url,

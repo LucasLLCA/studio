@@ -105,7 +105,13 @@ export function ProcessDetailsSheet({
             {processCreationInfo && (
               <div className="space-y-3 text-lg">
                 <div className="flex items-center"><Building className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />Unidade: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
-                <div className="flex items-center"><UserCircle className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />Usuário: <span className="font-medium ml-1">{processCreationInfo.creatorUser}</span></div>
+                <div className="flex items-start">
+                  <UserCircle className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-medium">{processCreationInfo.creatorUser}</span>
+                    <p className="text-xs text-muted-foreground">{processCreationInfo.creatorSigla}</p>
+                  </div>
+                </div>
                 <div className="flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />Data: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
                 <div className="flex items-center"><CalendarClock className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />Tempo: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
                 {openUnitsInProcess !== null && (

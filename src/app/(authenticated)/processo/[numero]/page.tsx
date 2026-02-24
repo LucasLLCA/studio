@@ -173,9 +173,9 @@ export default function ProcessoPage() {
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4 md:p-6">
-      <div className="w-full max-w-5xl">
-        <Card className="shadow-lg max-h-[calc(100dvh-220px)] overflow-hidden">
+    <div className="flex-1 flex items-center justify-center p-4 md:p-6 overflow-hidden">
+      <div className="w-full max-w-5xl max-h-full flex flex-col">
+        <Card className="shadow-lg flex flex-col overflow-hidden">
           <CardHeader>
             <div className="flex flex-col sm:flex-row items-start gap-4 mb-3">
               <div className="flex-1">
@@ -245,8 +245,8 @@ export default function ProcessoPage() {
               </div>
             </div>
           )}
-          <CardContent className="p-4 md:p-5 h-full flex flex-col">
-            <div className="space-y-3 flex-1 min-h-0">
+          <CardContent className="p-4 md:p-5 flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="space-y-3 flex-1 min-h-0 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-h-0">
                 <div className="min-h-0">
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -392,8 +392,10 @@ export default function ProcessoPage() {
                 )}
               </div>
 
+            </div>
+            <div className="flex-shrink-0 pt-3">
               <Button
-                className="w-full bg-primary hover:bg-primary-hover text-white mt-6"
+                className="w-full bg-primary hover:bg-primary-hover text-white"
                 onClick={handleAcessarProcesso}
                 disabled={!hasSelection}
               >

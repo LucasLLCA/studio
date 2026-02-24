@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { ProcessoData, Documento } from '@/types/process-flow';
-import { fetchProcessDataFromSEIWithToken, fetchDocumentsFromSEIWithToken, invalidateProcessCache } from '@/app/sei-actions';
-import { fetchSSEStreamWithRetry, getStreamProcessSummaryUrl, getStreamSituacaoAtualUrl } from '@/lib/streaming';
+import { fetchProcessData, fetchDocuments, invalidateProcessCache } from '@/lib/sei-api-client';
+import { fetchSSEStreamWithRetry, getStreamProcessSummaryUrl, getStreamSituacaoAtualUrl, getStreamAndamentosProgressUrl } from '@/lib/streaming';
 import { withNetworkRetry } from '@/lib/network-retry';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +39,8 @@ export function useProcessData({
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const [isPartialData, setIsPartialData] = useState<boolean>(false);
   const [andamentosFailed, setAndamentosFailed] = useState<boolean>(false);
+  const [documentsFailed, setDocumentsFailed] = useState<boolean>(false);
+  const [andamentosProgress, setAndamentosProgress] = useState<{ loaded: number; total: number } | null>(null);
 
   // Ref to track phase-2 timeout for cleanup
   const phase2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,6 +86,8 @@ export function useProcessData({
       setSituacaoAtual(null);
       setIsPartialData(false);
       setAndamentosFailed(false);
+      setDocumentsFailed(false);
+      setAndamentosProgress(null);
 
       setBackgroundLoading({
         andamentos: true,
@@ -106,11 +110,11 @@ export function useProcessData({
 
       // Phase 1: Fetch partial data (first+last pages) for fast initial render
       const andamentosPromise = withNetworkRetry(
-        () => fetchProcessDataFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro, true),
+        () => fetchProcessData(token, numeroProcesso, selectedUnidadeFiltro, true),
         'andamentos',
       );
       const documentosPromise = unitAccessDenied ? null : withNetworkRetry(
-        () => fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro, true),
+        () => fetchDocuments(token, numeroProcesso, selectedUnidadeFiltro, true),
         'documentos',
       );
 
@@ -144,23 +148,31 @@ export function useProcessData({
               toast({ title: "Processo carregado com sucesso", description: `Encontrados ${processData.Andamentos.length} andamentos para visualização.` });
             }
 
-            // Phase 2: If partial, schedule full data fetch after delay
+            // Phase 2: If partial, use SSE stream to fetch full data with progress
             if (isParcial) {
-              phase2TimerRef.current = setTimeout(() => {
-                withNetworkRetry(
-                  () => fetchProcessDataFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro, false),
-                  'andamentos-full',
-                ).then((fullData: any) => {
-                  if (!('error' in fullData) && fullData.Andamentos && Array.isArray(fullData.Andamentos)) {
-                    setRawProcessData(fullData);
+              setAndamentosProgress({ loaded: processData.Andamentos.length, total: processData.Info?.TotalItens || 0 });
+              fetchSSEStreamWithRetry(
+                getStreamAndamentosProgressUrl(numeroProcesso, selectedUnidadeFiltro),
+                token,
+                () => {}, // no chunks for this stream
+                (fullResult: any) => {
+                  if (fullResult?.Andamentos && Array.isArray(fullResult.Andamentos)) {
+                    setRawProcessData(fullResult);
                     setIsPartialData(false);
-                    toast({ title: "Dados completos carregados", description: `Todos os ${fullData.Andamentos.length} andamentos foram carregados.` });
+                    toast({ title: "Dados completos carregados", description: `Todos os ${fullResult.Andamentos.length} andamentos foram carregados.` });
                   }
-                }).catch(() => {
-                  // Partial data is still usable, just log
-                  console.warn('Phase 2 full andamentos fetch failed, partial data remains');
-                });
-              }, 4000);
+                  setAndamentosProgress(null);
+                },
+                (error) => {
+                  console.warn('Phase 2 SSE andamentos fetch failed, partial data remains:', error);
+                  setAndamentosProgress(null);
+                },
+                {
+                  onProgress: (progress) => {
+                    setAndamentosProgress(progress);
+                  },
+                },
+              );
             }
           } else {
             toast({ title: "Formato de dados inesperado", description: "Os dados recebidos não estão no formato esperado. Entre em contato com o suporte técnico.", variant: "destructive" });
@@ -184,6 +196,7 @@ export function useProcessData({
           .then((documentsResponse: any) => {
             if ('error' in documentsResponse) {
               setDocuments([]);
+              setDocumentsFailed(true);
             } else {
               setDocuments(documentsResponse.Documentos);
 
@@ -192,7 +205,7 @@ export function useProcessData({
               if (isDocsParcial) {
                 setTimeout(() => {
                   withNetworkRetry(
-                    () => fetchDocumentsFromSEIWithToken(token, numeroProcesso, selectedUnidadeFiltro, false),
+                    () => fetchDocuments(token, numeroProcesso, selectedUnidadeFiltro, false),
                     'documentos-full',
                   ).then((fullDocsResponse: any) => {
                     if (!('error' in fullDocsResponse) && fullDocsResponse.Documentos) {
@@ -208,6 +221,7 @@ export function useProcessData({
           })
           .catch(() => {
             setDocuments([]);
+            setDocumentsFailed(true);
             setBackgroundLoading(prev => ({ ...prev, documentos: false }));
           });
       }
@@ -294,11 +308,13 @@ export function useProcessData({
       } else {
         tasks.push("Buscando andamentos do processo");
       }
+    } else if (andamentosProgress) {
+      tasks.push(`Buscando andamentos do processo (${andamentosProgress.loaded}/${andamentosProgress.total})`);
     }
     if (backgroundLoading.documentos) tasks.push("Carregando documentos");
     if (backgroundLoading.resumo) tasks.push("Gerando resumo com IA");
     return tasks;
-  }, [backgroundLoading, rawProcessData?.Info?.TotalItens, rawProcessData?.Andamentos?.length]);
+  }, [backgroundLoading, rawProcessData?.Info?.TotalItens, rawProcessData?.Andamentos?.length, andamentosProgress]);
 
   const refresh = useCallback(async () => {
     if (isRefreshing || hasBackgroundLoading) return;
@@ -329,5 +345,7 @@ export function useProcessData({
     refresh,
     isPartialData,
     andamentosFailed,
+    documentsFailed,
+    andamentosProgress,
   };
 }

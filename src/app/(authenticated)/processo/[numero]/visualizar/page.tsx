@@ -124,6 +124,8 @@ function VisualizarProcessoContent() {
     refresh,
     isPartialData,
     andamentosFailed,
+    documentsFailed,
+    andamentosProgress,
   } = useProcessData({
     numeroProcesso,
     sessionToken,
@@ -239,6 +241,7 @@ function VisualizarProcessoContent() {
             onRefresh={refresh}
             initialIsSaved={isSaved}
             onSavedStatusChange={setIsSaved}
+            documentsFailed={documentsFailed}
           />
         )}
 
@@ -278,6 +281,7 @@ function VisualizarProcessoContent() {
                 unitAccessDenied={unitAccessDenied}
                 processedFlowData={processedFlowData}
                 onTaskCardClick={handleTaskCardClick}
+                isPartialData={isPartialData}
               />
 
               {/* Timeline */}
@@ -296,7 +300,7 @@ function VisualizarProcessoContent() {
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
                           <Loader2 className="h-3 w-3 animate-spin" />
                           <span>
-                            {rawProcessData.Andamentos?.length || 0} de {rawProcessData.Info.TotalItens} andamentos carregados
+                            {andamentosProgress?.loaded ?? rawProcessData.Andamentos?.length ?? 0} de {andamentosProgress?.total ?? rawProcessData.Info.TotalItens} andamentos carregados
                           </span>
                         </div>
                       )}

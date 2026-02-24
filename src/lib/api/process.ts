@@ -4,7 +4,7 @@ import type {
   ProcessSummaryResponse,
   DocumentosResponse,
 } from '@/types/process-flow';
-import { API_BASE_URL, validateToken, fetchWithErrorHandling, extractUserFriendlyError } from './fetch-utils';
+import { getApiBaseUrl, validateToken, fetchWithErrorHandling, extractUserFriendlyError } from './fetch-utils';
 import { stripProcessNumber } from '@/lib/utils';
 
 export async function fetchProcessData(
@@ -21,7 +21,7 @@ export async function fetchProcessData(
   if (tokenError) return tokenError;
 
   const parcialParam = parcial ? '&parcial=true' : '';
-  const url = `${API_BASE_URL}/sei/andamentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}${parcialParam}`;
+  const url = `${getApiBaseUrl()}/sei/andamentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}${parcialParam}`;
 
   return fetchWithErrorHandling<ProcessoData>(
     url,
@@ -52,7 +52,7 @@ export async function fetchProcessSummary(
   if (tokenError) return tokenError;
 
   const cleanProcessNumber = stripProcessNumber(protocoloProcedimento);
-  const summaryApiUrl = `${API_BASE_URL}/processo/resumo-completo/${cleanProcessNumber}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  const summaryApiUrl = `${getApiBaseUrl()}/processo/resumo-completo/${cleanProcessNumber}?id_unidade=${encodeURIComponent(unidadeId)}`;
 
   try {
     const response = await fetch(summaryApiUrl, {
@@ -109,7 +109,7 @@ export async function fetchDocumentSummary(
   const tokenError = validateToken(token);
   if (tokenError) return tokenError;
 
-  const summaryApiUrl = `${API_BASE_URL}/processo/resumo-documento/${documentoFormatado}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  const summaryApiUrl = `${getApiBaseUrl()}/processo/resumo-documento/${documentoFormatado}?id_unidade=${encodeURIComponent(unidadeId)}`;
 
   try {
     const response = await fetch(summaryApiUrl, {
@@ -165,7 +165,7 @@ export async function fetchDocuments(
   if (tokenError) return tokenError;
 
   const parcialParam = parcial ? '&parcial=true' : '';
-  const url = `${API_BASE_URL}/sei/documentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}${parcialParam}`;
+  const url = `${getApiBaseUrl()}/sei/documentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}${parcialParam}`;
 
   return fetchWithErrorHandling<DocumentosResponse>(
     url,
@@ -184,7 +184,7 @@ export async function invalidateProcessCache(
   protocoloProcedimento: string
 ): Promise<{ success: boolean; keysDeleted?: number }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/sei/cache/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}`, {
+    const response = await fetch(`${getApiBaseUrl()}/sei/cache/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}`, {
       method: 'DELETE',
       headers: { 'accept': 'application/json' },
       cache: 'no-store',

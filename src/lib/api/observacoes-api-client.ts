@@ -1,14 +1,20 @@
 import type { ApiError } from '@/types/process-flow';
 import type { Observacao } from '@/types/teams';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "https://api.sei.agentes.sead.pi.gov.br";
+import { getApiBaseUrl } from './fetch-utils';
 
 export async function getObservacoes(
   numeroProcesso: string,
+  equipeId?: string,
+  usuario?: string,
 ): Promise<Observacao[] | ApiError> {
   try {
+    const params = new URLSearchParams();
+    if (equipeId) params.set('equipe_id', equipeId);
+    if (usuario) params.set('usuario', usuario);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+
     const response = await fetch(
-      `${API_BASE_URL}/observacoes/${encodeURIComponent(numeroProcesso)}`,
+      `${getApiBaseUrl()}/observacoes/${encodeURIComponent(numeroProcesso)}${qs}`,
       { method: 'GET', headers: { 'Accept': 'application/json' }, cache: 'no-store' },
     );
 
@@ -28,14 +34,18 @@ export async function createObservacao(
   numeroProcesso: string,
   usuario: string,
   conteudo: string,
+  equipeId?: string,
 ): Promise<Observacao | ApiError> {
   try {
+    const body: Record<string, string> = { conteudo };
+    if (equipeId) body.equipe_id = equipeId;
+
     const response = await fetch(
-      `${API_BASE_URL}/observacoes/${encodeURIComponent(numeroProcesso)}?usuario=${encodeURIComponent(usuario)}`,
+      `${getApiBaseUrl()}/observacoes/${encodeURIComponent(numeroProcesso)}?usuario=${encodeURIComponent(usuario)}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ conteudo }),
+        body: JSON.stringify(body),
         cache: 'no-store',
       },
     );
@@ -59,7 +69,7 @@ export async function deleteObservacao(
 ): Promise<{ success: boolean } | ApiError> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/observacoes/${encodeURIComponent(numeroProcesso)}/${observacaoId}?usuario=${encodeURIComponent(usuario)}`,
+      `${getApiBaseUrl()}/observacoes/${encodeURIComponent(numeroProcesso)}/${observacaoId}?usuario=${encodeURIComponent(usuario)}`,
       { method: 'DELETE', headers: { 'Accept': 'application/json' }, cache: 'no-store' },
     );
 

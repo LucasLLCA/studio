@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { fetchOpenUnitsForProcessWithToken } from '@/app/sei-actions';
+import { fetchOpenUnits } from '@/lib/sei-api-client';
 import { queryKeys } from '../keys';
 import type { UnidadeAberta, ApiError } from '@/types/process-flow';
 
@@ -69,7 +69,7 @@ export function useOpenUnits({
 
     // Função que busca os dados
     queryFn: async (): Promise<OpenUnitsResponse> => {
-      const result = await fetchOpenUnitsForProcessWithToken(
+      const result = await fetchOpenUnits(
         token,
         processo,
         unidadeOrigem
@@ -128,7 +128,7 @@ export async function prefetchOpenUnits(
   await queryClient.prefetchQuery({
     queryKey: queryKeys.openUnits.detail(processo, unidadeOrigem),
     queryFn: async () => {
-      const result = await fetchOpenUnitsForProcessWithToken(
+      const result = await fetchOpenUnits(
         token,
         processo,
         unidadeOrigem

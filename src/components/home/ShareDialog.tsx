@@ -127,7 +127,7 @@ export function ShareDialog({ tagId, usuario, open, onOpenChange }: ShareDialogP
             <Share2 className="h-5 w-5" /> Compartilhar
           </DialogTitle>
           <DialogDescription>
-            Compartilhe esta tag com uma equipe ou usuario.
+            Compartilhe este grupo com uma equipe ou usuario.
           </DialogDescription>
         </DialogHeader>
 
@@ -137,53 +137,8 @@ export function ShareDialog({ tagId, usuario, open, onOpenChange }: ShareDialogP
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Existing shares */}
-            {existingShares.length > 0 && (
-              <div>
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Compartilhado com
-                </Label>
-                <div className="mt-2 space-y-1.5">
-                  {existingShares.map((share) => {
-                    const { icon, text } = getShareLabel(share);
-                    return (
-                      <div
-                        key={share.id}
-                        className="flex items-center justify-between p-2 rounded-md border bg-muted/30"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          {icon}
-                          <span className="text-sm truncate">{text}</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 flex-shrink-0"
-                          onClick={() => handleRevoke(share.id)}
-                          disabled={revokingId === share.id}
-                          title="Remover compartilhamento"
-                        >
-                          {revokingId === share.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <X className="h-3.5 w-3.5 text-destructive" />
-                          )}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-                <Separator className="mt-3" />
-              </div>
-            )}
-
             {/* New share form */}
             <div>
-              {existingShares.length > 0 && (
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">
-                  Novo compartilhamento
-                </Label>
-              )}
               <RadioGroup value={shareType} onValueChange={(v) => setShareType(v as 'team' | 'user')}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="team" id="st-team" />
@@ -223,17 +178,59 @@ export function ShareDialog({ tagId, usuario, open, onOpenChange }: ShareDialogP
                 )}
               </div>
             </div>
+
+            {/* Existing shares */}
+            {existingShares.length > 0 && (
+              <div>
+                <Separator className="mb-3" />
+                <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Compartilhado com
+                </Label>
+                <div className="mt-2 space-y-1.5">
+                  {existingShares.map((share) => {
+                    const { icon, text } = getShareLabel(share);
+                    return (
+                      <div
+                        key={share.id}
+                        className="flex items-center justify-between p-2 rounded-md border bg-muted/30"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {icon}
+                          <span className="text-sm truncate">{text}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 flex-shrink-0"
+                          onClick={() => handleRevoke(share.id)}
+                          disabled={revokingId === share.id}
+                          title="Remover compartilhamento"
+                        >
+                          {revokingId === share.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <X className="h-3.5 w-3.5 text-destructive" />
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSharing}>
-            Fechar
-          </Button>
-          <Button onClick={handleShare} disabled={!canShare || isSharing}>
-            {isSharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Compartilhar
-          </Button>
+        <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSharing}>
+              Fechar
+            </Button>
+            <Button onClick={handleShare} disabled={!canShare || isSharing}>
+              {isSharing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Compartilhar
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

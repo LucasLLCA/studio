@@ -1,9 +1,6 @@
-'use server';
-
 import type { ApiError } from '@/types/process-flow';
 import type { Tag, TagWithProcessos, SavedProcesso, ProcessoSalvoCheck } from '@/types/teams';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "https://api.sei.agentes.sead.pi.gov.br";
+import { getApiBaseUrl } from './fetch-utils';
 
 export async function createTag(
   usuario: string,
@@ -11,7 +8,7 @@ export async function createTag(
   cor?: string,
 ): Promise<Tag | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/tags?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/tags?usuario=${encodeURIComponent(usuario)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ nome, cor: cor || undefined }),
@@ -34,7 +31,7 @@ export async function getMyTags(
   usuario: string,
 ): Promise<Tag[] | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/tags?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/tags?usuario=${encodeURIComponent(usuario)}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store',
@@ -57,7 +54,7 @@ export async function getTagWithProcessos(
   usuario: string,
 ): Promise<TagWithProcessos | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/tags/${tagId}?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/tags/${tagId}?usuario=${encodeURIComponent(usuario)}`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store',
@@ -81,7 +78,7 @@ export async function updateTag(
   updates: { nome?: string; cor?: string },
 ): Promise<Tag | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/tags/${tagId}?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/tags/${tagId}?usuario=${encodeURIComponent(usuario)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(updates),
@@ -105,7 +102,7 @@ export async function deleteTag(
   usuario: string,
 ): Promise<{ success: boolean } | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/tags/${tagId}?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/tags/${tagId}?usuario=${encodeURIComponent(usuario)}`, {
       method: 'DELETE',
       headers: { 'Accept': 'application/json' },
       cache: 'no-store',
@@ -130,7 +127,7 @@ export async function saveProcessoToTag(
   nota?: string,
 ): Promise<SavedProcesso | ApiError> {
   try {
-    const response = await fetch(`${API_BASE_URL}/tags/${tagId}/processos?usuario=${encodeURIComponent(usuario)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/tags/${tagId}/processos?usuario=${encodeURIComponent(usuario)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({
@@ -160,7 +157,7 @@ export async function removeProcessoFromTag(
 ): Promise<{ success: boolean } | ApiError> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/tags/${tagId}/processos/${processoId}?usuario=${encodeURIComponent(usuario)}`,
+      `${getApiBaseUrl()}/tags/${tagId}/processos/${processoId}?usuario=${encodeURIComponent(usuario)}`,
       { method: 'DELETE', headers: { 'Accept': 'application/json' }, cache: 'no-store' },
     );
 
@@ -181,7 +178,7 @@ export async function checkProcessoSalvo(
 ): Promise<ProcessoSalvoCheck | ApiError> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/tags/processo-salvo?usuario=${encodeURIComponent(usuario)}&numero_processo=${encodeURIComponent(numeroProcesso)}`,
+      `${getApiBaseUrl()}/tags/processo-salvo?usuario=${encodeURIComponent(usuario)}&numero_processo=${encodeURIComponent(numeroProcesso)}`,
       { method: 'GET', headers: { 'Accept': 'application/json' }, cache: 'no-store' },
     );
 

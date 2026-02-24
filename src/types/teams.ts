@@ -62,8 +62,9 @@ export interface SharedWithMeItem {
   tag_cor?: string | null;
   compartilhado_por: string;
   equipe_nome?: string | null;
+  equipe_destino_id?: string | null;
   criado_em: string;
-  processos: SavedProcesso[];
+  processos: (SavedProcesso & { team_tags?: TeamTag[] })[];
 }
 
 export interface ShareRecord {
@@ -80,6 +81,7 @@ export interface Observacao {
   numero_processo: string;
   usuario: string;
   conteudo: string;
+  equipe_id?: string | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -87,4 +89,41 @@ export interface Observacao {
 export interface ProcessoSalvoCheck {
   salvo: boolean;
   tags: { tag_id: string; tag_nome: string; tag_cor: string | null }[];
+}
+
+export interface TeamTag {
+  id: string;
+  equipe_id: string;
+  nome: string;
+  cor?: string | null;
+  criado_por: string;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface ProcessoTeamTag {
+  id: string;
+  team_tag_id: string;
+  numero_processo: string;
+  adicionado_por: string;
+  criado_em: string;
+}
+
+export interface KanbanColumn {
+  compartilhamento_id: string;
+  tag_id: string;
+  tag_nome: string;
+  tag_cor?: string | null;
+  compartilhado_por: string;
+  processos: KanbanProcesso[];
+}
+
+export interface KanbanProcesso extends SavedProcesso {
+  team_tags: TeamTag[];
+}
+
+export interface KanbanBoard {
+  equipe: TeamDetail;
+  colunas: KanbanColumn[];
+  team_tags: TeamTag[];
 }

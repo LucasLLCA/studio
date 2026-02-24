@@ -70,7 +70,7 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
     try {
       const result = await getMyTags(usuario);
       if ('error' in result) {
-        toast({ title: "Erro ao carregar tags", description: result.error, variant: "destructive" });
+        toast({ title: "Erro ao carregar grupos", description: result.error, variant: "destructive" });
         setTags([]);
       } else {
         setTags(result);
@@ -127,7 +127,7 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
         return;
       }
       setTags(prev => prev.map(t => t.id === renameTagId ? { ...t, nome: renameValue.trim() } : t));
-      toast({ title: "Tag renomeada" });
+      toast({ title: "Grupo renomeado" });
       setRenameTagId(null);
     } finally {
       setIsRenaming(false);
@@ -150,7 +150,7 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
         return next;
       });
       setExpandedIds(prev => { const next = new Set(prev); next.delete(deleteTagId); return next; });
-      toast({ title: "Tag excluida" });
+      toast({ title: "Grupo excluido" });
       setDeleteTagId(null);
     } finally {
       setIsDeleting(false);
@@ -223,7 +223,7 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
                         <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
                       </div>
                     ) : expandedTags[tag.id]?.processos.length === 0 ? (
-                      <p className="text-xs text-gray-500 py-2">Nenhum processo nesta tag.</p>
+                      <p className="text-xs text-gray-500 py-2">Nenhum processo neste grupo.</p>
                     ) : (
                       <div className="space-y-1">
                         {(expandedTags[tag.id]?.processos || []).map((p) => (
@@ -260,14 +260,14 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
       <Dialog open={!!renameTagId} onOpenChange={(open) => { if (!open) setRenameTagId(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Renomear tag</DialogTitle>
-            <DialogDescription>Digite o novo nome para a tag.</DialogDescription>
+            <DialogTitle>Renomear grupo</DialogTitle>
+            <DialogDescription>Digite o novo nome para o grupo.</DialogDescription>
           </DialogHeader>
           <Input
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && renameValue.trim()) handleRename(); }}
-            placeholder="Nome da tag..."
+            placeholder="Nome do grupo..."
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenameTagId(null)} disabled={isRenaming}>
@@ -287,10 +287,10 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Excluir tag
+              Excluir grupo
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acao ira excluir a tag, todos os processos salvos nela e seus compartilhamentos. Esta acao nao pode ser desfeita.
+              Esta acao ira excluir o grupo, todos os processos salvos nele e seus compartilhamentos. Esta acao nao pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
