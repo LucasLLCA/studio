@@ -36,15 +36,27 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
         errorDetails = responseText;
       }
 
-      if (response.status === 401) {
-        const message = typeof errorDetails === 'string'
-          ? errorDetails
-          : (errorDetails as Record<string, unknown>)?.detail || (errorDetails as Record<string, unknown>)?.Message || `Falha no login. Status: ${response.status}`;
-        return { success: false, error: `Falha na autenticação: ${message}`, details: errorDetails, status: response.status };
+      // Extract user-friendly message from SEI API error responses
+      // SEI returns: {"detail":[{"loc":[...],"msg":"Usuário ou Senha Inválida.","type":"value_error.http"}]}
+      const extractMessage = (details: unknown): string => {
+        if (typeof details === 'string') return details;
+        const obj = details as Record<string, unknown>;
+        if (Array.isArray(obj?.detail)) {
+          const firstError = obj.detail[0] as Record<string, unknown> | undefined;
+          if (firstError?.msg) return String(firstError.msg);
+        }
+        if (typeof obj?.detail === 'string') return obj.detail;
+        if (typeof obj?.Message === 'string') return obj.Message;
+        return `Falha no login. Status: ${response.status}`;
+      };
+
+      const message = extractMessage(errorDetails);
+
+      if (response.status === 401 || response.status === 422) {
+        return { success: false, error: message, details: errorDetails, status: response.status };
       }
 
-      const errorMessage = (errorDetails as Record<string, unknown>)?.detail || (errorDetails as Record<string, unknown>)?.Message || `Falha no login. Status: ${response.status}`;
-      return { success: false, error: String(errorMessage), details: errorDetails, status: response.status };
+      return { success: false, error: message, details: errorDetails, status: response.status };
     }
 
     const data = JSON.parse(responseText) as SEILoginApiResponse;

@@ -38,6 +38,7 @@ function LoginPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isAutoLogging, setIsAutoLogging] = useState(true);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -123,21 +124,14 @@ function LoginPageContent() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
-    
+    setLoginError(null);
+
     try {
       const response = await loginToSEI(data);
-      
+
       if (response.success && response.token) {
         const unidadesRecebidas = response.unidades || [];
         const idUnidadeAtual = response.idUnidadeAtual;
-
-        console.log('[DEBUG] Dados do login:', {
-          hasToken: !!response.token,
-          hasIdUnidadeAtual: !!idUnidadeAtual,
-          idUnidadeAtual: idUnidadeAtual,
-          unidadesCount: unidadesRecebidas.length,
-          orgao: data.orgao
-        });
 
         // Prioriza o nome retornado pela API; fallback para query string e depois para usuário antes do "@"
         const nomeFromQuery = (searchParams.get('Nome') || searchParams.get('nome'))?.replace(/\+/g, ' ').trim();
@@ -155,19 +149,12 @@ function LoginPageContent() {
         router.push('/');
         reset();
       } else {
-        toast({
-          title: "Falha na autenticação",
-          description: response.error || "Verifique suas credenciais e tente novamente. Se o problema persistir, entre em contato com o suporte.",
-          variant: "destructive",
-        });
+        const errorMsg = response.error || "Verifique suas credenciais e tente novamente.";
+        setLoginError(errorMsg);
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Ocorreu um erro inesperado. Verifique sua conexão com a internet e tente novamente.";
-      toast({
-        title: "Erro de conexão",
-        description: errorMsg,
-        variant: "destructive",
-      });
+      setLoginError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -432,8 +419,21 @@ function LoginPageContent() {
                 <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '4px' }}>{errors.orgao.message}</p>
               )}
             </div>
-            <button 
-              type="submit" 
+            {loginError && (
+              <div style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '6px',
+                padding: '12px 16px',
+                color: '#dc2626',
+                fontSize: '0.875rem',
+                marginTop: '4px',
+              }}>
+                {loginError}
+              </div>
+            )}
+            <button
+              type="submit"
               className="login-btn"
               disabled={isLoading}
             >
