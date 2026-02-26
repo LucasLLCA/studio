@@ -8,6 +8,33 @@ import { withNetworkRetry } from '@/lib/network-retry';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { useToast } from '@/hooks/use-toast';
 
+/** Retry a fetch on server errors (5xx) or network failures. Skips retry for 4xx client errors. */
+async function fetchWithRetry<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxRetries: number = 2,
+): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await fn();
+      const status = result && typeof result === 'object' && 'status' in result
+        ? (result as { status: number }).status
+        : 0;
+      const isRetryable = status >= 500;
+      if (!isRetryable || attempt === maxRetries) return result;
+      const delay = 2000 * (attempt + 1);
+      console.warn(`[RETRY] ${label}: tentativa ${attempt + 1}/${maxRetries} falhou (${status}), aguardando ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+    } catch (err) {
+      if (attempt === maxRetries) throw err;
+      const delay = 2000 * (attempt + 1);
+      console.warn(`[RETRY] ${label}: tentativa ${attempt + 1}/${maxRetries} erro de rede, aguardando ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  return fn();
+}
+
 interface UseProcessDataOptions {
   numeroProcesso: string;
   sessionToken: string | null;
@@ -109,11 +136,11 @@ export function useProcessData({
       }
 
       // Phase 1: Fetch partial data (first+last pages) for fast initial render
-      const andamentosPromise = withNetworkRetry(
+      const andamentosPromise = fetchWithRetry(
         () => fetchProcessData(token, numeroProcesso, selectedUnidadeFiltro, true),
         'andamentos',
       );
-      const documentosPromise = unitAccessDenied ? null : withNetworkRetry(
+      const documentosPromise = unitAccessDenied ? null : fetchWithRetry(
         () => fetchDocuments(token, numeroProcesso, selectedUnidadeFiltro, true),
         'documentos',
       );
@@ -246,7 +273,7 @@ export function useProcessData({
           (error) => {
             setProcessSummary(null);
             setBackgroundLoading(prev => ({ ...prev, resumo: false }));
-            toast({ title: "Erro ao Gerar Resumo", description: typeof error === 'string' ? error : "Falha na conexão", variant: "destructive", duration: 9000 });
+            console.warn("Resumo indisponível:", error);
           },
         );
       }
@@ -268,7 +295,7 @@ export function useProcessData({
     if (unitAccessDenied) return;
     if (situacaoAtual !== null) return;
     if (backgroundLoading.situacao) return;
-    if (backgroundLoading.resumo || !processSummary) return;
+    if (backgroundLoading.resumo) return;
     if (rawProcessData === null) return;
     if (documents === null) return;
     if (!sessionToken || !selectedUnidadeFiltro) return;
@@ -290,9 +317,9 @@ export function useProcessData({
         setBackgroundLoading(prev => ({ ...prev, situacao: false }));
       },
       (error) => {
-        setSituacaoAtual(null);
+        setSituacaoAtual("");
         setBackgroundLoading(prev => ({ ...prev, situacao: false }));
-        console.warn("Erro ao buscar situação atual via SSE:", error);
+        console.warn("Situação atual indisponível:", error);
       },
     );
   }, [processSummary, backgroundLoading.resumo, rawProcessData, documents, situacaoAtual, backgroundLoading.situacao, sessionToken, selectedUnidadeFiltro, numeroProcesso, unitAccessDenied]);

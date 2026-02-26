@@ -14,27 +14,31 @@ export function proxySSE(backendPath: string) {
     const separator = searchParams ? "?" : "";
     const url = `${BACKEND_BASE_URL}${backendPath}${separator}${searchParams}`;
 
-    const backendResponse = await fetch(url, {
-      method: "GET",
-      headers: {
-        "X-SEI-Token": token,
-        Accept: "text/event-stream",
-      },
-    });
-
-    if (!backendResponse.ok || !backendResponse.body) {
-      return new Response(backendResponse.statusText, {
-        status: backendResponse.status,
+    try {
+      const backendResponse = await fetch(url, {
+        method: "GET",
+        headers: {
+          "X-SEI-Token": token,
+          Accept: "text/event-stream",
+        },
       });
-    }
 
-    return new Response(backendResponse.body, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
-      },
-    });
+      if (!backendResponse.ok || !backendResponse.body) {
+        return new Response(backendResponse.statusText, {
+          status: backendResponse.status,
+        });
+      }
+
+      return new Response(backendResponse.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+          "X-Accel-Buffering": "no",
+        },
+      });
+    } catch {
+      return new Response("Proxy SSE: backend indisponível", { status: 502 });
+    }
   };
 }
