@@ -4,18 +4,13 @@ import React, { Suspense, useState, useEffect } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { loginToSEI, decryptSEICredentials, decryptJWEToken } from '../sei-actions';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
-import Image from 'next/image';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { loginToSEI, getEmbedUserIdentity, autoLoginWithStoredCredentials, embedLogin } from '../sei-actions';
+import type { EmbedUserIdentity } from '../sei-actions';
+import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { ORGAOS_PIAUI } from '@/config/constants';
 
 const loginSchema = z.object({
@@ -39,10 +34,10 @@ function LoginPageContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [isAutoLogging, setIsAutoLogging] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [embedIdentity, setEmbedIdentity] = useState<EmbedUserIdentity | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  
+
   const {
     isAuthenticated,
     login: persistLogin,
@@ -73,46 +68,42 @@ function LoginPageContent() {
     }
   }, [isAuthenticated, router]);
 
-  // Auto-login via URL token param OR auth_token cookie (JWE token)
+  // Auto-login via embed identity (JWE cookie with stored credentials)
   useEffect(() => {
     let cancelled = false;
 
     async function attemptAutoLogin() {
       try {
-        // 1. Check for JWE token in URL query param (e.g., /login?token=<JWE>)
-        const urlToken = searchParams.get('token');
-        let credentials = null;
-
-        if (urlToken) {
-          credentials = await decryptJWEToken(urlToken);
-        }
-
-        // 2. Fall back to auth_token cookie
-        if (!credentials) {
-          credentials = await decryptSEICredentials();
-        }
-
+        // 1. Check for embed identity in auth_token cookie
+        const identity = await getEmbedUserIdentity();
         if (cancelled) return;
 
-        if (!credentials) {
+        if (!identity) {
+          // No embed token — standalone mode, show manual form
           setIsAutoLogging(false);
           return;
         }
 
-        const response = await loginToSEI(credentials);
+        setEmbedIdentity(identity);
+
+        // 2. Try auto-login with stored credentials
+        const response = await autoLoginWithStoredCredentials(identity.id_pessoa);
         if (cancelled) return;
 
         if (response.success && response.token) {
           const unidadesRecebidas = response.unidades || [];
           const idUnidadeAtual = response.idUnidadeAtual;
 
-          persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, credentials.orgao, credentials.usuario, undefined, response.idUsuario, response.idLogin, response.cargoAssinatura);
+          persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, undefined, identity.usuario, response.nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura);
           router.push('/');
           return;
         }
 
-        // Login failed, fall back to manual form
+        // Auto-login failed (401/404/410 — no stored creds or invalid)
         setIsAutoLogging(false);
+        if (response.status === 401) {
+          setLoginError('Suas credenciais SEI armazenadas estão inválidas. Por favor, faça login novamente.');
+        }
       } catch {
         if (!cancelled) setIsAutoLogging(false);
       }
@@ -120,24 +111,29 @@ function LoginPageContent() {
 
     attemptAutoLogin();
     return () => { cancelled = true; };
-  }, [searchParams]);
+  }, []);
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     setLoginError(null);
 
     try {
-      const response = await loginToSEI(data);
+      let response;
+
+      if (embedIdentity) {
+        // Embed mode — validate + store credentials via backend
+        response = await embedLogin(embedIdentity.id_pessoa, data.usuario, data.senha, data.orgao);
+      } else {
+        // Standalone mode — direct SEI login
+        response = await loginToSEI(data);
+      }
 
       if (response.success && response.token) {
         const unidadesRecebidas = response.unidades || [];
         const idUnidadeAtual = response.idUnidadeAtual;
 
-        // Prioriza o nome retornado pela API; fallback para query string e depois para usuário antes do "@"
-        const nomeFromQuery = (searchParams.get('Nome') || searchParams.get('nome'))?.replace(/\+/g, ' ').trim();
-        const nomeUsuario = response.nomeUsuario || nomeFromQuery || data.usuario.split('@')[0];
+        const nomeUsuario = response.nomeUsuario || data.usuario.split('@')[0];
 
-        // Passar o idUnidadeAtual, o órgão, o usuário e o nome para o persistLogin
         persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, data.orgao, data.usuario, nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura);
 
         toast({
@@ -145,7 +141,6 @@ function LoginPageContent() {
           description: `${unidadesRecebidas.length} unidades carregadas.`,
         });
 
-        // Redirect to home page
         router.push('/');
         reset();
       } else {

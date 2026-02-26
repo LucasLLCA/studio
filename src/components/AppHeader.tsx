@@ -26,7 +26,11 @@ export default function AppHeader() {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
   const [mounted, setMounted] = useState(false);
-  React.useEffect(() => { setMounted(true); }, []);
+  const [isEmbedMode, setIsEmbedMode] = useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+    setIsEmbedMode(document.cookie.split(';').some(c => c.trim().startsWith('auth_token=')));
+  }, []);
 
   const handleLogout = () => {
     persistLogout();
@@ -58,7 +62,7 @@ export default function AppHeader() {
               <Newspaper className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">{"Atualizações"}</span>
             </Button>
-            {mounted && isAuthenticated && (
+            {mounted && isAuthenticated && !isEmbedMode && (
               <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={handleLogout}> <LogOut className="sm:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Sair</span> </Button>
             )}
           </div>

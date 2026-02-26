@@ -2,9 +2,11 @@ import type { ApiError } from '@/types/process-flow';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
 
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 export function getApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
-    return '/api/proxy';
+    return `${BASE_PATH}/api/proxy`;
   }
   return API_BASE_URL;
 }

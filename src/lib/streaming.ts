@@ -3,6 +3,7 @@ import { isNetworkError } from '@/lib/network-retry';
 import { stripProcessNumber } from '@/lib/utils';
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_DATA === 'true';
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 /**
  * Fetches an SSE stream from the backend and calls callbacks as events arrive.
@@ -100,7 +101,7 @@ export function getStreamProcessSummaryUrl(
   unidadeId: string,
 ): string {
   const cleaned = stripProcessNumber(processNumber);
-  return `/api/stream/resumo-completo/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  return `${BASE_PATH}/api/stream/resumo-completo/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
 }
 
 export function getStreamSituacaoAtualUrl(
@@ -108,7 +109,7 @@ export function getStreamSituacaoAtualUrl(
   unidadeId: string,
 ): string {
   const cleaned = stripProcessNumber(processNumber);
-  return `/api/stream/resumo-situacao/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  return `${BASE_PATH}/api/stream/resumo-situacao/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
 }
 
 export function getStreamAndamentosProgressUrl(
@@ -116,14 +117,14 @@ export function getStreamAndamentosProgressUrl(
   unidadeId: string,
 ): string {
   const cleaned = stripProcessNumber(processNumber);
-  return `/api/stream/andamentos-progress/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  return `${BASE_PATH}/api/stream/andamentos-progress/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
 }
 
 export function getStreamDocumentSummaryUrl(
   documentoFormatado: string,
   unidadeId: string,
 ): string {
-  return `/api/stream/resumo-documento/${encodeURIComponent(documentoFormatado)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  return `${BASE_PATH}/api/stream/resumo-documento/${encodeURIComponent(documentoFormatado)}?id_unidade=${encodeURIComponent(unidadeId)}`;
 }
 
 /**
