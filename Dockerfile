@@ -48,9 +48,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Mudar para usuário não-root
 USER nextjs
 
-EXPOSE 3050
+EXPOSE 80
 
-ENV PORT=3050
+ENV PORT=80
 ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]
