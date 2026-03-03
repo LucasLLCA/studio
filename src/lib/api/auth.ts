@@ -36,15 +36,36 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
         errorDetails = responseText;
       }
 
+      const extrairTexto = (val: unknown): string | null => {
+        if (!val) return null;
+        if (typeof val === 'string') return val;
+        if (typeof val === 'object') {
+          const obj = val as Record<string, unknown>;
+          const candidato = obj.message ?? obj.detail ?? obj.Message ?? obj.msg ?? obj.description;
+          if (typeof candidato === 'string') return candidato;
+        }
+        return null;
+      };
+
       if (response.status === 401) {
-        const message = typeof errorDetails === 'string'
-          ? errorDetails
-          : (errorDetails as Record<string, unknown>)?.detail || (errorDetails as Record<string, unknown>)?.Message || `Falha no login. Status: ${response.status}`;
+        const message =
+          extrairTexto(errorDetails) ??
+          (typeof errorDetails === 'object'
+            ? extrairTexto((errorDetails as Record<string, unknown>)?.detail) ??
+              extrairTexto((errorDetails as Record<string, unknown>)?.Message)
+            : null) ??
+          `Falha no login. Status: ${response.status}`;
         return { success: false, error: `Falha na autenticação: ${message}`, details: errorDetails, status: response.status };
       }
 
-      const errorMessage = (errorDetails as Record<string, unknown>)?.detail || (errorDetails as Record<string, unknown>)?.Message || `Falha no login. Status: ${response.status}`;
-      return { success: false, error: String(errorMessage), details: errorDetails, status: response.status };
+      const errorMessage =
+        extrairTexto(errorDetails) ??
+        (typeof errorDetails === 'object'
+          ? extrairTexto((errorDetails as Record<string, unknown>)?.detail) ??
+            extrairTexto((errorDetails as Record<string, unknown>)?.Message)
+          : null) ??
+        `Falha no login. Status: ${response.status}`;
+      return { success: false, error: errorMessage, details: errorDetails, status: response.status };
     }
 
     const data = JSON.parse(responseText) as SEILoginApiResponse;

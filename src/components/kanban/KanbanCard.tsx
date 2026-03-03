@@ -1,26 +1,45 @@
 "use client";
 
 import React from 'react';
+import { Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { formatProcessNumber } from '@/lib/utils';
 import type { KanbanProcesso } from '@/types/teams';
 
 interface KanbanCardProps {
   processo: KanbanProcesso;
   onClick: () => void;
+  onDelete?: (processo: KanbanProcesso) => void;
 }
 
-export function KanbanCard({ processo, onClick }: KanbanCardProps) {
+export function KanbanCard({ processo, onClick, onDelete }: KanbanCardProps) {
   return (
     <Card
-      className="cursor-pointer hover:shadow-md transition-shadow"
+      className="group/card cursor-pointer hover:shadow-md transition-shadow"
       onClick={onClick}
     >
       <CardContent className="p-3">
-        <p className="text-sm font-medium text-foreground">
-          {processo.numero_processo_formatado || formatProcessNumber(processo.numero_processo)}
-        </p>
+        <div className="flex items-start justify-between gap-1">
+          <p className="text-sm font-medium text-foreground leading-snug">
+            {processo.numero_processo_formatado || formatProcessNumber(processo.numero_processo)}
+          </p>
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 flex-shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(processo);
+              }}
+              title="Remover processo deste grupo"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+            </Button>
+          )}
+        </div>
         {processo.nota && (
           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
             {processo.nota}

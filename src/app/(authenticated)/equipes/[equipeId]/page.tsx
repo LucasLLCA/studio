@@ -28,13 +28,13 @@ import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useParams, useRouter } from 'next/navigation';
 import { getKanbanBoard } from '@/lib/api/team-tags-api-client';
+import { createTag, removeProcessoFromTag } from '@/lib/api/tags-api-client';
 import {
   addTeamMember,
   removeTeamMember,
   deleteTeam,
 } from '@/lib/api/teams-api-client';
 import { revokeShare, shareTag } from '@/lib/api/sharing-api-client';
-import { createTag } from '@/lib/api/tags-api-client';
 import {
   Dialog,
   DialogContent,
@@ -65,6 +65,10 @@ export default function EquipeKanbanPage() {
 
   // Delete column confirmation
   const [deleteColumnId, setDeleteColumnId] = useState<string | null>(null);
+
+  // Delete processo confirmation
+  const [deleteProcessoData, setDeleteProcessoData] = useState<KanbanProcesso | null>(null);
+  const [isDeletingProcesso, setIsDeletingProcesso] = useState(false);
 
   // Delete team confirmation
   const [isDeleteTeamOpen, setIsDeleteTeamOpen] = useState(false);
@@ -159,6 +163,34 @@ export default function EquipeKanbanPage() {
       toast({ title: "Grupo removido do quadro" });
     }
     setDeleteColumnId(null);
+  };
+
+  const handleDeleteProcesso = async () => {
+    if (!usuario || !deleteProcessoData || !board) return;
+    setIsDeletingProcesso(true);
+    try {
+      // O processo está numa tag pessoal compartilhada com a equipe.
+      // O endpoint requer o usuario dono da tag (compartilhado_por da coluna).
+      const coluna = board.colunas.find(c => c.tag_id === deleteProcessoData.tag_id);
+      const donoTag = coluna?.compartilhado_por ?? usuario;
+      const result = await removeProcessoFromTag(deleteProcessoData.tag_id, deleteProcessoData.id, donoTag);
+      if ('error' in result) {
+        toast({ title: "Erro ao remover processo", description: result.error, variant: "destructive" });
+        return;
+      }
+      setBoard(prev => prev ? {
+        ...prev,
+        colunas: prev.colunas.map(col =>
+          col.tag_id === deleteProcessoData.tag_id
+            ? { ...col, processos: col.processos.filter(p => p.id !== deleteProcessoData.id) }
+            : col
+        ),
+      } : prev);
+      toast({ title: "Processo removido do grupo" });
+      setDeleteProcessoData(null);
+    } finally {
+      setIsDeletingProcesso(false);
+    }
   };
 
   const handleDeleteTeam = async () => {
@@ -260,6 +292,7 @@ export default function EquipeKanbanPage() {
           teamTags={board.team_tags}
           onProcessoClick={(processo, tagNome) => setSelectedProcesso({ processo, tagNome })}
           onDeleteColumn={isAdmin ? (id) => setDeleteColumnId(id) : undefined}
+          onDeleteProcesso={(processo) => setDeleteProcessoData(processo)}
           onAddGroup={() => setIsNewGroupOpen(true)}
         />
       </div>
@@ -271,7 +304,6 @@ export default function EquipeKanbanPage() {
           onOpenChange={(open) => { if (!open) setSelectedProcesso(null); }}
           processo={selectedProcesso.processo}
           equipeId={equipeId}
-          teamTags={board.team_tags}
           onTagsChanged={loadBoard}
         />
       )}
@@ -354,6 +386,33 @@ export default function EquipeKanbanPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteColumn}>Remover</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Processo Confirmation */}
+      <AlertDialog open={!!deleteProcessoData} onOpenChange={(open) => { if (!open) setDeleteProcessoData(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover processo do grupo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O processo{' '}
+              <strong>
+                {deleteProcessoData?.numero_processo_formatado || deleteProcessoData?.numero_processo}
+              </strong>{' '}
+              será removido deste grupo. O processo não será excluído do sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingProcesso}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProcesso}
+              disabled={isDeletingProcesso}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingProcesso ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Remover
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -11,10 +11,12 @@ interface KanbanBoardProps {
   teamTags: TeamTag[];
   onProcessoClick: (processo: KanbanProcesso, tagNome: string) => void;
   onDeleteColumn?: (compartilhamentoId: string) => void;
+  onDeleteProcesso?: (processo: KanbanProcesso) => void;
   onAddGroup?: () => void;
 }
 
-export function KanbanBoard({ colunas, teamTags, onProcessoClick, onDeleteColumn, onAddGroup }: KanbanBoardProps) {
+export function KanbanBoard({ colunas, teamTags, onProcessoClick, onDeleteColumn, onDeleteProcesso, onAddGroup }: KanbanBoardProps) {
+  
   if (colunas.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -39,6 +41,7 @@ export function KanbanBoard({ colunas, teamTags, onProcessoClick, onDeleteColumn
           coluna={coluna}
           onProcessoClick={(processo) => onProcessoClick(processo, coluna.tag_nome)}
           onDeleteColumn={onDeleteColumn}
+          onDeleteProcesso={onDeleteProcesso}
         />
       ))}
 

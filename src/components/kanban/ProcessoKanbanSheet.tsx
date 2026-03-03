@@ -10,6 +10,10 @@ import {
   ExternalLink,
   Tag,
   Plus,
+  Check,
+  ChevronDown,
+  Info,
+  ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,13 +34,21 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useRouter } from 'next/navigation';
-import { formatProcessNumber } from '@/lib/utils';
+import { formatProcessNumber, cn } from '@/lib/utils';
 import {
   getProcessoTeamTags,
   createTeamTag,
   tagProcesso,
   untagProcesso,
+  salvarProcessoNoKanban,
 } from '@/lib/api/team-tags-api-client';
+
+// Função para buscar o kanban da equipe
+async function getKanbanColunas(equipeId: string, usuario: string) {
+  const res = await fetch(`/equipes/${equipeId}/kanban?usuario=${encodeURIComponent(usuario)}`);
+  const json = await res.json();
+  return json.data.colunas;
+}
 import {
   getObservacoes,
   createObservacao,
@@ -45,13 +57,22 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { KanbanProcesso, TeamTag, Observacao } from '@/types/teams';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+
+
 
 interface ProcessoKanbanSheetProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   processo: KanbanProcesso;
   equipeId: string;
-  teamTags: TeamTag[];
   onTagsChanged: () => void;
 }
 
@@ -69,18 +90,35 @@ export function ProcessoKanbanSheet({
   onOpenChange,
   processo,
   equipeId,
-  teamTags,
   onTagsChanged,
 }: ProcessoKanbanSheetProps) {
+  const [moverModalAberto, setMoverModalAberto] = useState(false);
+  const [gruposDestino, setGruposDestino] = useState<TeamTag[]>([]);
+  const [multiSelectAberto, setMultiSelectAberto] = useState(false);
   const { toast } = useToast();
   const { usuario } = usePersistedAuth();
   const router = useRouter();
+  const [isMoving, setIsMoving] = useState(false);
+
 
   // Team tags state
   const [processoTags, setProcessoTags] = useState<TeamTag[]>(processo.team_tags || []);
+  const [kanbanColunas, setKanbanColunas] = useState<any[]>([]); // Colunas do kanban
   const [tagFilter, setTagFilter] = useState('');
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   const [isCreatingTag, setIsCreatingTag] = useState(false);
+
+  // Busca as colunas do kanban ao abrir o sidebar
+  const loadKanbanColunas = useCallback(async () => {
+    if (!usuario) return;
+    // Busca o board completo para garantir que está pegando as colunas corretas
+    const boardResult = await import('@/lib/api/team-tags-api-client').then(m => m.getKanbanBoard(equipeId, usuario));
+    if (!('error' in boardResult)) {
+      setKanbanColunas(boardResult.colunas);
+    } else {
+      setKanbanColunas([]);
+    }
+  }, [equipeId, usuario]);
 
   // Observacoes state
   const [observacoes, setObservacoes] = useState<Observacao[]>([]);
@@ -117,12 +155,82 @@ export function ProcessoKanbanSheet({
     }
   }, [equipeId, processo.numero_processo, usuario]);
 
+  // const move -> Função para mover
+
+  const toggleGrupoDestino = useCallback((coluna: { tag_id: string; tag_nome: string; tag_cor: string; equipe_id?: string; criado_por?: string; criado_em?: string; atualizado_em?: string }) => {
+    const tag: TeamTag = {
+      id: coluna.tag_id,
+      nome: coluna.tag_nome,
+      cor: coluna.tag_cor,
+      equipe_id: coluna.equipe_id ?? equipeId,
+      criado_por: coluna.criado_por ?? '',
+      criado_em: coluna.criado_em ?? '',
+      atualizado_em: coluna.atualizado_em ?? '',
+    };
+    setGruposDestino(prev =>
+      prev.some(g => g.id === tag.id)
+        ? prev.filter(g => g.id !== tag.id)
+        : [...prev, tag]
+    );
+  }, [equipeId]);
+
+  const moverProcessoParaGrupos = useCallback(async () => {
+    if (!usuario || gruposDestino.length === 0) return;
+    setIsMoving(true);
+    try {
+      const resultados = await Promise.all(
+        gruposDestino.map(grupo =>
+          salvarProcessoNoKanban(
+            equipeId,
+            grupo.id,
+            processo.numero_processo,
+            processo.numero_processo_formatado ?? undefined,
+            usuario,
+          )
+        )
+      );
+
+      const erros = resultados.filter(r => 'error' in r) as { error: string; status?: number }[];
+      const sucessos = resultados.filter(r => !('error' in r));
+
+      if (erros.length === 0) {
+        toast({
+          title: "Processo adicionado com sucesso!",
+          description: gruposDestino.length === 1
+            ? `Adicionado ao grupo "${gruposDestino[0].nome}".`
+            : `Adicionado a ${gruposDestino.length} grupos.`,
+        });
+      } else if (sucessos.length > 0) {
+        toast({
+          title: "Adicionado parcialmente",
+          description: `${sucessos.length} grupo(s) com sucesso, ${erros.length} com erro (processo já existia).`,
+          variant: "destructive",
+        });
+      } else {
+        const primeiroErro = erros[0];
+        const description = primeiroErro.status === 409
+          ? 'O processo já existe em todos os grupos selecionados.'
+          : primeiroErro.error;
+        toast({ title: "Erro ao adicionar processo", description, variant: "destructive" });
+        return;
+      }
+
+      setGruposDestino([]);
+      setMoverModalAberto(false);
+      onTagsChanged();
+    } finally {
+      setIsMoving(false);
+    }
+  }, [equipeId, processo.numero_processo, processo.numero_processo_formatado, usuario, toast, onTagsChanged, gruposDestino]);
+
+
   useEffect(() => {
     if (isOpen) {
       loadObservacoes();
       loadTags();
+      loadKanbanColunas();
     }
-  }, [isOpen, loadObservacoes, loadTags]);
+  }, [isOpen, loadObservacoes, loadTags, loadKanbanColunas]);
 
   const handleAddTag = async (tag: TeamTag) => {
     if (!usuario) return;
@@ -206,9 +314,17 @@ export function ProcessoKanbanSheet({
 
   // Filter available tags (not already applied)
   const appliedTagIds = new Set(processoTags.map(t => t.id));
-  const availableTags = teamTags.filter(
-    t => !appliedTagIds.has(t.id) && t.nome.toLowerCase().includes(tagFilter.toLowerCase())
-  );
+  const availableTags = kanbanColunas
+    .map(coluna => ({
+      id: coluna.tag_id,
+      nome: coluna.tag_nome,
+      cor: coluna.tag_cor,
+      equipe_id: coluna.equipe_id ?? equipeId,
+      criado_por: coluna.criado_por ?? '',
+      criado_em: coluna.criado_em ?? '',
+      atualizado_em: coluna.atualizado_em ?? '',
+    }))
+    .filter(t => !appliedTagIds.has(t.id) && t.nome.toLowerCase().includes(tagFilter.toLowerCase()));
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange} modal={false}>
@@ -233,89 +349,150 @@ export function ProcessoKanbanSheet({
               <X className="h-4 w-4" />
             </Button>
           </div>
+
+          {/* Multi-select de grupos para mover processo */}
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Adicionar a outros grupos:</h3>
+            </div>
+
+            {/* Informativo */}
+            <div className="flex items-start gap-1.5 rounded-md bg-blue-50 border border-blue-100 px-2.5 py-1.5">
+              <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-blue-600 leading-snug">
+                Selecione um ou mais grupos para adicionar este processo a todos eles simultaneamente.
+              </p>
+            </div>
+
+            {/* Popover multi-select */}
+            <Popover open={multiSelectAberto} onOpenChange={setMultiSelectAberto}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={multiSelectAberto}
+                  className="w-full justify-between font-normal text-muted-foreground hover:text-foreground"
+                >
+                  {gruposDestino.length === 0
+                    ? 'Selecione os grupos de destino...'
+                    : `${gruposDestino.length} grupo${gruposDestino.length > 1 ? 's' : ''} selecionado${gruposDestino.length > 1 ? 's' : ''}`}
+                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1" align="start">
+                <div className="max-h-48 overflow-y-auto">
+                  {kanbanColunas.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhum grupo encontrado.</p>
+                  ) : (
+                    kanbanColunas.map(coluna => {
+                      const isSelecionado = gruposDestino.some(g => g.id === coluna.tag_id);
+                      return (
+                        <button
+                          key={coluna.tag_id}
+                          type="button"
+                          onClick={() => toggleGrupoDestino(coluna)}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-sm text-left hover:bg-accent cursor-pointer"
+                        >
+                          <div className={cn(
+                            'h-4 w-4 rounded border flex items-center justify-center flex-shrink-0',
+                            isSelecionado
+                              ? 'bg-primary border-primary'
+                              : 'border-muted-foreground/40'
+                          )}>
+                            {isSelecionado && <Check className="h-3 w-3 text-primary-foreground" />}
+                          </div>
+                          <span className="flex-1">{coluna.tag_nome}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                {gruposDestino.length > 0 && (
+                  <>
+                    <Separator className="my-1" />
+                    <div className="px-1 pb-0.5 pt-0.5">
+                      <Button
+                        className="w-full h-8 text-sm"
+                        onClick={() => {
+                          setMultiSelectAberto(false);
+                          setMoverModalAberto(true);
+                        }}
+                      >
+                        <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
+                        Adicionar a {gruposDestino.length} grupo{gruposDestino.length > 1 ? 's' : ''}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </PopoverContent>
+            </Popover>
+
+            {/* Chips dos grupos selecionados */}
+            {gruposDestino.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {gruposDestino.map(grupo => (
+                  <span
+                    key={grupo.id}
+                    className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary border border-primary/20 rounded-full px-2.5 py-0.5"
+                  >
+                    {grupo.nome}
+                    <button
+                      type="button"
+                      onClick={() => setGruposDestino(prev => prev.filter(g => g.id !== grupo.id))}
+                      className="hover:text-destructive transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+          </div>
+
+          {/* Dialog de confirmação */}
+          <Dialog open={moverModalAberto} onOpenChange={setMoverModalAberto}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Confirmar adição</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 py-1">
+                <p className="text-sm text-muted-foreground">
+                  O processo será adicionado {gruposDestino.length === 1 ? 'ao grupo:' : `aos seguintes ${gruposDestino.length} grupos:`}
+                </p>
+                <ul className="space-y-1.5">
+                  {gruposDestino.map(grupo => (
+                    <li key={grupo.id} className="flex items-center gap-2 text-sm font-medium">
+                      <ArrowRight className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                      {grupo.nome}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <DialogFooter className="gap-2">
+                <DialogClose asChild>
+                  <Button variant="outline" disabled={isMoving}>
+                    Cancelar
+                  </Button>
+                </DialogClose>
+                <Button
+                  disabled={isMoving}
+                  onClick={moverProcessoParaGrupos}
+                >
+                  {isMoving
+                    ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Adicionando...</>
+                    : 'Confirmar'
+                  }
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <SheetDescription className="sr-only">Detalhes do processo no kanban</SheetDescription>
         </SheetHeader>
 
         {processo.nota && (
           <p className="text-sm text-muted-foreground px-1 mt-1">{processo.nota}</p>
         )}
-
-        <Separator className="my-3" />
-
-        {/* Team Tags Section */}
-        <div className="flex-shrink-0">
-          <div className="flex items-center gap-2 mb-2">
-            <Tag className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">Tags da equipe</h3>
-          </div>
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {processoTags.map((tag) => (
-              <Badge
-                key={tag.id}
-                variant="secondary"
-                className="text-xs flex items-center gap-1 pr-1"
-                style={tag.cor ? { backgroundColor: tag.cor, color: '#fff' } : undefined}
-              >
-                {tag.nome}
-                <button
-                  className="ml-0.5 hover:opacity-70"
-                  onClick={() => handleRemoveTag(tag)}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-
-            <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-6 text-xs px-2">
-                  <Plus className="h-3 w-3 mr-1" /> Tag
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-2" align="start">
-                <Input
-                  placeholder="Filtrar ou criar tag..."
-                  value={tagFilter}
-                  onChange={(e) => setTagFilter(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && tagFilter.trim() && availableTags.length === 0) {
-                      handleCreateAndAddTag();
-                    }
-                  }}
-                  className="h-8 text-sm mb-1"
-                />
-                <div className="max-h-[120px] overflow-y-auto space-y-0.5">
-                  {availableTags.map((tag) => (
-                    <button
-                      key={tag.id}
-                      className="w-full text-left px-2 py-1 rounded text-sm hover:bg-accent flex items-center gap-2"
-                      onClick={() => handleAddTag(tag)}
-                    >
-                      {tag.cor && (
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.cor }} />
-                      )}
-                      {tag.nome}
-                    </button>
-                  ))}
-                  {tagFilter.trim() && availableTags.length === 0 && (
-                    <button
-                      className="w-full text-left px-2 py-1 rounded text-sm hover:bg-accent text-primary"
-                      onClick={handleCreateAndAddTag}
-                      disabled={isCreatingTag}
-                    >
-                      {isCreatingTag ? (
-                        <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-                      ) : (
-                        <Plus className="h-3 w-3 inline mr-1" />
-                      )}
-                      Criar &quot;{tagFilter.trim()}&quot;
-                    </button>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
 
         <Separator className="my-3" />
 

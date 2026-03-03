@@ -179,6 +179,69 @@ export async function getProcessoTeamTags(
   }
 }
 
+export async function salvarProcessoNoKanban(
+  equipeId: string,
+  tagIdDestino: string,
+  numeroProcesso: string,
+  numeroProcessoFormatado: string | undefined,
+  usuario: string,
+): Promise<{ id: string; tag_id: string; numero_processo: string } | ApiError> {
+  try {
+    const response = await fetch(
+      `${getApiBaseUrl()}/equipes/${equipeId}/kanban/salvar-processo?usuario=${encodeURIComponent(usuario)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          tag_id_destino: tagIdDestino,
+          numero_processo: numeroProcesso,
+          numero_processo_formatado: numeroProcessoFormatado,
+        }),
+        cache: 'no-store',
+      },
+    );
+
+    if (!response.ok) {
+      const details = await response.json().catch(() => response.statusText);
+      return { error: `Falha ao salvar processo: ${response.status}`, details, status: response.status };
+    }
+
+    const data = await response.json();
+    return data.data;
+  } catch (error) {
+    return { error: 'Erro ao conectar com o servico', details: error instanceof Error ? error.message : String(error), status: 500 };
+  }
+}
+
+export async function moverProcessoKanban(
+  equipeId: string,
+  processoId: string,
+  tagIdDestino: string,
+  usuario: string,
+): Promise<{ id: string; tag_id: string; numero_processo: string } | ApiError> {
+  try {
+    const response = await fetch(
+      `${getApiBaseUrl()}/equipes/${equipeId}/kanban/mover-processo?usuario=${encodeURIComponent(usuario)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ processo_id: processoId, tag_id_destino: tagIdDestino }),
+        cache: 'no-store',
+      },
+    );
+
+    if (!response.ok) {
+      const details = await response.json().catch(() => response.statusText);
+      return { error: `Falha ao mover processo: ${response.status}`, details, status: response.status };
+    }
+
+    const data = await response.json();
+    return data.data;
+  } catch (error) {
+    return { error: 'Erro ao conectar com o servico', details: error instanceof Error ? error.message : String(error), status: 500 };
+  }
+}
+
 export async function getKanbanBoard(
   equipeId: string,
   usuario: string,
