@@ -3,7 +3,7 @@
  *
  * Kept only for operations that require server-only resources:
  * - Login (writes cookies)
- * - JWE decryption (uses JWE_SECRET_KEY)
+ * - Embed identity (calls backend to decode JWE)
  * - Health checks (server-only)
  * - Embed login flow (credential check, auto-login, embed-login)
  *
@@ -35,7 +35,6 @@ import {
 } from '@/lib/mock-data';
 
 import { cookies } from 'next/headers';
-import { compactDecrypt } from 'jose';
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_DATA === 'true';
 const API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -82,8 +81,8 @@ export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
 // --------------- Embed identity ---------------
 
 /**
- * Reads the auth_token cookie, decrypts the JWE, and returns
- * user identity fields (id_pessoa, usuario, id_orgao, etc.).
+ * Reads the auth_token cookie and calls the backend to decode the JWE,
+ * returning user identity fields (id_pessoa, usuario, id_orgao, etc.).
  * Returns null if no cookie, invalid/expired token, or missing fields.
  */
 export async function getEmbedUserIdentity(): Promise<EmbedUserIdentity | null> {
@@ -92,20 +91,16 @@ export async function getEmbedUserIdentity(): Promise<EmbedUserIdentity | null> 
     const cookie = cookieStore.get('auth_token');
     if (!cookie?.value) return null;
 
-    const jweSecret = process.env.JWE_SECRET_KEY;
-    if (!jweSecret) return null;
+    const res = await fetch(`${API_BASE_URL}/auth/decode-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: cookie.value }),
+      cache: 'no-store',
+    });
 
-    const keyBytes = Uint8Array.from(
-      atob(jweSecret.replace(/-/g, '+').replace(/_/g, '/')),
-      c => c.charCodeAt(0),
-    );
-    if (keyBytes.length !== 32) return null;
+    if (!res.ok) return null;
 
-    const { plaintext } = await compactDecrypt(cookie.value, keyBytes);
-    const payload = JSON.parse(new TextDecoder().decode(plaintext));
-
-    // Reject expired tokens
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    const payload = await res.json();
 
     // Validate required identity fields
     if (!payload.id_pessoa || !payload.usuario || !payload.id_orgao) return null;

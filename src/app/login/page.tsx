@@ -4,13 +4,22 @@ import React, { Suspense, useState, useEffect } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from '@/components/ui/combobox';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { loginToSEI, getEmbedUserIdentity, autoLoginWithStoredCredentials, embedLogin } from '../sei-actions';
 import type { EmbedUserIdentity } from '../sei-actions';
-import { Loader2, Info, Check, ChevronsUpDown, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Info, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { ORGAOS_PIAUI } from '@/config/constants';
 
@@ -35,7 +44,6 @@ function LoginPageContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [isAutoLogging, setIsAutoLogging] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [orgaoOpen, setOrgaoOpen] = useState(false);
   const [embedIdentity, setEmbedIdentity] = useState<EmbedUserIdentity | null>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -436,59 +444,45 @@ function LoginPageContent() {
             </div>
             <div className="form-group">
               <label>Orgão</label>
-              <Popover open={orgaoOpen} onOpenChange={setOrgaoOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    role="combobox"
-                    aria-expanded={orgaoOpen}
-                    className="form-input"
-                    disabled={isLoading}
-                    style={{
-                      background: '#f9fafb',
-                      border: '1px solid #d1d5db',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <span style={{ color: watchedOrgao ? 'inherit' : '#9ca3af' }}>
-                      {watchedOrgao || 'Selecione um Órgão'}
-                    </span>
-                    <ChevronsUpDown style={{ width: '16px', height: '16px', opacity: 0.5, flexShrink: 0 }} />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent style={{ width: 'var(--radix-popover-trigger-width)', padding: 0 }} align="start">
-                  <Command>
-                    <CommandInput placeholder="Buscar órgão..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhum órgão encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {ORGAOS_PIAUI.map((orgao) => (
-                          <CommandItem
-                            key={orgao}
-                            value={orgao}
-                            onSelect={() => {
-                              setValue("orgao", orgao);
-                              setOrgaoOpen(false);
-                            }}
-                          >
-                            <Check style={{
-                              width: '16px',
-                              height: '16px',
-                              marginRight: '8px',
-                              opacity: watchedOrgao === orgao ? 1 : 0,
-                            }} />
-                            {orgao}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Combobox
+                items={ORGAOS_PIAUI.map((o) => ({ value: o, label: o }))}
+                value={watchedOrgao ? { value: watchedOrgao, label: watchedOrgao } : null}
+                onValueChange={(val) => {
+                  setValue("orgao", val?.value ?? "", { shouldValidate: true });
+                }}
+                getItemLabel={(item) => item.label}
+                getItemValue={(item) => item.value}
+              >
+                <ComboboxTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-between font-normal"
+                      disabled={isLoading}
+                      style={{
+                        background: '#f9fafb',
+                        border: '1px solid #d1d5db',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <ComboboxValue placeholder="Selecione um Órgão" />
+                    </Button>
+                  }
+                />
+                <ComboboxContent>
+                  <ComboboxInput showTrigger={false} placeholder="Buscar órgão..." />
+                  <ComboboxEmpty>Nenhum órgão encontrado.</ComboboxEmpty>
+                  <ComboboxList>
+                    {(item) => (
+                      <ComboboxItem key={item.value} value={item}>
+                        {item.label}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
               {errors.orgao && (
                 <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '4px' }}>{errors.orgao.message}</p>
               )}
