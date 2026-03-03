@@ -25,27 +25,38 @@ export async function middleware(request: NextRequest) {
   // 1. If ?token= is in the URL, validate it, set as cookie, and redirect without the param
   const tokenParam = request.nextUrl.searchParams.get('token');
   if (tokenParam) {
-    const payload = await decryptJWE(tokenParam);
-    if (payload) {
-      const exp = (payload.exp as number) ?? 0;
-      const now = Math.floor(Date.now() / 1000);
+    console.log('[middleware] token param detected, attempting decryption...');
+    console.log('[middleware] JWE_SECRET_KEY set:', !!process.env.JWE_SECRET_KEY);
 
-      if (exp > now) {
-        // Valid token — set cookie and redirect to clean URL
-        const cleanUrl = new URL(request.nextUrl.pathname, request.url);
-        const response = NextResponse.redirect(cleanUrl);
-        response.cookies.set(COOKIE_NAME, tokenParam, {
-          httpOnly: false,
-          secure: request.nextUrl.protocol === 'https:',
-          sameSite: 'lax',
-          path: '/',
-          maxAge: exp - now,
-        });
-        return response;
-      }
+    const payload = await decryptJWE(tokenParam);
+    console.log('[middleware] decryption result:', payload ? 'success' : 'failed');
+
+    if (payload) {
+      console.log('[middleware] payload keys:', Object.keys(payload));
+      console.log('[middleware] id_pessoa:', payload.id_pessoa, 'usuario:', payload.usuario, 'id_orgao:', payload.id_orgao);
+
+      // Valid token — set cookie and redirect to clean URL
+      const cleanUrl = new URL(request.nextUrl.pathname, request.url);
+      console.log('[middleware] setting cookie and redirecting to:', cleanUrl.toString());
+      const response = NextResponse.redirect(cleanUrl);
+
+      const THIRTY_DAYS = 30 * 24 * 60 * 60;
+      const exp = payload.exp as number | undefined;
+      const now = Math.floor(Date.now() / 1000);
+      const maxAge = exp && exp > now ? exp - now : THIRTY_DAYS;
+
+      response.cookies.set(COOKIE_NAME, tokenParam, {
+        httpOnly: false,
+        secure: false,
+        sameSite: 'lax',
+        path: '/',
+        maxAge,
+      });
+      return response;
     }
     // Invalid or expired token param — strip it and continue
     const cleanUrl = new URL(request.nextUrl.pathname, request.url);
+    console.log('[middleware] invalid/expired token, redirecting to:', cleanUrl.toString());
     return NextResponse.redirect(cleanUrl);
   }
 
@@ -61,14 +72,15 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  const now = Math.floor(Date.now() / 1000);
-  const exp = (payload.exp as number) ?? 0;
-
-  // Token expired — revoke
-  if (exp <= now) {
-    const response = NextResponse.redirect(new URL('/login', request.url));
-    response.cookies.delete(COOKIE_NAME);
-    return response;
+  const exp = payload.exp as number | undefined;
+  if (exp) {
+    const now = Math.floor(Date.now() / 1000);
+    // Token expired — revoke
+    if (exp <= now) {
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.delete(COOKIE_NAME);
+      return response;
+    }
   }
 
   return NextResponse.next();

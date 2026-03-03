@@ -4,12 +4,13 @@ import React, { Suspense, useState, useEffect } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { loginToSEI, getEmbedUserIdentity, autoLoginWithStoredCredentials, embedLogin } from '../sei-actions';
 import type { EmbedUserIdentity } from '../sei-actions';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Info, Check, ChevronsUpDown, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { ORGAOS_PIAUI } from '@/config/constants';
 
@@ -34,6 +35,7 @@ function LoginPageContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [isAutoLogging, setIsAutoLogging] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [orgaoOpen, setOrgaoOpen] = useState(false);
   const [embedIdentity, setEmbedIdentity] = useState<EmbedUserIdentity | null>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -375,8 +377,12 @@ function LoginPageContent() {
               fontSize: '0.875rem',
               marginBottom: '20px',
               lineHeight: '1.4',
+              display: 'flex',
+              gap: '10px',
+              alignItems: 'flex-start',
             }}>
-              Este login é necessário apenas na primeira vez. Suas credenciais serão armazenadas de forma segura para que os próximos acessos sejam automáticos.
+              <Info style={{ width: '18px', height: '18px', flexShrink: 0, marginTop: '1px' }} />
+              <span>Este login é necessário apenas na primeira vez.</span>
             </div>
           )}
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -384,7 +390,7 @@ function LoginPageContent() {
               <label>Usuário</label>
               <input
                 type="text"
-                placeholder="seu.usuario"
+                placeholder="seu.usuario@orgao.pi.gov.br"
                 className="form-input"
                 {...register("usuario")}
                 disabled={isLoading}
@@ -395,35 +401,94 @@ function LoginPageContent() {
             </div>
             <div className="form-group">
               <label>Senha</label>
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                className="form-input"
-                {...register("senha")}
-                disabled={isLoading}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  className="form-input"
+                  style={{ paddingRight: '40px' }}
+                  {...register("senha")}
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '2px',
+                    color: '#6b7280',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  {showPassword ? <EyeOff style={{ width: '18px', height: '18px' }} /> : <Eye style={{ width: '18px', height: '18px' }} />}
+                </button>
+              </div>
               {errors.senha && (
                 <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '4px' }}>{errors.senha.message}</p>
               )}
             </div>
             <div className="form-group">
               <label>Orgão</label>
-              <Select
-                onValueChange={(value) => setValue("orgao", value)}
-                value={watchedOrgao}
-                disabled={isLoading}
-              >
-                <SelectTrigger className="form-input" style={{ background: '#f9fafb', border: '1px solid #d1d5db' }}>
-                  <SelectValue placeholder="Selecione um Órgão" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ORGAOS_PIAUI.map((orgao) => (
-                    <SelectItem key={orgao} value={orgao}>
-                      {orgao}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={orgaoOpen} onOpenChange={setOrgaoOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    role="combobox"
+                    aria-expanded={orgaoOpen}
+                    className="form-input"
+                    disabled={isLoading}
+                    style={{
+                      background: '#f9fafb',
+                      border: '1px solid #d1d5db',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span style={{ color: watchedOrgao ? 'inherit' : '#9ca3af' }}>
+                      {watchedOrgao || 'Selecione um Órgão'}
+                    </span>
+                    <ChevronsUpDown style={{ width: '16px', height: '16px', opacity: 0.5, flexShrink: 0 }} />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent style={{ width: 'var(--radix-popover-trigger-width)', padding: 0 }} align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar órgão..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum órgão encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {ORGAOS_PIAUI.map((orgao) => (
+                          <CommandItem
+                            key={orgao}
+                            value={orgao}
+                            onSelect={() => {
+                              setValue("orgao", orgao);
+                              setOrgaoOpen(false);
+                            }}
+                          >
+                            <Check style={{
+                              width: '16px',
+                              height: '16px',
+                              marginRight: '8px',
+                              opacity: watchedOrgao === orgao ? 1 : 0,
+                            }} />
+                            {orgao}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {errors.orgao && (
                 <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '4px' }}>{errors.orgao.message}</p>
               )}
