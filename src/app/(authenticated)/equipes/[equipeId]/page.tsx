@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Loader2, Settings, Users, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, Loader2, Settings, Users, Trash2, Plus, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -72,6 +72,8 @@ export default function EquipeKanbanPage() {
 
   // Delete team confirmation
   const [isDeleteTeamOpen, setIsDeleteTeamOpen] = useState(false);
+  const [isLeaveTeamOpen, setIsLeaveTeamOpen] = useState(false);
+  const [isLeavingTeam, setIsLeavingTeam] = useState(false);
 
   // New group dialog
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
@@ -205,6 +207,24 @@ export default function EquipeKanbanPage() {
     setIsDeleteTeamOpen(false);
   };
 
+  const handleLeaveTeam = async () => {
+    if (!usuario) return;
+    setIsLeavingTeam(true);
+    try {
+      const result = await removeTeamMember(equipeId, usuario, usuario);
+      if ('error' in result) {
+        toast({ title: "Erro ao sair da equipe", description: result.error, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Você saiu da equipe" });
+      setIsSettingsOpen(false);
+      router.push('/equipes');
+    } finally {
+      setIsLeavingTeam(false);
+      setIsLeaveTeamOpen(false);
+    }
+  };
+
   const handleCreateGroup = async () => {
     if (!usuario || !newGroupName.trim()) return;
     setIsCreatingGroup(true);
@@ -277,6 +297,16 @@ export default function EquipeKanbanPage() {
           <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
             <Settings className="h-4 w-4 mr-1" /> Membros
           </Button>
+          {!isOwner && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setIsLeaveTeamOpen(true)}
+            >
+              <LogOut className="h-4 w-4 mr-1" /> Sair da equipe
+            </Button>
+          )}
           {isOwner && (
             <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setIsDeleteTeamOpen(true)}>
               <Trash2 className="h-4 w-4 mr-1" /> Excluir equipe
@@ -371,6 +401,19 @@ export default function EquipeKanbanPage() {
               </>
             )}
           </div>
+
+          {!isOwner && (
+            <>
+              <Separator />
+              <Button
+                variant="outline"
+                className="w-full text-destructive hover:text-destructive"
+                onClick={() => setIsLeaveTeamOpen(true)}
+              >
+                <LogOut className="mr-2 h-4 w-4" /> Sair da equipe
+              </Button>
+            </>
+          )}
         </SheetContent>
       </Sheet>
 
@@ -430,6 +473,29 @@ export default function EquipeKanbanPage() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteTeam} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Leave Team Confirmation */}
+      <AlertDialog open={isLeaveTeamOpen} onOpenChange={setIsLeaveTeamOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sair da equipe?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você perderá acesso ao quadro e aos grupos compartilhados desta equipe.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLeavingTeam}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLeaveTeam}
+              disabled={isLeavingTeam}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isLeavingTeam ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Sair da equipe
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

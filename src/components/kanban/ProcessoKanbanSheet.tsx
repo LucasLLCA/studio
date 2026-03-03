@@ -100,6 +100,19 @@ export function ProcessoKanbanSheet({
   const router = useRouter();
   const [isMoving, setIsMoving] = useState(false);
 
+  const numeroAtual = processo.numero_processo;
+
+  const colunaJaTemProcesso = useCallback((coluna: any) => {
+    const listaProcessos =
+      coluna?.processos ??
+      coluna?.listaDeProcessos ??
+      coluna?.lista_processos ??
+      coluna?.items ??
+      [];
+
+    return listaProcessos.some((p: any) => p?.numero_processo === numeroAtual);
+  }, [numeroAtual]);
+
 
   // Team tags state
   const [processoTags, setProcessoTags] = useState<TeamTag[]>(processo.team_tags || []);
@@ -158,6 +171,8 @@ export function ProcessoKanbanSheet({
   // const move -> Função para mover
 
   const toggleGrupoDestino = useCallback((coluna: { tag_id: string; tag_nome: string; tag_cor: string; equipe_id?: string; criado_por?: string; criado_em?: string; atualizado_em?: string }) => {
+    if (colunaJaTemProcesso(coluna)) return;
+
     const tag: TeamTag = {
       id: coluna.tag_id,
       nome: coluna.tag_nome,
@@ -172,14 +187,29 @@ export function ProcessoKanbanSheet({
         ? prev.filter(g => g.id !== tag.id)
         : [...prev, tag]
     );
-  }, [equipeId]);
+  }, [equipeId, colunaJaTemProcesso]);
 
   const moverProcessoParaGrupos = useCallback(async () => {
     if (!usuario || gruposDestino.length === 0) return;
+
+    const destinosValidos = gruposDestino.filter(grupo => {
+      const coluna = kanbanColunas.find((c) => c.tag_id === grupo.id);
+      return !coluna || !colunaJaTemProcesso(coluna);
+    });
+
+    if (destinosValidos.length === 0) {
+      toast({
+        title: 'Nenhum destino válido',
+        description: 'O processo já está presente nos grupos selecionados.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsMoving(true);
     try {
       const resultados = await Promise.all(
-        gruposDestino.map(grupo =>
+        destinosValidos.map(grupo =>
           salvarProcessoNoKanban(
             equipeId,
             grupo.id,
@@ -192,18 +222,20 @@ export function ProcessoKanbanSheet({
 
       const erros = resultados.filter(r => 'error' in r) as { error: string; status?: number }[];
       const sucessos = resultados.filter(r => !('error' in r));
+      const errosDuplicidade = erros.filter(e => e.status === 409);
+      const errosOutros = erros.filter(e => e.status !== 409);
 
       if (erros.length === 0) {
         toast({
           title: "Processo adicionado com sucesso!",
-          description: gruposDestino.length === 1
-            ? `Adicionado ao grupo "${gruposDestino[0].nome}".`
-            : `Adicionado a ${gruposDestino.length} grupos.`,
+          description: destinosValidos.length === 1
+            ? `Adicionado ao grupo "${destinosValidos[0].nome}".`
+            : `Adicionado a ${destinosValidos.length} grupos.`,
         });
-      } else if (sucessos.length > 0) {
+      } else if (sucessos.length > 0 || errosDuplicidade.length > 0) {
         toast({
           title: "Adicionado parcialmente",
-          description: `${sucessos.length} grupo(s) com sucesso, ${erros.length} com erro (processo já existia).`,
+          description: `${sucessos.length} grupo(s) com sucesso, ${errosDuplicidade.length} já tinham o processo${errosOutros.length > 0 ? `, ${errosOutros.length} com outro erro` : ''}.`,
           variant: "destructive",
         });
       } else {
@@ -221,7 +253,7 @@ export function ProcessoKanbanSheet({
     } finally {
       setIsMoving(false);
     }
-  }, [equipeId, processo.numero_processo, processo.numero_processo_formatado, usuario, toast, onTagsChanged, gruposDestino]);
+  }, [equipeId, processo.numero_processo, processo.numero_processo_formatado, usuario, toast, onTagsChanged, gruposDestino, kanbanColunas, colunaJaTemProcesso]);
 
 
   useEffect(() => {
@@ -386,12 +418,19 @@ export function ProcessoKanbanSheet({
                   ) : (
                     kanbanColunas.map(coluna => {
                       const isSelecionado = gruposDestino.some(g => g.id === coluna.tag_id);
+                      const jaAdicionado = colunaJaTemProcesso(coluna);
                       return (
                         <button
                           key={coluna.tag_id}
                           type="button"
-                          onClick={() => toggleGrupoDestino(coluna)}
-                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-sm text-left hover:bg-accent cursor-pointer"
+                          onClick={() => !jaAdicionado && toggleGrupoDestino(coluna)}
+                          disabled={jaAdicionado}
+                          className={cn(
+                            'w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-sm text-left transition-colors',
+                            jaAdicionado
+                              ? 'opacity-50 cursor-not-allowed'
+                              : 'hover:bg-accent cursor-pointer'
+                          )}
                         >
                           <div className={cn(
                             'h-4 w-4 rounded border flex items-center justify-center flex-shrink-0',
@@ -402,6 +441,11 @@ export function ProcessoKanbanSheet({
                             {isSelecionado && <Check className="h-3 w-3 text-primary-foreground" />}
                           </div>
                           <span className="flex-1">{coluna.tag_nome}</span>
+                          {jaAdicionado && (
+                            <Badge className="bg-green-100 text-green-700 border border-green-200 hover:bg-green-100">
+                              Já adicionado
+                            </Badge>
+                          )}
                         </button>
                       );
                     })
