@@ -365,6 +365,20 @@ function LoginPageContent() {
             <h1>Login SEI</h1>
             <p>Acesse o Visualizador de Processos</p>
           </div>
+          {embedIdentity && (
+            <div style={{
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '6px',
+              padding: '12px 16px',
+              color: '#1e40af',
+              fontSize: '0.875rem',
+              marginBottom: '20px',
+              lineHeight: '1.4',
+            }}>
+              Este login é necessário apenas na primeira vez. Suas credenciais serão armazenadas de forma segura para que os próximos acessos sejam automáticos.
+            </div>
+          )}
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="form-group">
               <label>Usuário</label>

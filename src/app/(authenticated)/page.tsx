@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getSearchHistory, deleteSearchHistory, type HistoryItem } from '@/lib/history-api-client';
 import { stripProcessNumber } from '@/lib/utils';
@@ -46,8 +46,6 @@ export default function Home() {
 function HomeContent() {
   const { toast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
-
   const {
     isAuthenticated,
     nomeUsuario,
@@ -69,13 +67,11 @@ function HomeContent() {
   useEffect(() => {
     if (mounted && !isAuthenticated) {
       const timer = setTimeout(() => {
-        // Preserve token query param so /login can auto-login with it
-        const token = searchParams.get('token');
-        router.push(token ? `/login?token=${encodeURIComponent(token)}` : '/login');
+        router.push('/login');
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [mounted, isAuthenticated, router, searchParams]);
+  }, [mounted, isAuthenticated, router]);
 
   useEffect(() => {
     const loadHistory = async () => {
