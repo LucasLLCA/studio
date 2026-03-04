@@ -76,12 +76,26 @@ export interface ShareRecord {
   criado_em: string;
 }
 
+export type ObservacaoEscopo = 'pessoal' | 'equipe' | 'global';
+
+export interface ObservacaoMencao {
+  id: string;
+  observacao_id: string;
+  usuario_mencionado: string;
+  visto_em: string | null;
+  criado_em: string;
+}
+
 export interface Observacao {
   id: string;
   numero_processo: string;
   usuario: string;
   conteudo: string;
+  escopo?: ObservacaoEscopo;
   equipe_id?: string | null;
+  parent_id?: string | null;
+  mencoes?: ObservacaoMencao[];
+  respostas?: Observacao[];
   criado_em: string;
   atualizado_em: string;
 }

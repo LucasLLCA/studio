@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Loader2, Settings, Users, Trash2, Plus, LogOut } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { ArrowLeft, Loader2, Settings, Users, Trash2, Plus, LogOut, Search, X as XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useParams, useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 import { getKanbanBoard } from '@/lib/api/team-tags-api-client';
 import { createTag, removeProcessoFromTag } from '@/lib/api/tags-api-client';
 import {
@@ -74,6 +75,36 @@ export default function EquipeKanbanPage() {
   const [isDeleteTeamOpen, setIsDeleteTeamOpen] = useState(false);
   const [isLeaveTeamOpen, setIsLeaveTeamOpen] = useState(false);
   const [isLeavingTeam, setIsLeavingTeam] = useState(false);
+
+  // Filtros do board
+  const [filterNumero, setFilterNumero] = useState('');
+  const [filterTagIds, setFilterTagIds] = useState<Set<string>>(new Set());
+
+  const colunasVisiveis = useMemo(() => {
+    if (!board) return [];
+    let colunas = board.colunas;
+
+    if (filterTagIds.size > 0) {
+      colunas = colunas.filter(c => filterTagIds.has(c.tag_id));
+    }
+
+    if (filterNumero.trim()) {
+      const termo = filterNumero.trim().toLowerCase();
+      colunas = colunas
+        .map(c => ({
+          ...c,
+          processos: c.processos.filter(p =>
+            p.numero_processo.toLowerCase().includes(termo) ||
+            (p.numero_processo_formatado ?? '').toLowerCase().includes(termo)
+          ),
+        }))
+        .filter(c => c.processos.length > 0);
+    }
+
+    return colunas;
+  }, [board, filterNumero, filterTagIds]);
+
+  const filtroAtivo = filterNumero.trim() !== '' || filterTagIds.size > 0;
 
   // New group dialog
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
@@ -315,16 +346,83 @@ export default function EquipeKanbanPage() {
         </div>
       </div>
 
+      {/* Barra de filtros */}
+      <div className="flex-shrink-0 border-b px-4 sm:px-6 py-2 flex flex-wrap items-center gap-2 bg-muted/20">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Número Processo..."
+            value={filterNumero}
+            onChange={(e) => setFilterNumero(e.target.value)}
+            className="pl-8 h-8 text-sm w-52"
+          />
+          {filterNumero && (
+            <button
+              onClick={() => setFilterNumero('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <XIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {board.colunas.map(coluna => (
+            <button
+              key={coluna.tag_id}
+              onClick={() => setFilterTagIds(prev => {
+                const next = new Set(prev);
+                if (next.has(coluna.tag_id)) next.delete(coluna.tag_id);
+                else next.add(coluna.tag_id);
+                return next;
+              })}
+              className={cn(
+                'text-xs px-2.5 py-0.5 rounded-full border transition-colors',
+                filterTagIds.has(coluna.tag_id)
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+              )}
+            >
+              {coluna.tag_nome}
+            </button>
+          ))}
+
+          {filtroAtivo && (
+            <button
+              onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); }}
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Kanban Board */}
       <div className="flex-1 overflow-hidden">
-        <KanbanBoard
-          colunas={board.colunas}
-          teamTags={board.team_tags}
-          onProcessoClick={(processo, tagNome) => setSelectedProcesso({ processo, tagNome })}
-          onDeleteColumn={isAdmin ? (id) => setDeleteColumnId(id) : undefined}
-          onDeleteProcesso={(processo) => setDeleteProcessoData(processo)}
-          onAddGroup={() => setIsNewGroupOpen(true)}
-        />
+        {filtroAtivo && colunasVisiveis.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <div className="text-center">
+              <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Nenhum processo encontrado para os filtros aplicados.</p>
+              <button
+                onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); }}
+                className="text-xs text-primary hover:underline mt-2 block mx-auto"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          </div>
+        ) : (
+          <KanbanBoard
+            colunas={colunasVisiveis}
+            teamTags={board.team_tags}
+            onProcessoClick={(processo, tagNome) => setSelectedProcesso({ processo, tagNome })}
+            onDeleteColumn={isAdmin ? (id) => setDeleteColumnId(id) : undefined}
+            onDeleteProcesso={(processo) => setDeleteProcessoData(processo)}
+            onAddGroup={filtroAtivo ? undefined : () => setIsNewGroupOpen(true)}
+          />
+        )}
       </div>
 
       {/* Processo Detail Sheet */}

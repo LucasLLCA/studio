@@ -14,6 +14,12 @@ import {
   ChevronDown,
   Info,
   ArrowRight,
+  Lock,
+  Users,
+  Globe,
+  Reply,
+  AtSign,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -53,10 +59,13 @@ import {
   getObservacoes,
   createObservacao,
   deleteObservacao,
+  getMencoesNaoLidas,
+  marcarMencaoVista,
 } from '@/lib/api/observacoes-api-client';
-import { formatDistanceToNow } from 'date-fns';
+import { getTeamDetail } from '@/lib/api/teams-api-client';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { KanbanProcesso, TeamTag, Observacao } from '@/types/teams';
+import type { KanbanProcesso, TeamTag, Observacao, ObservacaoEscopo, TeamMember } from '@/types/teams';
 import {
   Dialog,
   DialogContent,
@@ -138,7 +147,25 @@ export function ProcessoKanbanSheet({
   const [isLoadingObs, setIsLoadingObs] = useState(false);
   const [isSendingObs, setIsSendingObs] = useState(false);
   const [obsConteudo, setObsConteudo] = useState('');
+  const [obsEscopo, setObsEscopo] = useState<ObservacaoEscopo>('equipe');
+  const [filterEscopo, setFilterEscopo] = useState<'todos' | ObservacaoEscopo>('todos');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // @mencao state
+  const [membrosEquipe, setMembrosEquipe] = useState<TeamMember[]>([]);
+  const [mencaoAtiva, setMencaoAtiva] = useState<string | null>(null);
+  const [showMencaoDropdown, setShowMencaoDropdown] = useState(false);
+
+  // Badge de mencoes nao lidas
+  const [mencoesBadge, setMencoesBadge] = useState(0);
+
+  // Respostas inline
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyConteudo, setReplyConteudo] = useState('');
+  const [isSendingReply, setIsSendingReply] = useState(false);
+  const [replyMencaoAtiva, setReplyMencaoAtiva] = useState<string | null>(null);
+  const [showReplyMencaoDropdown, setShowReplyMencaoDropdown] = useState(false);
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -154,11 +181,34 @@ export function ProcessoKanbanSheet({
       if (!('error' in result)) {
         setObservacoes(result);
         setTimeout(scrollToBottom, 100);
+        // Marcar automaticamente como vistas as mencoes do usuario
+        for (const obs of result) {
+          const temMencaoNaoVista = obs.mencoes?.some(
+            m => m.usuario_mencionado === usuario && !m.visto_em
+          );
+          if (temMencaoNaoVista) {
+            marcarMencaoVista(processo.numero_processo, obs.id, usuario);
+          }
+        }
       }
     } finally {
       setIsLoadingObs(false);
     }
   }, [processo.numero_processo, equipeId, usuario, scrollToBottom]);
+
+  const loadMembrosEBadge = useCallback(async () => {
+    if (!usuario) return;
+    const [teamResult, badgeResult] = await Promise.all([
+      getTeamDetail(equipeId, usuario),
+      getMencoesNaoLidas(processo.numero_processo, usuario),
+    ]);
+    if (!('error' in teamResult)) {
+      setMembrosEquipe(teamResult.membros);
+    }
+    if (!('error' in badgeResult)) {
+      setMencoesBadge(badgeResult.count);
+    }
+  }, [equipeId, usuario, processo.numero_processo]);
 
   const loadTags = useCallback(async () => {
     if (!usuario) return;
@@ -261,8 +311,9 @@ export function ProcessoKanbanSheet({
       loadObservacoes();
       loadTags();
       loadKanbanColunas();
+      loadMembrosEBadge();
     }
-  }, [isOpen, loadObservacoes, loadTags, loadKanbanColunas]);
+  }, [isOpen, loadObservacoes, loadTags, loadKanbanColunas, loadMembrosEBadge]);
 
   const handleAddTag = async (tag: TeamTag) => {
     if (!usuario) return;
@@ -310,39 +361,179 @@ export function ProcessoKanbanSheet({
     }
   };
 
+  // @mention helpers
+  const detectMencao = (texto: string, cursor: number) => {
+    const textoAteCursor = texto.slice(0, cursor);
+    const match = textoAteCursor.match(/@([\w.]*)$/);
+    return match ? match[1] : null;
+  };
+
+  const handleObsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const texto = e.target.value;
+    setObsConteudo(texto);
+    const cursor = e.target.selectionStart ?? 0;
+    const mencao = detectMencao(texto, cursor);
+    setMencaoAtiva(mencao);
+    setShowMencaoDropdown(mencao !== null);
+  };
+
+  const handleSelectMencao = (membro: TeamMember) => {
+    const cursor = textareaRef.current?.selectionStart ?? obsConteudo.length;
+    const textoAteCursor = obsConteudo.slice(0, cursor);
+    const match = textoAteCursor.match(/@([\w.]*)$/);
+    if (!match) return;
+    const inicio = cursor - match[0].length;
+    const novo = obsConteudo.slice(0, inicio) + `@${membro.usuario} ` + obsConteudo.slice(cursor);
+    setObsConteudo(novo);
+    setShowMencaoDropdown(false);
+    setMencaoAtiva(null);
+    textareaRef.current?.focus();
+  };
+
+  const handleReplyChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const texto = e.target.value;
+    setReplyConteudo(texto);
+    const cursor = e.target.selectionStart ?? 0;
+    const mencao = detectMencao(texto, cursor);
+    setReplyMencaoAtiva(mencao);
+    setShowReplyMencaoDropdown(mencao !== null);
+  };
+
+  const handleSelectReplyMencao = (membro: TeamMember, textareaEl: HTMLTextAreaElement | null) => {
+    const cursor = textareaEl?.selectionStart ?? replyConteudo.length;
+    const textoAteCursor = replyConteudo.slice(0, cursor);
+    const match = textoAteCursor.match(/@([\w.]*)$/);
+    if (!match) return;
+    const inicio = cursor - match[0].length;
+    const novo = replyConteudo.slice(0, inicio) + `@${membro.usuario} ` + replyConteudo.slice(cursor);
+    setReplyConteudo(novo);
+    setShowReplyMencaoDropdown(false);
+    setReplyMencaoAtiva(null);
+    textareaEl?.focus();
+  };
+
+  const membrosFiltradosMencao = (query: string | null) => {
+    if (query === null) return [];
+    return membrosEquipe.filter(
+      m => m.usuario !== usuario && m.usuario.toLowerCase().includes(query.toLowerCase())
+    );
+  };
+
   const handleSendObs = async () => {
     if (!usuario || !obsConteudo.trim() || isSendingObs) return;
     setIsSendingObs(true);
+    const equipeParaEnvio = obsEscopo === 'equipe' ? equipeId : undefined;
+    const mencoes = membrosFiltradosMencao('').map(m => m.usuario); // será extraido pelo backend tbm
     try {
-      const result = await createObservacao(processo.numero_processo, usuario, obsConteudo.trim(), equipeId);
+      const result = await createObservacao(
+        processo.numero_processo, usuario, obsConteudo.trim(),
+        obsEscopo, equipeParaEnvio, [], // backend extrai do conteudo
+      );
       if ('error' in result) {
         toast({ title: "Erro ao enviar", description: result.error, variant: "destructive" });
         return;
       }
       setObservacoes(prev => [...prev, result]);
       setObsConteudo('');
+      setShowMencaoDropdown(false);
       setTimeout(scrollToBottom, 100);
     } finally {
       setIsSendingObs(false);
     }
   };
 
-  const handleDeleteObs = async (observacaoId: string) => {
+  const handleSendReply = async (parentId: string) => {
+    if (!usuario || !replyConteudo.trim() || isSendingReply) return;
+    setIsSendingReply(true);
+    try {
+      const result = await createObservacao(
+        processo.numero_processo, usuario, replyConteudo.trim(),
+        obsEscopo, obsEscopo === 'equipe' ? equipeId : undefined,
+        [], parentId,
+      );
+      if ('error' in result) {
+        toast({ title: "Erro ao responder", description: result.error, variant: "destructive" });
+        return;
+      }
+      // Atualiza a obs pai com a nova resposta
+      setObservacoes(prev => prev.map(o => {
+        if (o.id === parentId) {
+          return { ...o, respostas: [...(o.respostas ?? []), result] };
+        }
+        return o;
+      }));
+      setReplyConteudo('');
+      setReplyingToId(null);
+      setShowReplyMencaoDropdown(false);
+      setTimeout(scrollToBottom, 100);
+    } finally {
+      setIsSendingReply(false);
+    }
+  };
+
+  const handleDeleteObs = async (observacaoId: string, parentId?: string) => {
     if (!usuario) return;
     const result = await deleteObservacao(processo.numero_processo, observacaoId, usuario);
     if ('error' in result) {
       toast({ title: "Erro ao excluir", description: result.error, variant: "destructive" });
       return;
     }
-    setObservacoes(prev => prev.filter(o => o.id !== observacaoId));
+    if (parentId) {
+      // É uma resposta — remove da lista de respostas da pai
+      setObservacoes(prev => prev.map(o => {
+        if (o.id === parentId) {
+          return { ...o, respostas: (o.respostas ?? []).filter(r => r.id !== observacaoId) };
+        }
+        return o;
+      }));
+    } else {
+      setObservacoes(prev => prev.filter(o => o.id !== observacaoId));
+    }
   };
 
   const handleObsKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (showMencaoDropdown && (e.key === 'Escape')) {
+      setShowMencaoDropdown(false);
+      return;
+    }
+    if (e.key === 'Enter' && !e.shiftKey && !showMencaoDropdown) {
       e.preventDefault();
       handleSendObs();
     }
   };
+
+  // Renderiza conteudo com @mencoes destacadas
+  const renderizarConteudo = (conteudo: string) => {
+    const partes = conteudo.split(/(@[\w.]+(?:@[\w.]+)*)/g);
+    return partes.map((parte, i) => {
+      if (parte.startsWith('@')) {
+        const isMe = usuario && parte.slice(1) === usuario;
+        return (
+          <span key={i} className={cn('font-semibold', isMe ? 'text-primary' : 'text-blue-600')}>
+            {parte}
+          </span>
+        );
+      }
+      return <span key={i}>{parte}</span>;
+    });
+  };
+
+  // Config visual de escopo
+  const scopeConfig: Record<ObservacaoEscopo, { label: string; Icon: React.ElementType; className: string }> = {
+    pessoal: { label: 'Pessoal', Icon: Lock,  className: 'bg-muted/50 text-muted-foreground border-muted' },
+    equipe:  { label: 'Equipe',  Icon: Users, className: 'bg-blue-50 text-blue-600 border-blue-100' },
+    global:  { label: 'Global',  Icon: Globe, className: 'bg-green-50 text-green-600 border-green-100' },
+  };
+
+  const obsEscopoOptions: { value: ObservacaoEscopo; label: string; Icon: React.ElementType }[] = [
+    { value: 'pessoal', label: 'Pessoal', Icon: Lock },
+    { value: 'equipe',  label: 'Equipe',  Icon: Users },
+    { value: 'global',  label: 'Global',  Icon: Globe },
+  ];
+
+  const observacoesFiltradas = filterEscopo === 'todos'
+    ? observacoes
+    : observacoes.filter(o => (o.escopo ?? 'pessoal') === filterEscopo);
 
   // Filter available tags (not already applied)
   const appliedTagIds = new Set(processoTags.map(t => t.id));
@@ -544,19 +735,65 @@ export function ProcessoKanbanSheet({
         <div className="flex items-center gap-2 mb-2 flex-shrink-0">
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">Observacoes da equipe</h3>
+          {mencoesBadge > 0 && (
+            <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+              {mencoesBadge}
+            </span>
+          )}
         </div>
 
         {/* Obs input at top */}
-        <div className="flex-shrink-0 pb-2">
-          <div className="flex gap-2 items-end">
-            <textarea
-              value={obsConteudo}
-              onChange={(e) => setObsConteudo(e.target.value)}
-              onKeyDown={handleObsKeyDown}
-              placeholder="Escreva uma observacao..."
-              rows={2}
-              className="flex-1 resize-none rounded-md border border-input bg-white dark:bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            />
+        <div className="flex-shrink-0 pb-2 space-y-1.5">
+          {/* Seletor de escopo */}
+          <div className="flex gap-1.5">
+            {obsEscopoOptions.map(({ value, label, Icon }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setObsEscopo(value)}
+                className={cn(
+                  'flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border transition-colors',
+                  obsEscopo === value
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                )}
+              >
+                <Icon className="h-3 w-3" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative flex gap-2 items-end">
+            <div className="flex-1 relative">
+              <textarea
+                ref={textareaRef}
+                value={obsConteudo}
+                onChange={handleObsChange}
+                onKeyDown={handleObsKeyDown}
+                placeholder="Escreva uma observacao... use @ para mencionar"
+                rows={2}
+                className="w-full resize-none rounded-md border border-input bg-white dark:bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
+              {/* Dropdown @mencao */}
+              {showMencaoDropdown && membrosFiltradosMencao(mencaoAtiva ?? '').length > 0 && (
+                <div className="absolute bottom-full left-0 mb-1 w-full bg-popover border rounded-md shadow-md z-50 max-h-36 overflow-y-auto">
+                  {membrosFiltradosMencao(mencaoAtiva ?? '').map(membro => (
+                    <button
+                      key={membro.id}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); handleSelectMencao(membro); }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-left"
+                    >
+                      <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                        {membro.usuario[0].toUpperCase()}
+                      </span>
+                      <span className="truncate">{membro.usuario}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <Button
               size="sm"
               onClick={handleSendObs}
@@ -568,48 +805,228 @@ export function ProcessoKanbanSheet({
           </div>
         </div>
 
+        {/* Filtro de escopo */}
+        <div className="flex-shrink-0 flex items-center gap-1.5 pb-2">
+          <span className="text-xs text-muted-foreground font-medium mr-0.5">Filtrar por:</span>
+          {(['todos', 'pessoal', 'equipe', 'global'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilterEscopo(f)}
+              className={cn(
+                'text-xs px-2.5 py-0.5 rounded-full border transition-colors',
+                filterEscopo === f
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'text-muted-foreground border-border hover:text-foreground'
+              )}
+            >
+              {f === 'todos' ? 'Todos' : scopeConfig[f].label}
+            </button>
+          ))}
+        </div>
+
         {/* Obs message list */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto pr-1 space-y-3">
           {isLoadingObs ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 text-primary animate-spin" />
             </div>
-          ) : observacoes.length === 0 ? (
+          ) : observacoesFiltradas.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <MessageSquare className="h-8 w-8 mb-2 opacity-40" />
-              <p className="text-xs">Nenhuma observacao da equipe ainda.</p>
+              <p className="text-xs">Nenhuma observacao ainda.</p>
             </div>
           ) : (
-            observacoes.map((obs) => (
-              <div key={obs.id} className="group flex gap-2.5">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold">
-                  {getInitials(obs.usuario)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-foreground truncate">
-                      {obs.usuario}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                      {formatDistanceToNow(new Date(obs.criado_em), { addSuffix: true, locale: ptBR })}
-                    </span>
-                    {usuario === obs.usuario && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                        onClick={() => handleDeleteObs(obs.id)}
+            observacoesFiltradas.map((obs) => {
+              const escopoObs = (obs.escopo ?? 'pessoal') as ObservacaoEscopo;
+              const { label: scopeLabel, Icon: ScopeIcon, className: scopeClassName } = scopeConfig[escopoObs];
+              const souMencionado = obs.mencoes?.some(m => m.usuario_mencionado === usuario);
+              const vistosPor = obs.mencoes?.filter(m => m.visto_em !== null) ?? [];
+              const isReplying = replyingToId === obs.id;
+              return (
+                <div
+                  key={obs.id}
+                  className={cn(
+                    'group flex gap-2.5 rounded-lg p-1.5 -mx-1.5 transition-colors',
+                    souMencionado && 'bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800/40'
+                  )}
+                >
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold">
+                    {getInitials(obs.usuario)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-medium text-foreground truncate">
+                        {obs.usuario}
+                      </span>
+                      <span
+                        className="text-[10px] text-muted-foreground flex-shrink-0 cursor-default"
+                        title={format(new Date(obs.criado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                       >
-                        <Trash2 className="h-3 w-3 text-destructive" />
-                      </Button>
+                        {formatDistanceToNow(new Date(obs.criado_em), { addSuffix: true, locale: ptBR })}
+                      </span>
+                      <span className={cn(
+                        'inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border flex-shrink-0',
+                        scopeClassName
+                      )}>
+                        <ScopeIcon className="h-2.5 w-2.5" />
+                        {scopeLabel}
+                      </span>
+                      <div className="ml-auto flex items-center gap-1">
+                        {/* Botao responder */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                          onClick={() => {
+                            setReplyingToId(isReplying ? null : obs.id);
+                            setReplyConteudo('');
+                          }}
+                          title="Responder"
+                        >
+                          <Reply className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                        {usuario === obs.usuario && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                            onClick={() => handleDeleteObs(obs.id)}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Conteudo com @mencoes destacadas */}
+                    <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words mt-0.5">
+                      {renderizarConteudo(obs.conteudo)}
+                    </p>
+
+                    {/* Tag "Visto por X" */}
+                    {vistosPor.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {vistosPor.map(m => (
+                          <span
+                            key={m.id}
+                            className="inline-flex items-center gap-0.5 text-[10px] text-green-600 bg-green-50 border border-green-200 rounded px-1.5 py-0.5"
+                            title={m.visto_em ? format(new Date(m.visto_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : ''}
+                          >
+                            <Eye className="h-2.5 w-2.5" />
+                            Visto por {m.usuario_mencionado.split('@')[0]}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Respostas indentadas */}
+                    {(obs.respostas ?? []).length > 0 && (
+                      <div className="mt-2 space-y-2 pl-3 border-l-2 border-muted">
+                        {(obs.respostas ?? []).map(resp => (
+                          <div key={resp.id} className="group/resp flex gap-2">
+                            <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-semibold">
+                              {getInitials(resp.usuario)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className="text-[11px] font-medium truncate">{resp.usuario}</span>
+                                <span
+                                  className="text-[10px] text-muted-foreground cursor-default"
+                                  title={format(new Date(resp.criado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                >
+                                  {formatDistanceToNow(new Date(resp.criado_em), { addSuffix: true, locale: ptBR })}
+                                </span>
+                                {usuario === resp.usuario && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-4 w-4 p-0 opacity-0 group-hover/resp:opacity-100 transition-opacity ml-auto"
+                                    onClick={() => handleDeleteObs(resp.id, obs.id)}
+                                  >
+                                    <Trash2 className="h-2.5 w-2.5 text-destructive" />
+                                  </Button>
+                                )}
+                              </div>
+                              <p className="text-xs text-foreground/90 whitespace-pre-wrap break-words">
+                                {renderizarConteudo(resp.conteudo)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Caixa de resposta inline */}
+                    {isReplying && (
+                      <div className="mt-2 pl-3 border-l-2 border-primary/30">
+                        <div className="relative">
+                          <textarea
+                            autoFocus
+                            value={replyConteudo}
+                            onChange={handleReplyChange}
+                            onKeyDown={(e) => {
+                              if (showReplyMencaoDropdown && e.key === 'Escape') {
+                                setShowReplyMencaoDropdown(false);
+                                return;
+                              }
+                              if (e.key === 'Enter' && !e.shiftKey && !showReplyMencaoDropdown) {
+                                e.preventDefault();
+                                handleSendReply(obs.id);
+                              }
+                              if (e.key === 'Escape' && !showReplyMencaoDropdown) {
+                                setReplyingToId(null);
+                              }
+                            }}
+                            placeholder="Responder... use @ para mencionar"
+                            rows={2}
+                            className="w-full resize-none rounded-md border border-input bg-white dark:bg-background px-2 py-1.5 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          />
+                          {/* Dropdown @mencao reply */}
+                          {showReplyMencaoDropdown && membrosFiltradosMencao(replyMencaoAtiva ?? '').length > 0 && (
+                            <div className="absolute bottom-full left-0 mb-1 w-full bg-popover border rounded-md shadow-md z-50 max-h-28 overflow-y-auto">
+                              {membrosFiltradosMencao(replyMencaoAtiva ?? '').map(membro => (
+                                <button
+                                  key={membro.id}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleSelectReplyMencao(membro, e.currentTarget.closest('.relative')?.querySelector('textarea') ?? null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-left"
+                                >
+                                  <span className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                                    {membro.usuario[0].toUpperCase()}
+                                  </span>
+                                  <span className="truncate">{membro.usuario}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-1 mt-1 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs px-2"
+                            onClick={() => { setReplyingToId(null); setReplyConteudo(''); }}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-6 text-xs px-2"
+                            onClick={() => handleSendReply(obs.id)}
+                            disabled={!replyConteudo.trim() || isSendingReply}
+                          >
+                            {isSendingReply ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Responder'}
+                          </Button>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words mt-0.5">
-                    {obs.conteudo}
-                  </p>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
