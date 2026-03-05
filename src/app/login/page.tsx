@@ -46,7 +46,7 @@ function LoginPageContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [isAutoLogging, setIsAutoLogging] = useState(true);
   const [embedIdentity, setEmbedIdentity] = useState<EmbedUserIdentity | null>(null);
-  const [loginError, setLoginError] = useState<{ tipo: 'usuario' | 'senha' | 'geral'; mensagem: string } | null>(null);
+  const [loginError, setLoginError] = useState<{ tipo: 'usuario' | 'senha' | 'geral' | 'conexao'; mensagem: string } | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -157,7 +157,7 @@ function LoginPageContent() {
   };
 
   const resolverErroDaResposta = (response: { error?: string; details?: unknown; status?: number }): {
-    tipo: 'usuario' | 'senha' | 'geral';
+    tipo: 'usuario' | 'senha' | 'geral' | 'conexao';
     mensagem: string;
   } => {
     const status = response.status ?? 0;
@@ -188,7 +188,15 @@ function LoginPageContent() {
       };
     }
 
-    // 500 ou outro → erro de servidor / conexão
+    // 500 → erro de conexão com o SEI
+    if (status === 500) {
+      return {
+        tipo: 'conexao',
+        mensagem: "Não foi possível conectar ao serviço SEI. Tente novamente em alguns instantes.",
+      };
+    }
+
+    // Outro → erro genérico
     const mensagemFallback =
       extrairMensagem(response.error) ??
       extrairMensagem(response.details) ??
@@ -604,6 +612,8 @@ function LoginPageContent() {
                       ? 'Usuário não encontrado'
                       : loginError.tipo === 'senha'
                       ? 'Senha incorreta'
+                      : loginError.tipo === 'conexao'
+                      ? 'Erro ao conectar com o SEI'
                       : 'Senha ou usuário errados'}
                   </p>
                   <p style={{ color: '#991b1b', fontSize: '0.8125rem', lineHeight: '1.4' }}>

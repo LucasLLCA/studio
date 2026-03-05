@@ -189,29 +189,6 @@ function HomeContent() {
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-10 items-center mt-4 xl:mt-8">
           <section className="justify-between">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <FeatureCard
-                icon={<GanttChartSquare className="w-8 h-8" />}
-                title="Seja Agil"
-                subtitle="Analise objetivamente com a linha do tempo"
-              />
-              <FeatureCard
-                icon={<Brain className="w-8 h-8" />}
-                title="Use IA a seu favor"
-                subtitle="Entendimento automatizado de processos e documentos"
-              />
-              <FeatureCard
-                icon={<Share2 className="w-8 h-8" />}
-                title="Salve e acompanhe"
-                subtitle="Crie grupos, favorite e compartilhe processos com outros gestores"
-              />
-              <FeatureCard
-                icon={<FileSignature className="w-8 h-8" />}
-                title={"Tome a\u00e7\u00f5es rapidas"}
-                subtitle={"(Em breve) Assine oficios, compartilhe entendimentos e situa\u00e7\u00f5es"}
-              />
-            </div>
-
             <div className="w-full">
               <div className="relative b-0">
                 <Input
@@ -237,6 +214,28 @@ function HomeContent() {
                   <Search className="h-5 w-5" />
                 </Button>
               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <FeatureCard
+                icon={<GanttChartSquare className="w-8 h-8" />}
+                title="Seja Agil"
+                subtitle="Analise objetivamente com a linha do tempo"
+              />
+              <FeatureCard
+                icon={<Brain className="w-8 h-8" />}
+                title="Use IA a seu favor"
+                subtitle="Entendimento automatizado de processos e documentos"
+              />
+              <FeatureCard
+                icon={<Share2 className="w-8 h-8" />}
+                title="Salve e acompanhe"
+                subtitle="Crie grupos, favorite e compartilhe processos com outros gestores"
+              />
+              <FeatureCard
+                icon={<FileSignature className="w-8 h-8" />}
+                title={"Tome a\u00e7\u00f5es rapidas"}
+                subtitle={"(Em breve) Assine oficios, compartilhe entendimentos e situa\u00e7\u00f5es"}
+              />
             </div>
           </section>
 
