@@ -21,6 +21,11 @@ import { loginToSEI, getEmbedUserIdentity, autoLoginWithStoredCredentials, embed
 import type { EmbedUserIdentity } from '../sei-actions';
 import { Loader2, Info, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { loginToSEI, decryptSEICredentials, decryptJWEToken } from '../sei-actions';
+import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import Image from 'next/image';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { ORGAOS_PIAUI } from '@/config/constants';
 
 const loginSchema = z.object({
@@ -43,8 +48,8 @@ function LoginPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isAutoLogging, setIsAutoLogging] = useState(true);
-  const [loginError, setLoginError] = useState<string | null>(null);
   const [embedIdentity, setEmbedIdentity] = useState<EmbedUserIdentity | null>(null);
+  const [loginError, setLoginError] = useState<{ tipo: 'usuario' | 'senha' | 'geral'; mensagem: string } | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -121,7 +126,61 @@ function LoginPageContent() {
 
     attemptAutoLogin();
     return () => { cancelled = true; };
-  }, []);
+  }, [searchParams]);
+
+  // Extrai uma string legível de um valor desconhecido (evita "[object Object]")
+  const extrairMensagem = (raw: unknown): string | null => {
+    if (!raw) return null;
+    if (typeof raw === 'string' && raw.trim() && raw !== '[object Object]') return raw.trim();
+    if (typeof raw === 'object' && raw !== null) {
+      const obj = raw as Record<string, unknown>;
+      const candidato =
+        obj.message ?? obj.detail ?? obj.Message ?? obj.msg ?? obj.error ?? obj.description;
+      if (candidato && typeof candidato === 'string' && candidato !== '[object Object]') return candidato.trim();
+    }
+    return null;
+  };
+
+  const resolverErroDaResposta = (response: { error?: string; details?: unknown; status?: number }): {
+    tipo: 'usuario' | 'senha' | 'geral';
+    mensagem: string;
+  } => {
+    const status = response.status ?? 0;
+
+    // 401 → credenciais inválidas (usuário ou senha errada)
+    if (status === 401) {
+      const detalhe =
+        extrairMensagem(response.details) ??
+        extrairMensagem(response.error) ??
+        "Usuário ou senha incorretos. Verifique e tente novamente.";
+
+      const msg = detalhe.toLowerCase();
+      const tipo =
+        /usu[aá]rio|login|user|n[aã]o encontrado|n[aã]o existe/.test(msg)
+          ? 'usuario'
+          : /senha|password|incorreta|incorreto|inv[aá]lida/.test(msg)
+          ? 'senha'
+          : 'geral';
+
+      return { tipo, mensagem: detalhe };
+    }
+
+    // 400 → dados incompletos
+    if (status === 400) {
+      return {
+        tipo: 'geral',
+        mensagem: extrairMensagem(response.error) ?? "Preencha todos os campos corretamente antes de continuar.",
+      };
+    }
+
+    // 500 ou outro → erro de servidor / conexão
+    const mensagemFallback =
+      extrairMensagem(response.error) ??
+      extrairMensagem(response.details) ??
+      "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.";
+
+    return { tipo: 'geral', mensagem: mensagemFallback };
+  };
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
@@ -489,15 +548,29 @@ function LoginPageContent() {
             </div>
             {loginError && (
               <div style={{
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                borderRadius: '6px',
-                padding: '12px 16px',
-                color: '#dc2626',
-                fontSize: '0.875rem',
                 marginTop: '4px',
+                marginBottom: '4px',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fecaca',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
               }}>
-                {loginError}
+                <AlertCircle size={18} style={{ color: '#dc2626', flexShrink: 0, marginTop: '1px' }} />
+                <div>
+                  <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.875rem', marginBottom: '2px' }}>
+                    {loginError.tipo === 'usuario'
+                      ? 'Usuário não encontrado'
+                      : loginError.tipo === 'senha'
+                      ? 'Senha incorreta'
+                      : 'Senha ou usuário errados'}
+                  </p>
+                  <p style={{ color: '#991b1b', fontSize: '0.8125rem', lineHeight: '1.4' }}>
+                    {loginError.mensagem}
+                  </p>
+                </div>
               </div>
             )}
             <button

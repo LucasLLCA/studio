@@ -11,9 +11,10 @@ interface KanbanColumnProps {
   coluna: KanbanColumnType;
   onProcessoClick: (processo: KanbanProcesso) => void;
   onDeleteColumn?: (compartilhamentoId: string) => void;
+  onDeleteProcesso?: (processo: KanbanProcesso) => void;
 }
 
-export function KanbanColumn({ coluna, onProcessoClick, onDeleteColumn }: KanbanColumnProps) {
+export function KanbanColumn({ coluna, onProcessoClick, onDeleteColumn, onDeleteProcesso }: KanbanColumnProps) {
   return (
     <div className="flex-shrink-0 w-80 flex flex-col rounded-lg border bg-muted/30">
       {/* Column header */}
@@ -56,6 +57,7 @@ export function KanbanColumn({ coluna, onProcessoClick, onDeleteColumn }: Kanban
                 key={processo.id}
                 processo={processo}
                 onClick={() => onProcessoClick(processo)}
+                onDelete={onDeleteProcesso}
               />
             ))
           )}
