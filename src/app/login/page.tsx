@@ -47,6 +47,7 @@ function LoginPageContent() {
   const [isAutoLogging, setIsAutoLogging] = useState(true);
   const [embedIdentity, setEmbedIdentity] = useState<EmbedUserIdentity | null>(null);
   const [loginError, setLoginError] = useState<{ tipo: 'usuario' | 'senha' | 'geral'; mensagem: string } | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -126,6 +127,22 @@ function LoginPageContent() {
     return () => { cancelled = true; };
   }, [searchParams]);
 
+  // Restore "Lembrar de mim" email and orgao from cookie
+  useEffect(() => {
+    const match = document.cookie.match(/(?:^|;\s*)remembered_user=([^;]*)/);
+    if (match) {
+      try {
+        const { email, orgao } = JSON.parse(decodeURIComponent(match[1]));
+        if (email) setValue("usuario", email);
+        if (orgao) setValue("orgao", orgao, { shouldValidate: true });
+        setRememberMe(true);
+      } catch {
+        // Legacy plain-text cookie — clear it
+        document.cookie = "remembered_user=; path=/; max-age=0";
+      }
+    }
+  }, [setValue]);
+
   // Extrai uma string legível de um valor desconhecido (evita "[object Object]")
   const extrairMensagem = (raw: unknown): string | null => {
     if (!raw) return null;
@@ -200,6 +217,16 @@ function LoginPageContent() {
         const idUnidadeAtual = response.idUnidadeAtual;
 
         const nomeUsuario = response.nomeUsuario || data.usuario.split('@')[0];
+
+        // Save or clear "Lembrar de mim" cookie
+        if (!embedIdentity) {
+          if (rememberMe) {
+            const payload = JSON.stringify({ email: data.usuario, orgao: data.orgao });
+            document.cookie = `remembered_user=${encodeURIComponent(payload)}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+          } else {
+            document.cookie = "remembered_user=; path=/; max-age=0";
+          }
+        }
 
         persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, data.orgao, data.usuario, nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura);
 
@@ -544,6 +571,20 @@ function LoginPageContent() {
                 <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '4px' }}>{errors.orgao.message}</p>
               )}
             </div>
+            {!embedIdentity && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <input
+                  type="checkbox"
+                  id="remember-me"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }}
+                />
+                <label htmlFor="remember-me" style={{ color: '#374151', fontSize: '0.875rem', cursor: 'pointer', userSelect: 'none' }}>
+                  Lembrar de mim
+                </label>
+              </div>
+            )}
             {loginError && (
               <div style={{
                 marginTop: '4px',
