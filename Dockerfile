@@ -24,6 +24,10 @@ COPY . .
 # Desabilitar telemetria do Next.js
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# basePath must be set at build time (baked into the Next.js output)
+ARG NEXT_PUBLIC_BASE_PATH=""
+ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
+
 # Build da aplicação (gera .next/standalone)
 RUN npm run build
 
