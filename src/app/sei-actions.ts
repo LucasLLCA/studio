@@ -146,8 +146,8 @@ export async function getEmbedUserIdentity(tokenOverride?: string): Promise<Embe
     const raw = await res.json();
     console.log('[getEmbedUserIdentity] raw response:', JSON.stringify(raw));
 
-    // Unwrap nested responses (e.g. { data: { id_pessoa: ... } } or { status: "success", data: { ... } })
-    const payload = raw?.data ?? raw;
+    // Unwrap nested responses (e.g. { payload: { ... } }, { data: { ... } }, or flat)
+    const payload = raw?.payload ?? raw?.data ?? raw;
 
     // Validate required identity fields
     if (!payload.id_pessoa || !payload.usuario || !payload.id_orgao) {
