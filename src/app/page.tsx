@@ -92,7 +92,10 @@ function LoginPageContent() {
         // 1. Check for embed identity — prefer URL token (works in credentialless iframes),
         //    fall back to auth_token cookie
         const tokenFromUrl = searchParams.get('token');
+        console.log('[auto-login] token from URL:', tokenFromUrl ? `${tokenFromUrl.length} chars` : 'none');
+
         const identity = await getEmbedUserIdentity(tokenFromUrl || undefined);
+        console.log('[auto-login] identity result:', identity ? `id_pessoa=${identity.id_pessoa}` : 'null');
         if (cancelled) return;
 
         if (!identity) {
@@ -105,6 +108,7 @@ function LoginPageContent() {
 
         // 2. Try auto-login with stored credentials
         const response = await autoLoginWithStoredCredentials(identity.id_pessoa);
+        console.log('[auto-login] stored creds result:', response.success ? 'success' : `failed (${response.status}: ${response.error})`);
         if (cancelled) return;
 
         if (response.success && response.token) {
@@ -121,7 +125,8 @@ function LoginPageContent() {
         if (response.status === 401) {
           setLoginError('Suas credenciais SEI armazenadas estão inválidas. Por favor, faça login novamente.');
         }
-      } catch {
+      } catch (err) {
+        console.error('[auto-login] unexpected error:', err);
         if (!cancelled) setIsAutoLogging(false);
       }
     }
@@ -215,9 +220,23 @@ function LoginPageContent() {
     try {
       let response;
 
-      if (embedIdentity) {
+      // If embedIdentity wasn't set during auto-login (decode may have failed),
+      // retry decoding now — the token is still in the URL.
+      let currentEmbedIdentity = embedIdentity;
+      if (!currentEmbedIdentity) {
+        const tokenFromUrl = searchParams.get('token');
+        if (tokenFromUrl) {
+          const retried = await getEmbedUserIdentity(tokenFromUrl);
+          if (retried) {
+            currentEmbedIdentity = retried;
+            setEmbedIdentity(retried);
+          }
+        }
+      }
+
+      if (currentEmbedIdentity) {
         // Embed mode — validate + store credentials via backend
-        response = await embedLogin(embedIdentity.id_pessoa, data.usuario, data.senha, data.orgao);
+        response = await embedLogin(currentEmbedIdentity.id_pessoa, data.usuario, data.senha, data.orgao);
       } else {
         // Standalone mode — direct SEI login
         response = await loginToSEI(data);

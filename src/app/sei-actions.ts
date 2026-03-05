@@ -123,7 +123,12 @@ export async function getEmbedUserIdentity(tokenOverride?: string): Promise<Embe
       const cookieStore = await cookies();
       token = cookieStore.get('auth_token')?.value;
     }
-    if (!token) return null;
+    if (!token) {
+      console.log('[getEmbedUserIdentity] no token available (neither override nor cookie)');
+      return null;
+    }
+
+    console.log(`[getEmbedUserIdentity] calling ${API_BASE_URL}/auth/decode-token with token (${token.length} chars)`);
 
     const res = await fetch(`${API_BASE_URL}/auth/decode-token`, {
       method: 'POST',
@@ -132,12 +137,20 @@ export async function getEmbedUserIdentity(tokenOverride?: string): Promise<Embe
       cache: 'no-store',
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error(`[getEmbedUserIdentity] decode-token returned ${res.status}: ${body}`);
+      return null;
+    }
 
     const payload = await res.json();
+    console.log('[getEmbedUserIdentity] decoded payload keys:', Object.keys(payload));
 
     // Validate required identity fields
-    if (!payload.id_pessoa || !payload.usuario || !payload.id_orgao) return null;
+    if (!payload.id_pessoa || !payload.usuario || !payload.id_orgao) {
+      console.error('[getEmbedUserIdentity] missing required fields:', { id_pessoa: payload.id_pessoa, usuario: payload.usuario, id_orgao: payload.id_orgao });
+      return null;
+    }
 
     return {
       id_pessoa: payload.id_pessoa,
