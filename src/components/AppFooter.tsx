@@ -2,6 +2,8 @@
 
 import Image from 'next/image';
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 export default function AppFooter() {
   return (
     <footer className="bg-gray-100 py-6 px-4 sm:py-8 sm:px-8">
@@ -9,7 +11,7 @@ export default function AppFooter() {
         <div className="flex items-center justify-center gap-4 flex-wrap">
           <a href="https://soberania.ai/">
             <Image
-              src="/logo-soberania.svg"
+              src={`${basePath}/logo-soberania.svg`}
               alt="Logo SoberanIA"
               width={120}
               height={40}
@@ -18,7 +20,7 @@ export default function AppFooter() {
           </a>
           <a href="https://pidigital.pi.gov.br/">
             <Image
-              src="/logo-governo-piaui.svg"
+              src={`${basePath}/logo-governo-piaui.svg`}
               alt="Logo Governo do Piau&#237;"
               width={168}
               height={56}

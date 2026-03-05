@@ -8,6 +8,8 @@ import Image from 'next/image';
 import { useMemo } from 'react';
 import type { UnidadeFiltro } from '@/types/process-flow';
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 interface HomeContentProps {
   processoNumeroInput: string;
   onProcessoNumeroChange: (value: string) => void;
@@ -51,7 +53,7 @@ export function HomeContent({
     <div className="flex flex-col items-center justify-center flex-1 -mt-8">
       <div className="flex flex-col items-center space-y-4">
         <Image
-          src="/logo-sead.png"
+          src={`${basePath}/logo-sead.png`}
           alt="Logo SEAD Piauí"
           width={500}
           height={500}
