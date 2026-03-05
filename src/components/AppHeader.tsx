@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import ApiHealthCheck from '@/components/ApiHealthCheck';
-import { hasAuthTokenCookie } from '@/app/sei-actions';
+import { hasAuthTokenCookie, clearAuthTokenCookie } from '@/app/sei-actions';
 
 export default function AppHeader() {
   const router = useRouter();
@@ -35,6 +35,7 @@ export default function AppHeader() {
 
   const handleLogout = () => {
     persistLogout();
+    clearAuthTokenCookie();
     toast({ title: "Logout realizado." });
     router.push('/');
   };

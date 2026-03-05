@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -91,7 +91,8 @@ function LoginPageContent() {
       try {
         // 1. Check for embed identity — prefer URL token (works in credentialless iframes),
         //    fall back to auth_token cookie
-        const tokenFromUrl = searchParams.get('token');
+        const tokenFromUrl = searchParams.get('token') || jweTokenRef.current;
+        if (tokenFromUrl) jweTokenRef.current = tokenFromUrl;
         console.log('[auto-login] token from URL:', tokenFromUrl ? `${tokenFromUrl.length} chars` : 'none');
 
         const identity = await getEmbedUserIdentity(tokenFromUrl || undefined);
@@ -126,7 +127,7 @@ function LoginPageContent() {
         // Auto-login failed (401/404/410 — no stored creds or invalid)
         setIsAutoLogging(false);
         if (response.status === 401) {
-          setLoginError('Suas credenciais SEI armazenadas estão inválidas. Por favor, faça login novamente.');
+          setLoginError({ tipo: 'geral', mensagem: 'Suas credenciais SEI armazenadas estão inválidas. Por favor, faça login novamente.' });
         }
       } catch (err) {
         console.error('[auto-login] unexpected error:', err);
@@ -216,6 +217,9 @@ function LoginPageContent() {
     return { tipo: 'geral', mensagem: mensagemFallback };
   };
 
+  // Persist JWE token across client-side navigations (survives logout → re-render)
+  const jweTokenRef = useRef<string | null>(null);
+
   const [loginAttempt, setLoginAttempt] = useState<{ current: number; max: number } | null>(null);
 
   const onSubmit = async (data: LoginFormValues) => {
@@ -228,7 +232,7 @@ function LoginPageContent() {
       // retry decoding now — the token is still in the URL.
       let currentEmbedIdentity = embedIdentity;
       if (!currentEmbedIdentity) {
-        const tokenFromUrl = searchParams.get('token');
+        const tokenFromUrl = searchParams.get('token') || jweTokenRef.current;
         if (tokenFromUrl) {
           const retried = await getEmbedUserIdentity(tokenFromUrl);
           if (retried) {
