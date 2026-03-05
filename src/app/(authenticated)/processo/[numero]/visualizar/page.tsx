@@ -133,7 +133,7 @@ function VisualizarProcessoContent() {
     selectedUnidadeFiltro,
     isAuthenticated,
     unitAccessDenied,
-    onSessionExpired: () => { persistLogout(); router.push('/login'); },
+    onSessionExpired: () => { persistLogout(); router.push('/'); },
     refetchOpenUnits,
   });
 
@@ -158,7 +158,7 @@ function VisualizarProcessoContent() {
   // Redirect guards
   useEffect(() => {
     if (!isAuthenticated && !sessionToken) {
-      router.push('/login');
+      router.push('/');
     }
   }, [isAuthenticated, sessionToken, router]);
 

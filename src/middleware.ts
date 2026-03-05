@@ -15,12 +15,10 @@ export function middleware(request: NextRequest) {
   }
 
   if (tokenParam) {
-    // Rewrite to /login so the embed auto-login flow runs immediately.
-    // Keep ?token= in searchParams so the login page can read it directly
-    // (necessary for credentialless iframes where cookies may not persist).
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    const response = NextResponse.rewrite(loginUrl);
+    // Set the cookie (works when not in credentialless iframe) but do NOT
+    // strip ?token= from the URL — the login page reads it directly from
+    // searchParams as a fallback for credentialless iframes.
+    const response = NextResponse.next();
 
     const THIRTY_DAYS = 30 * 24 * 60 * 60;
     response.cookies.set(COOKIE_NAME, tokenParam, {

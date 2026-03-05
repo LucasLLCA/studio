@@ -16,7 +16,7 @@ export default function SairPage() {
 
     // Clear auth_token cookie (works with httpOnly)
     clearAuthTokenCookie().then(() => {
-      router.push('/login');
+      router.push('/');
     });
   }, [logout, router]);
 

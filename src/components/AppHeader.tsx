@@ -36,7 +36,7 @@ export default function AppHeader() {
   const handleLogout = () => {
     persistLogout();
     toast({ title: "Logout realizado." });
-    router.push('/login');
+    router.push('/');
   };
 
   return (
@@ -45,13 +45,13 @@ export default function AppHeader() {
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-2 max-w-full">
           <div className="flex flex-wrap items-center gap-2 flex-grow">
             {mounted && isAuthenticated && (
-              <Button variant="ghost" className="inline-flex items-center px-3 py-1 text-base sm:text-xl font-bold text-primary mr-1 hover:bg-transparent hover:text-primary-hover" onClick={() => router.push('/')}>
+              <Button variant="ghost" className="inline-flex items-center px-3 py-1 text-base sm:text-xl font-bold text-primary mr-1 hover:bg-transparent hover:text-primary-hover" onClick={() => router.push('/home')}>
                 Visualizador de Processos
               </Button>
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/')} title={"P\u00e1gina Inicial"}>
+            <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/home')} title={"P\u00e1gina Inicial"}>
               <Search className="sm:mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Procurar Novo Processo</span>
             </Button>

@@ -54,7 +54,7 @@ export default function ProcessoPage() {
         description: "Voc\u00ea precisa estar logado para ver as unidades.",
         variant: "destructive"
       });
-      router.push('/');
+      router.push('/home');
     }
   }, [isAuthenticated, sessionToken, router, toast]);
 

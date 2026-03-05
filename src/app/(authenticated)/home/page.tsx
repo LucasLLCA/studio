@@ -67,7 +67,7 @@ function HomeContent() {
   useEffect(() => {
     if (mounted && !isAuthenticated) {
       const timer = setTimeout(() => {
-        router.push('/login');
+        router.push('/');
       }, 500);
       return () => clearTimeout(timer);
     }

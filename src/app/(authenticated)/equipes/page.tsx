@@ -79,7 +79,7 @@ export default function EquipesPage() {
 
   useEffect(() => {
     if (mounted && !isAuthenticated) {
-      router.push('/login');
+      router.push('/');
       return;
     }
     if (mounted && usuario) {

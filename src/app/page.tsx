@@ -17,8 +17,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { loginToSEI, getEmbedUserIdentity, autoLoginWithStoredCredentials, embedLogin, getAuthTokenValue } from '../sei-actions';
-import type { EmbedUserIdentity } from '../sei-actions';
+import { loginToSEI, getEmbedUserIdentity, autoLoginWithStoredCredentials, embedLogin, getAuthTokenValue } from './sei-actions';
+import type { EmbedUserIdentity } from './sei-actions';
 import { Loader2, Info, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -79,7 +79,7 @@ function LoginPageContent() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/');
+      router.push('/home');
     }
   }, [isAuthenticated, router]);
 
@@ -112,7 +112,7 @@ function LoginPageContent() {
           const idUnidadeAtual = response.idUnidadeAtual;
 
           persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, undefined, identity.usuario, response.nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura);
-          router.push('/');
+          router.push('/home');
           return;
         }
 
@@ -246,7 +246,7 @@ function LoginPageContent() {
           description: `${unidadesRecebidas.length} unidades carregadas.`,
         });
 
-        router.push('/');
+        router.push('/home');
         reset();
       } else {
         const errorMsg = response.error || "Verifique suas credenciais e tente novamente.";
