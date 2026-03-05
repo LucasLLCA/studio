@@ -213,13 +213,14 @@ function LoginPageContent() {
     return { tipo: 'geral', mensagem: mensagemFallback };
   };
 
+  const [loginAttempt, setLoginAttempt] = useState<{ current: number; max: number } | null>(null);
+
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     setLoginError(null);
+    setLoginAttempt(null);
 
     try {
-      let response;
-
       // If embedIdentity wasn't set during auto-login (decode may have failed),
       // retry decoding now — the token is still in the URL.
       let currentEmbedIdentity = embedIdentity;
@@ -234,15 +235,40 @@ function LoginPageContent() {
         }
       }
 
-      if (currentEmbedIdentity) {
-        // Embed mode — validate + store credentials via backend
-        response = await embedLogin(currentEmbedIdentity.id_pessoa, data.usuario, data.senha, data.orgao);
-      } else {
-        // Standalone mode — direct SEI login
-        response = await loginToSEI(data);
+      const MAX_ATTEMPTS = 3;
+      let response;
+      let lastError: { tipo: 'usuario' | 'senha' | 'geral' | 'conexao'; mensagem: string } | null = null;
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        setLoginAttempt({ current: attempt, max: MAX_ATTEMPTS });
+
+        if (currentEmbedIdentity) {
+          response = await embedLogin(currentEmbedIdentity.id_pessoa, data.usuario, data.senha, data.orgao);
+        } else {
+          response = await loginToSEI(data);
+        }
+
+        if (response.success && response.token) {
+          break; // Success — exit retry loop
+        }
+
+        const erro = resolverErroDaResposta(response);
+
+        // Only retry on connection errors — don't retry credential failures
+        if (erro.tipo !== 'conexao' || attempt === MAX_ATTEMPTS) {
+          lastError = erro;
+          break;
+        }
+
+        // Show transient retry message
+        lastError = { tipo: 'conexao', mensagem: `Tentativa ${attempt}/${MAX_ATTEMPTS} falhou. Tentando novamente...` };
+        setLoginError(lastError);
+        await new Promise(r => setTimeout(r, 2000));
       }
 
-      if (response.success && response.token) {
+      setLoginAttempt(null);
+
+      if (response?.success && response.token) {
         const unidadesRecebidas = response.unidades || [];
         const idUnidadeAtual = response.idUnidadeAtual;
 
@@ -267,13 +293,15 @@ function LoginPageContent() {
 
         router.push('/home');
         reset();
-      } else {
-        const errorMsg = response.error || "Verifique suas credenciais e tente novamente.";
-        setLoginError(errorMsg);
+      } else if (lastError) {
+        setLoginError(lastError);
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Ocorreu um erro inesperado. Verifique sua conexão com a internet e tente novamente.";
-      setLoginError(errorMsg);
+      setLoginAttempt(null);
+      setLoginError({
+        tipo: 'conexao',
+        mensagem: error instanceof Error ? error.message : "Ocorreu um erro inesperado. Verifique sua conexão com a internet e tente novamente.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -652,7 +680,9 @@ function LoginPageContent() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Entrando...
+                  {loginAttempt && loginAttempt.current > 1
+                    ? `Tentativa ${loginAttempt.current}/${loginAttempt.max}...`
+                    : 'Entrando...'}
                 </>
               ) : (
                 "Entrar"
