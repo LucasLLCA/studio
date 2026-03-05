@@ -73,6 +73,12 @@ export const queryKeys = {
     byMe: (usuario: string) => ['shared', 'byMe', usuario] as const,
   },
 
+  // Histórico de pesquisas
+  searchHistory: {
+    all: ['searchHistory'] as const,
+    byUser: (usuario: string) => ['searchHistory', usuario] as const,
+  },
+
   // Health checks
   health: {
     seiApi: ['health', 'sei-api'] as const,

@@ -12,12 +12,15 @@ import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
 import { useToast } from '@/hooks/use-toast';
 import { formatProcessNumber, stripProcessNumber } from '@/lib/utils';
 import { saveSearchHistory } from '@/lib/history-api-client';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/react-query/keys';
 
 export default function ProcessoPage() {
   const params = useParams();
   const router = useRouter();
   const numeroProcesso = decodeURIComponent(params.numero as string);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   console.log('[DEBUG] N\u00famero do processo decodificado:', numeroProcesso);
 
@@ -163,6 +166,9 @@ export default function ProcessoPage() {
         usuario: usuario,
         id_unidade: unidadeIdSelecionada,
         caixa_contexto: unidadeNome
+      }).then(() => {
+        // Invalidate frontend cache so home page shows updated history
+        queryClient.invalidateQueries({ queryKey: queryKeys.searchHistory.all });
       }).catch(error => {
         console.error('[DEBUG] Erro ao salvar hist\u00f3rico:', error);
       });

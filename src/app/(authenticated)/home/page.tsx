@@ -8,7 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getSearchHistory, deleteSearchHistory, type HistoryItem } from '@/lib/history-api-client';
+import type { HistoryItem } from '@/lib/history-api-client';
+import { useSearchHistory } from '@/lib/react-query/queries/useSearchHistory';
 import { stripProcessNumber } from '@/lib/utils';
 import { SaveProcessoModal } from '@/components/process-flow/SaveProcessoModal';
 import { MeuEspacoContent } from '@/components/home/MeuEspacoContent';
@@ -55,10 +56,17 @@ function HomeContent() {
 
   const [processoNumeroInput, setProcessoNumeroInput] = useState<string>("");
   const [mounted, setMounted] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [shareTagId, setShareTagId] = useState<string | null>(null);
   const [saveProcessoNumero, setSaveProcessoNumero] = useState<string | null>(null);
+
+  const {
+    data: history = [],
+    isLoading: isHistoryLoading,
+    deleteItem: deleteHistoryItem,
+  } = useSearchHistory({
+    usuario: usuario || '',
+    enabled: mounted && isAuthenticated && !!usuario,
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -72,35 +80,6 @@ function HomeContent() {
       return () => clearTimeout(timer);
     }
   }, [mounted, isAuthenticated, router]);
-
-  useEffect(() => {
-    const loadHistory = async () => {
-      if (!mounted || !isAuthenticated || !usuario) return;
-      setIsHistoryLoading(true);
-      try {
-        const data = await getSearchHistory(usuario, 20);
-        if ('error' in data) {
-          if (data.status === 404 || data.status === 500) {
-            setHistory([]);
-          } else {
-            toast({
-              title: "Erro ao carregar hist\u00f3rico",
-              description: data.error,
-              variant: "destructive",
-            });
-          }
-        } else {
-          setHistory(data);
-        }
-      } catch {
-        setHistory([]);
-      } finally {
-        setIsHistoryLoading(false);
-      }
-    };
-
-    loadHistory();
-  }, [mounted, isAuthenticated, usuario, toast]);
 
   const applyProcessoMask = (value: string): string => {
     const digits = value.replace(/\D/g, '').slice(0, 17);
@@ -166,12 +145,11 @@ function HomeContent() {
   };
 
   const handleHistoryDelete = async (item: HistoryItem) => {
-    const result = await deleteSearchHistory(item.id);
-    if ('error' in result) {
-      toast({ title: "Erro ao excluir", description: result.error, variant: "destructive" });
-    } else {
-      setHistory(prev => prev.filter(h => h.id !== item.id));
+    try {
+      await deleteHistoryItem(item.id);
       toast({ title: "Pesquisa removida do historico" });
+    } catch (err) {
+      toast({ title: "Erro ao excluir", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     }
   };
 
