@@ -170,6 +170,8 @@ export interface ClientLoginResponse {
   token?: string;
   idUnidadeAtual?: string; // ID da unidade atual para requisições
   nomeUsuario?: string; // Nome do usuário retornado pela API de login
+  usuarioSei?: string; // Email/login SEI (from stored credentials on auto-login/embed-login)
+  orgao?: string; // Orgão from stored credentials
   unidades?: UnidadeFiltro[]; // Uses UnidadeFiltro for consistency with Select
   idUsuario?: string; // IdUsuario from Login response — needed for document signing
   idLogin?: string; // IdLogin from Login response — needed for document signing

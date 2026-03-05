@@ -115,7 +115,10 @@ function LoginPageContent() {
           const unidadesRecebidas = response.unidades || [];
           const idUnidadeAtual = response.idUnidadeAtual;
 
-          persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, undefined, identity.usuario, response.nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura);
+          // Use email from stored credentials (not CPF from JWE)
+          const usuario = response.usuarioSei || identity.usuario;
+          const orgao = response.orgao;
+          persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, orgao, usuario, response.nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura);
           router.push('/home');
           return;
         }
@@ -243,7 +246,7 @@ function LoginPageContent() {
         setLoginAttempt({ current: attempt, max: MAX_ATTEMPTS });
 
         if (currentEmbedIdentity) {
-          response = await embedLogin(currentEmbedIdentity.id_pessoa, data.usuario, data.senha, data.orgao);
+          response = await embedLogin(currentEmbedIdentity.id_pessoa, data.usuario, data.senha, data.orgao, currentEmbedIdentity.usuario);
         } else {
           response = await loginToSEI(data);
         }

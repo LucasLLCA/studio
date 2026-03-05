@@ -206,12 +206,17 @@ function mapSEIResponseToClient(data: SEILoginApiResponse): ClientLoginResponse 
     Descricao: ua.Descricao,
   }));
 
+  // Extract email/orgao injected by auto-login/embed-login endpoints
+  const extended = data as Record<string, unknown>;
+
   return {
     success: true,
     token: typeof data.Token === 'string' ? data.Token : String(data.Token),
     unidades,
     idUnidadeAtual,
     nomeUsuario,
+    usuarioSei: typeof extended.usuario_sei === 'string' ? extended.usuario_sei : undefined,
+    orgao: typeof extended.orgao === 'string' ? extended.orgao : undefined,
     idUsuario: data.Login?.IdUsuario,
     idLogin: data.Login?.IdLogin,
     cargoAssinatura: data.Login?.UltimoCargoAssinatura,
@@ -263,12 +268,13 @@ export async function embedLogin(
   usuario_sei: string,
   senha: string,
   orgao: string,
+  cpf?: string,
 ): Promise<ClientLoginResponse> {
   try {
     const res = await fetch(`${API_BASE_URL}/credenciais/embed-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id_pessoa, usuario_sei, senha, orgao }),
+      body: JSON.stringify({ id_pessoa, cpf, usuario_sei, senha, orgao }),
       cache: 'no-store',
     });
 
