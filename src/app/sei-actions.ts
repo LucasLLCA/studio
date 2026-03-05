@@ -114,16 +114,21 @@ export async function clearAuthTokenCookie(): Promise<void> {
  * returning user identity fields (id_pessoa, usuario, id_orgao, etc.).
  * Returns null if no cookie, invalid/expired token, or missing fields.
  */
-export async function getEmbedUserIdentity(): Promise<EmbedUserIdentity | null> {
+export async function getEmbedUserIdentity(tokenOverride?: string): Promise<EmbedUserIdentity | null> {
   try {
-    const cookieStore = await cookies();
-    const cookie = cookieStore.get('auth_token');
-    if (!cookie?.value) return null;
+    // Prefer explicit token (e.g. from URL ?token= param in credentialless iframes)
+    // Fall back to auth_token cookie
+    let token = tokenOverride;
+    if (!token) {
+      const cookieStore = await cookies();
+      token = cookieStore.get('auth_token')?.value;
+    }
+    if (!token) return null;
 
     const res = await fetch(`${API_BASE_URL}/auth/decode-token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: cookie.value }),
+      body: JSON.stringify({ token }),
       cache: 'no-store',
     });
 

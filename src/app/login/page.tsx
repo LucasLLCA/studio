@@ -89,8 +89,10 @@ function LoginPageContent() {
 
     async function attemptAutoLogin() {
       try {
-        // 1. Check for embed identity in auth_token cookie
-        const identity = await getEmbedUserIdentity();
+        // 1. Check for embed identity — prefer URL token (works in credentialless iframes),
+        //    fall back to auth_token cookie
+        const tokenFromUrl = searchParams.get('token');
+        const identity = await getEmbedUserIdentity(tokenFromUrl || undefined);
         if (cancelled) return;
 
         if (!identity) {
