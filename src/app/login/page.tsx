@@ -19,12 +19,9 @@ import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { loginToSEI, getEmbedUserIdentity, autoLoginWithStoredCredentials, embedLogin } from '../sei-actions';
 import type { EmbedUserIdentity } from '../sei-actions';
-import { Loader2, Info, Eye, EyeOff } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { loginToSEI, decryptSEICredentials, decryptJWEToken } from '../sei-actions';
-import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import Image from 'next/image';
+import { Loader2, Info, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 import { ORGAOS_PIAUI } from '@/config/constants';
 
@@ -52,6 +49,7 @@ function LoginPageContent() {
   const [loginError, setLoginError] = useState<{ tipo: 'usuario' | 'senha' | 'geral'; mensagem: string } | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const {
     isAuthenticated,
