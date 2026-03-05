@@ -78,6 +78,35 @@ export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
 }
 
 
+// --------------- Cookie helpers (httpOnly-safe) ---------------
+
+/**
+ * Checks whether the auth_token cookie exists.
+ * Works regardless of httpOnly flag since it runs server-side.
+ */
+export async function hasAuthTokenCookie(): Promise<boolean> {
+  const cookieStore = await cookies();
+  return !!cookieStore.get('auth_token')?.value;
+}
+
+/**
+ * Returns the raw auth_token cookie value (for debug display in dev).
+ * Returns null if not present or in production (httpOnly).
+ */
+export async function getAuthTokenValue(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get('auth_token')?.value ?? null;
+}
+
+/**
+ * Clears the auth_token cookie server-side.
+ * Works regardless of httpOnly flag.
+ */
+export async function clearAuthTokenCookie(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete('auth_token');
+}
+
 // --------------- Embed identity ---------------
 
 /**

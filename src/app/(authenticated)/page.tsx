@@ -184,12 +184,12 @@ function HomeContent() {
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-bold text-primary">
-          O que analisaremos juntos ?
+          Digite o numero de um processo
         </h1>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-10 items-center mt-4 xl:mt-8">
           <section className="justify-between">
-            <div className="w-full">
+            <div className="w-full mb-4">
               <div className="relative b-0">
                 <Input
                   type="text"
@@ -215,7 +215,7 @@ function HomeContent() {
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FeatureCard
                 icon={<GanttChartSquare className="w-8 h-8" />}
                 title="Seja Agil"

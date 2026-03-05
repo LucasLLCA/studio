@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
+import { clearAuthTokenCookie } from '@/app/sei-actions';
 import { Loader2 } from 'lucide-react';
 
 export default function SairPage() {
@@ -13,11 +14,10 @@ export default function SairPage() {
     // Clear localStorage session
     logout();
 
-    // Clear auth_token cookie
-    document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-
-    // Redirect to login
-    router.push('/login');
+    // Clear auth_token cookie (works with httpOnly)
+    clearAuthTokenCookie().then(() => {
+      router.push('/login');
+    });
   }, [logout, router]);
 
   return (

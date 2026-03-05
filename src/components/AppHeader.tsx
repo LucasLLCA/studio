@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import ApiHealthCheck from '@/components/ApiHealthCheck';
+import { hasAuthTokenCookie } from '@/app/sei-actions';
 
 export default function AppHeader() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function AppHeader() {
   const [isEmbedMode, setIsEmbedMode] = useState(false);
   React.useEffect(() => {
     setMounted(true);
-    setIsEmbedMode(document.cookie.split(';').some(c => c.trim().startsWith('auth_token=')));
+    hasAuthTokenCookie().then(setIsEmbedMode);
   }, []);
 
   const handleLogout = () => {

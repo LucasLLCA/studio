@@ -17,7 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { loginToSEI, getEmbedUserIdentity, autoLoginWithStoredCredentials, embedLogin } from '../sei-actions';
+import { loginToSEI, getEmbedUserIdentity, autoLoginWithStoredCredentials, embedLogin, getAuthTokenValue } from '../sei-actions';
 import type { EmbedUserIdentity } from '../sei-actions';
 import { Loader2, Info, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -48,6 +48,7 @@ function LoginPageContent() {
   const [embedIdentity, setEmbedIdentity] = useState<EmbedUserIdentity | null>(null);
   const [loginError, setLoginError] = useState<{ tipo: 'usuario' | 'senha' | 'geral' | 'conexao'; mensagem: string } | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
+  const [authTokenValue, setAuthTokenValue] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -127,7 +128,7 @@ function LoginPageContent() {
     return () => { cancelled = true; };
   }, [searchParams]);
 
-  // Restore "Lembrar de mim" email and orgao from cookie
+  // Restore "Lembrar de mim" email and orgao from cookie + read auth_token
   useEffect(() => {
     const match = document.cookie.match(/(?:^|;\s*)remembered_user=([^;]*)/);
     if (match) {
@@ -137,10 +138,10 @@ function LoginPageContent() {
         if (orgao) setValue("orgao", orgao, { shouldValidate: true });
         setRememberMe(true);
       } catch {
-        // Legacy plain-text cookie — clear it
         document.cookie = "remembered_user=; path=/; max-age=0";
       }
     }
+    getAuthTokenValue().then((val) => { if (val) setAuthTokenValue(val); });
   }, [setValue]);
 
   // Extrai uma string legível de um valor desconhecido (evita "[object Object]")
@@ -636,6 +637,11 @@ function LoginPageContent() {
                 "Entrar"
               )}
             </button>
+            {authTokenValue && (
+              <p style={{ marginTop: '12px', fontSize: '0.7rem', color: '#9ca3af', wordBreak: 'break-all', textAlign: 'center' }}>
+                auth_token: {authTokenValue}
+              </p>
+            )}
           </form>
         </div>
         )}

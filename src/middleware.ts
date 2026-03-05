@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const COOKIE_NAME = 'auth_token';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 export function middleware(request: NextRequest) {
   // If ?token= is in the URL, set it as a cookie and redirect to a clean URL
@@ -11,8 +12,8 @@ export function middleware(request: NextRequest) {
 
     const THIRTY_DAYS = 30 * 24 * 60 * 60;
     response.cookies.set(COOKIE_NAME, tokenParam, {
-      httpOnly: false,
-      secure: false,
+      httpOnly: IS_PRODUCTION,
+      secure: IS_PRODUCTION,
       sameSite: 'lax',
       path: '/',
       maxAge: THIRTY_DAYS,
