@@ -71,6 +71,8 @@ export function useProcessData({
 
   // Ref to track phase-2 timeout for cleanup
   const phase2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Prevents secondary data (docs + resumo) from loading more than once per render cycle
+  const secondaryLoadedRef = useRef(false);
 
   const [backgroundLoading, setBackgroundLoading] = useState({
     andamentos: false,
@@ -115,6 +117,7 @@ export function useProcessData({
       setAndamentosFailed(false);
       setDocumentsFailed(false);
       setAndamentosProgress(null);
+      secondaryLoadedRef.current = false;
 
       setBackgroundLoading({
         andamentos: true,
@@ -135,17 +138,13 @@ export function useProcessData({
         return;
       }
 
-      // Phase 1: Fetch partial data (first+last pages) for fast initial render
+      // Fetch partial andamentos for fast initial render (docs + resumo deferred to secondary effect)
       const andamentosPromise = fetchWithRetry(
         () => fetchProcessData(token, numeroProcesso, selectedUnidadeFiltro, true),
         'andamentos',
       );
-      const documentosPromise = unitAccessDenied ? null : fetchWithRetry(
-        () => fetchDocuments(token, numeroProcesso, selectedUnidadeFiltro, true),
-        'documentos',
-      );
 
-      // Handle andamentos result (Phase 1)
+      // Handle andamentos result
       andamentosPromise
         .then((processData: any) => {
           if ('error' in processData && typeof processData.error === 'string') {
@@ -217,66 +216,6 @@ export function useProcessData({
           setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
         });
 
-      // Handle documents result (Phase 1 — partial)
-      if (documentosPromise) {
-        documentosPromise
-          .then((documentsResponse: any) => {
-            if ('error' in documentsResponse) {
-              setDocuments([]);
-              setDocumentsFailed(true);
-            } else {
-              setDocuments(documentsResponse.Documentos);
-
-              // Phase 2: If partial docs, schedule full fetch
-              const isDocsParcial = documentsResponse.Info?.Parcial === true;
-              if (isDocsParcial) {
-                setTimeout(() => {
-                  withNetworkRetry(
-                    () => fetchDocuments(token, numeroProcesso, selectedUnidadeFiltro, false),
-                    'documentos-full',
-                  ).then((fullDocsResponse: any) => {
-                    if (!('error' in fullDocsResponse) && fullDocsResponse.Documentos) {
-                      setDocuments(fullDocsResponse.Documentos);
-                    }
-                  }).catch(() => {
-                    console.warn('Phase 2 full documents fetch failed, partial data remains');
-                  });
-                }, 4000);
-              }
-            }
-            setBackgroundLoading(prev => ({ ...prev, documentos: false }));
-          })
-          .catch(() => {
-            setDocuments([]);
-            setDocumentsFailed(true);
-            setBackgroundLoading(prev => ({ ...prev, documentos: false }));
-          });
-      }
-
-      // SSE streaming for resumo
-      if (!unitAccessDenied) {
-        setProcessSummary("");
-        fetchSSEStreamWithRetry(
-          getStreamProcessSummaryUrl(numeroProcesso, selectedUnidadeFiltro),
-          token,
-          (chunk) => {
-            setProcessSummary(prev => (prev || "") + chunk);
-          },
-          (fullResult) => {
-            const summaryText = typeof fullResult === 'string'
-              ? fullResult
-              : fullResult?.resumo_combinado?.resposta_ia || fullResult?.resumo?.resposta_ia || "";
-            setProcessSummary(summaryText.replace(/[#*]/g, ''));
-            setBackgroundLoading(prev => ({ ...prev, resumo: false }));
-            toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
-          },
-          (error) => {
-            setProcessSummary(null);
-            setBackgroundLoading(prev => ({ ...prev, resumo: false }));
-            console.warn("Resumo indisponível:", error);
-          },
-        );
-      }
     };
 
     loadProcessData();
@@ -289,6 +228,75 @@ export function useProcessData({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, sessionToken, selectedUnidadeFiltro, numeroProcesso, refreshKey, unitAccessDenied]);
+
+  // Load documents + resumo in background after initial andamentos render
+  useEffect(() => {
+    if (!rawProcessData || secondaryLoadedRef.current) return;
+    if (!sessionToken || !selectedUnidadeFiltro || unitAccessDenied) return;
+
+    secondaryLoadedRef.current = true;
+    const token = sessionToken;
+
+    // Documents (partial first, then full in background)
+    fetchWithRetry(
+      () => fetchDocuments(token, numeroProcesso, selectedUnidadeFiltro, true),
+      'documentos',
+    )
+      .then((documentsResponse: any) => {
+        if ('error' in documentsResponse) {
+          setDocuments([]);
+          setDocumentsFailed(true);
+        } else {
+          setDocuments(documentsResponse.Documentos);
+
+          const isDocsParcial = documentsResponse.Info?.Parcial === true;
+          if (isDocsParcial) {
+            phase2TimerRef.current = setTimeout(() => {
+              withNetworkRetry(
+                () => fetchDocuments(token, numeroProcesso, selectedUnidadeFiltro, false),
+                'documentos-full',
+              ).then((fullDocsResponse: any) => {
+                if (!('error' in fullDocsResponse) && fullDocsResponse.Documentos) {
+                  setDocuments(fullDocsResponse.Documentos);
+                }
+              }).catch(() => {
+                console.warn('Phase 2 full documents fetch failed, partial data remains');
+              });
+            }, 4000);
+          }
+        }
+        setBackgroundLoading(prev => ({ ...prev, documentos: false }));
+      })
+      .catch(() => {
+        setDocuments([]);
+        setDocumentsFailed(true);
+        setBackgroundLoading(prev => ({ ...prev, documentos: false }));
+      });
+
+    // Resumo SSE streaming
+    setProcessSummary("");
+    fetchSSEStreamWithRetry(
+      getStreamProcessSummaryUrl(numeroProcesso, selectedUnidadeFiltro),
+      token,
+      (chunk) => {
+        setProcessSummary(prev => (prev || "") + chunk);
+      },
+      (fullResult) => {
+        const summaryText = typeof fullResult === 'string'
+          ? fullResult
+          : fullResult?.resumo_combinado?.resposta_ia || fullResult?.resumo?.resposta_ia || "";
+        setProcessSummary(summaryText.replace(/[#*]/g, ''));
+        setBackgroundLoading(prev => ({ ...prev, resumo: false }));
+        toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
+      },
+      (error) => {
+        setProcessSummary(null);
+        setBackgroundLoading(prev => ({ ...prev, resumo: false }));
+        console.warn("Resumo indisponível:", error);
+      },
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawProcessData, sessionToken, selectedUnidadeFiltro, numeroProcesso, unitAccessDenied]);
 
   // Eager-load situação atual when dependencies are ready
   useEffect(() => {
