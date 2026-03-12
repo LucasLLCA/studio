@@ -42,6 +42,7 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, hideSeque
   const markerX = radius * 0.7;
   const markerY = -radius * 0.7;
   const markerSize = radius / 3;
+  const isAutoConclusionSummaryNode = task.isSummaryNode && task.Tarefa === 'CONCLUSAO-AUTOMATICA-UNIDADE';
 
   return (
     <g
@@ -168,7 +169,9 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, hideSeque
 
       <title>{
         task.isSummaryNode ?
-        `${task.groupedTasksCount} ações diversas em ${task.Unidade.Sigla}\nInício em: ${formatDisplayDate(task.parsedDate)}${hasDocument ? '\n🔍 Possui documento para resumo' : ''}` :
+        isAutoConclusionSummaryNode
+          ? `${task.groupedTasksCount} conclusões automáticas em ${task.Unidade.Sigla}\nUsuário: ${task.Usuario.Nome}\nInício em: ${formatDisplayDate(task.parsedDate)}${hasDocument ? '\n🔍 Possui documento para resumo' : ''}`
+          : `${task.groupedTasksCount} ações diversas em ${task.Unidade.Sigla}\nInício em: ${formatDisplayDate(task.parsedDate)}${hasDocument ? '\n🔍 Possui documento para resumo' : ''}` :
         `Tarefa: ${task.Tarefa}\nUnidade: ${task.Unidade.Sigla}\nData: ${formatDisplayDate(task.parsedDate)}\nDias Aberto: ${task.daysOpen ?? 'N/A'}${isDocumentInaccessible ? `\n🔒 Documento restrito (${extractableDocument})` : isUnsignedOficio ? '\n⚠️ Ofício sem assinatura' : hasSigned ? '\n✅ Ofício assinado' : hasDocument ? `\n🔍 Documento detectado: ${extractableDocument}` : ''}`
       }</title>
     </g>

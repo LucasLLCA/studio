@@ -204,6 +204,16 @@ export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProp
   if (!task) return null;
 
   const cleanDescription = task.Descricao.replace(/<[^>]*>?/gm, '');
+  const isAutoConclusionSummaryNode = task.isSummaryNode && task.Tarefa === 'CONCLUSAO-AUTOMATICA-UNIDADE';
+  const summaryTitle = isAutoConclusionSummaryNode
+    ? `Resumo de ${task.groupedTasksCount} Conclusões Automáticas`
+    : `Resumo de ${task.groupedTasksCount} Ações`;
+  const summaryDescription = isAutoConclusionSummaryNode
+    ? `Informações sobre ${task.groupedTasksCount} conclusões automáticas agrupadas.`
+    : `Informações sobre ${task.groupedTasksCount} ações agrupadas.`;
+  const summaryTaskTypeLabel = isAutoConclusionSummaryNode
+    ? "Conclusões Automáticas Agrupadas"
+    : "Ações Agrupadas (Tipo da primeira ação)";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -211,10 +221,10 @@ export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProp
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold text-primary flex items-center">
              {task.isSummaryNode ? <Layers className="mr-2 h-6 w-6" /> : <FileText className="mr-2 h-6 w-6" />}
-             {task.isSummaryNode ? `Resumo de ${task.groupedTasksCount} Ações` : `Detalhes da Tarefa #${task.globalSequence}`}
+             {task.isSummaryNode ? summaryTitle : `Detalhes da Tarefa #${task.globalSequence}`}
           </DialogTitle>
           <DialogDescription>
-            {task.isSummaryNode ? `Informações sobre ${task.groupedTasksCount} ações agrupadas.` : "Informações detalhadas sobre o andamento do processo."}
+            {task.isSummaryNode ? summaryDescription : "Informações detalhadas sobre o andamento do processo."}
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="flex-grow pr-6 -mr-6"> {/* Offset scrollbar */}
@@ -224,7 +234,7 @@ export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProp
               <FileText className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
               <div>
                 <h3 className="font-medium text-foreground">
-                  {task.isSummaryNode ? "Ações Agrupadas (Tipo da primeira ação)" : "Tarefa (Tipo)"}
+                  {task.isSummaryNode ? summaryTaskTypeLabel : "Tarefa (Tipo)"}
                 </h3>
                 <p className="text-sm text-muted-foreground">{task.Tarefa}</p>
               </div>

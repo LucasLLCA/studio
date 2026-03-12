@@ -38,6 +38,8 @@ import { useOrgaoMetrics } from '@/hooks/use-orgao-metrics';
 import { ProcessToolbar } from '@/components/process-flow/ProcessToolbar';
 import { ProcessDetailsSheet } from '@/components/process-flow/ProcessDetailsSheet';
 import { OpenUnitsCard } from '@/components/process-flow/OpenUnitsCard';
+import { ProcessAndamentosTable } from '@/components/process-flow/ProcessAndamentosTable';
+import { ProcessProductivityTable } from '@/components/process-flow/ProcessProductivityTable';
 import { ProcessProvider } from '@/contexts/process-context';
 import { checkProcessoSalvo } from '@/lib/api/tags-api-client';
 
@@ -424,6 +426,36 @@ function VisualizarProcessoContent() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Andamentos Table */}
+              {processedFlowData && processedFlowData.tasks.length > 0 && (
+                <Card className="flex-1 flex flex-col overflow-hidden">
+                  <CardHeader className="pb-3 flex-shrink-0">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <GanttChartSquare className="h-5 w-5" /> Tabela de Andamentos
+                    </CardTitle>
+                  </CardHeader>
+                  <Separator />
+                  <CardContent className="flex-1 overflow-hidden p-0 px-6 pb-6 pt-4">
+                    <ProcessAndamentosTable andamentos={processedFlowData.tasks} />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Productivity Table */}
+              {rawProcessData?.Andamentos?.length > 0 && (
+                <Card className="flex flex-col overflow-hidden">
+                  <CardHeader className="pb-3 flex-shrink-0">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <GanttChartSquare className="h-5 w-5" /> Tabela Produtividade
+                    </CardTitle>
+                  </CardHeader>
+                  <Separator />
+                  <CardContent className="overflow-hidden p-0 px-6 pb-6 pt-4">
+                    <ProcessProductivityTable andamentos={rawProcessData.Andamentos} />
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </ProcessProvider>
         )}
