@@ -630,7 +630,7 @@ function LoginPageContent() {
                   </Button>
                   }
                 />
-                <ComboboxContent align="center" className="w-[300px] p-0">
+                <ComboboxContent align="center" className="w-300px] p-0">
                   <ComboboxInput showTrigger={false} placeholder="Buscar órgão..." />
                   <ComboboxEmpty>Nenhum órgão encontrado.</ComboboxEmpty>
                   <ComboboxList>
