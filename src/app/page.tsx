@@ -433,6 +433,14 @@ function LoginPageContent() {
           color: #3b82f6;
           text-decoration: none;
         }
+
+        .remember-container {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+}
         
       `}</style>
       
@@ -538,7 +546,7 @@ function LoginPageContent() {
               gap: '10px',
               alignItems: 'flex-start',
             }}>
-              <Info style={{ width: '18px', height: '18px', flexShrink: 0, marginTop: '1px' }} />
+              <Info style={{ width: '18px', height: '16px', flexShrink: 0, marginTop: '1px' }} />
               <span>Este login é necessário apenas na primeira vez.</span>
             </div>
           )}
@@ -605,22 +613,24 @@ function LoginPageContent() {
                 <ComboboxTrigger
                   render={
                     <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full justify-between font-normal"
-                      disabled={isLoading}
-                      style={{
-                        background: '#f9fafb',
-                        border: '1px solid #d1d5db',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                    >
-                      <ComboboxValue placeholder="Selecione um Órgão" />
-                    </Button>
+                    type="button"
+                    variant="outline"
+                    // Troque justify-between por justify-center
+                    className="w-full justify-center font-normal" 
+                    disabled={isLoading}
+                    style={{
+                      background: '#f9fafb',
+                      border: '1px solid #d1d5db',
+                      cursor: 'pointer',
+                      // Remova o textAlign: 'left' ou mude para 'center'
+                      textAlign: 'center', 
+                    }}
+                  >
+                    <ComboboxValue placeholder="Selecione um Órgão" />
+                  </Button>
                   }
                 />
-                <ComboboxContent>
+                <ComboboxContent align="center" className="w-[300px] p-0">
                   <ComboboxInput showTrigger={false} placeholder="Buscar órgão..." />
                   <ComboboxEmpty>Nenhum órgão encontrado.</ComboboxEmpty>
                   <ComboboxList>
@@ -645,9 +655,9 @@ function LoginPageContent() {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }}
                 />
-                <label htmlFor="remember-me" style={{ color: '#374151', fontSize: '0.875rem', cursor: 'pointer', userSelect: 'none' }}>
-                  Lembrar de mim
-                </label>
+                <label htmlFor="remember-me" style={{ cursor: 'pointer', fontSize: '0.875rem', color: '#4b5563' }}>
+      Lembrar de mim
+    </label>
               </div>
             )}
             {loginError && (
