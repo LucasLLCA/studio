@@ -16,11 +16,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchSSEStreamWithRetry, getStreamDocumentSummaryUrl } from '@/lib/streaming';
 import { extractDocumentNumber } from '@/lib/document-extraction';
+import { consultarDocumento } from '@/lib/sei-api-client';
 import { assinarDocumento } from '@/lib/api/documents';
 import React, { useState, useEffect } from 'react';
 import { formatDisplayDate } from '@/lib/process-flow-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertCircle, CheckCircle, User, Briefcase, CalendarClock, FileText, Sparkles, Layers, Loader2, ExternalLink, PenTool, TriangleAlert, Lock, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertCircle, CheckCircle, User, Briefcase, CalendarClock, FileText, Sparkles, Layers, Loader2, ExternalLink, PenTool, TriangleAlert, Lock, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { AlertBox } from '@/components/ui/alert-box';
 import { Separator } from '@/components/ui/separator';
 import { useProcessContext } from '@/contexts/process-context';
@@ -34,7 +35,7 @@ interface TaskDetailsModalProps {
 }
 
 export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProps) {
-  const { sessionToken, isAuthenticated, selectedUnidadeFiltro, documents, isLoadingDocuments, refresh } = useProcessContext();
+  const { sessionToken, isAuthenticated, selectedUnidadeFiltro, refresh } = useProcessContext();
   const { orgao, idUsuario, idLogin, cargoAssinatura, unidadesFiltroList } = usePersistedAuth();
   const { toast } = useToast();
   const [extractedDocumentNumber, setExtractedDocumentNumber] = useState<string | null>(null);
@@ -42,6 +43,8 @@ export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProp
   const [isLoadingDocumentSummary, setIsLoadingDocumentSummary] = useState<boolean>(false);
   const [documentSummaryError, setDocumentSummaryError] = useState<string | null>(null);
   const [matchedDocument, setMatchedDocument] = useState<Documento | null>(null);
+  const [isLoadingDocument, setIsLoadingDocument] = useState<boolean>(false);
+  const [documentError, setDocumentError] = useState<string | null>(null);
   const [isSignatureExpanded, setIsSignatureExpanded] = useState(false);
   const [isResumoExpanded, setIsResumoExpanded] = useState(true);
 
@@ -54,12 +57,14 @@ export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProp
   const [signCargo, setSignCargo] = useState('');
 
   useEffect(() => {
-    // Reset document summary states when modal opens or task changes
+    // Reset states when modal opens or task changes
     setExtractedDocumentNumber(null);
     setDocumentSummary(null);
     setDocumentSummaryError(null);
     setIsLoadingDocumentSummary(false);
     setMatchedDocument(null);
+    setIsLoadingDocument(false);
+    setDocumentError(null);
     setIsSignatureExpanded(false);
     setIsResumoExpanded(true);
     setIsSignModalOpen(false);
@@ -77,40 +82,30 @@ export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProp
     }
   }, [task, isOpen, cargoAssinatura, selectedUnidadeFiltro]);
 
-  // Buscar documento correspondente quando número é extraído (busca local)
-  useEffect(() => {
-    if (!extractedDocumentNumber || !documents || documents.length === 0) {
-      setMatchedDocument(null);
-      return;
-    }
+  // On-demand document consultation
+  const handleConsultarDocumento = async () => {
+    if (!extractedDocumentNumber || !sessionToken || !selectedUnidadeFiltro) return;
 
-    // Buscar documento que corresponde ao número extraído na lista local
-    const matchedDoc = documents.find(doc => 
-      doc.DocumentoFormatado === extractedDocumentNumber ||
-      doc.Numero === extractedDocumentNumber ||
-      doc.DocumentoFormatado.includes(extractedDocumentNumber) ||
-      extractedDocumentNumber.includes(doc.DocumentoFormatado)
-    );
+    setIsLoadingDocument(true);
+    setDocumentError(null);
 
-    if (matchedDoc) {
-      setMatchedDocument(matchedDoc);
-    } else {
-      setMatchedDocument(null);
+    try {
+      const result = await consultarDocumento(sessionToken, extractedDocumentNumber, selectedUnidadeFiltro);
+      if (result && !('error' in result)) {
+        setMatchedDocument(result);
+      } else {
+        setDocumentError(result?.error || 'Não foi possível consultar o documento.');
+      }
+    } catch {
+      setDocumentError('Erro ao consultar documento. Tente novamente.');
+    } finally {
+      setIsLoadingDocument(false);
     }
-  }, [extractedDocumentNumber, documents]);
-
-  // Auto-fetch document summary when a matched document is found
-  useEffect(() => {
-    if (matchedDocument && isOpen && extractedDocumentNumber && sessionToken && selectedUnidadeFiltro && !documentSummary && !isLoadingDocumentSummary && !documentSummaryError) {
-      handleFetchDocumentSummary();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchedDocument]);
+  };
 
   // Auto-scroll quando o resumo do documento é gerado
   useEffect(() => {
     if (documentSummary && !isLoadingDocumentSummary) {
-      // Pequeno delay para garantir que o DOM foi atualizado
       setTimeout(() => {
         const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
         if (scrollArea) {
@@ -217,9 +212,9 @@ export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProp
             {task.isSummaryNode ? `Informações sobre ${task.groupedTasksCount} ações agrupadas.` : "Informações detalhadas sobre o andamento do processo."}
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="flex-grow pr-6 -mr-6"> {/* Offset scrollbar */}
-          <div className="space-y-4 py-4 pr-2"> {/* Padding for scrollbar */}
-            
+        <ScrollArea className="flex-grow pr-6 -mr-6">
+          <div className="space-y-4 py-4 pr-2">
+
             <div className="flex items-start space-x-3">
               <FileText className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
               <div>
@@ -276,14 +271,41 @@ export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProp
             {extractedDocumentNumber && isAuthenticated && (
               <>
                 <Separator className="my-4" />
-                
-                {/* Link do Documento */}
+
                 <div className="space-y-3">
                   <h3 className="font-medium text-foreground flex items-center">
                     <FileText className="h-5 w-5 mr-2 text-primary" />
                     Documento Identificado ({extractedDocumentNumber})
                   </h3>
-                  
+
+                  {/* Not yet consulted — show button */}
+                  {!matchedDocument && !isLoadingDocument && !documentError && (
+                    <Button
+                      onClick={handleConsultarDocumento}
+                      variant="outline"
+                      size="sm"
+                      disabled={!sessionToken}
+                    >
+                      <Search className="mr-1 h-4 w-4" />
+                      Consultar documento
+                    </Button>
+                  )}
+
+                  {/* Loading document metadata */}
+                  {isLoadingDocument && (
+                    <div className="text-sm text-muted-foreground flex items-center">
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Consultando documento...
+                    </div>
+                  )}
+
+                  {/* Document error */}
+                  {documentError && (
+                    <AlertBox variant="error" icon={<Lock />} title="Documento indisponível">
+                      {documentError}
+                    </AlertBox>
+                  )}
+
                   {matchedDocument && (
                     <div className="p-3 border rounded-md bg-info/5 border-info/30">
                       <div className="flex items-start justify-between">
@@ -416,19 +438,6 @@ export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProp
                           )}
                         </div>
                       )}
-                    </div>
-                  )}
-                  
-                  {!matchedDocument && extractedDocumentNumber && !isLoadingDocuments && (
-                    <AlertBox variant="error" icon={<Lock />} title="Documento restrito">
-                      Você não possui permissão para acessar este documento. Entre em contato com a unidade responsável caso precise de acesso.
-                    </AlertBox>
-                  )}
-                  
-                  {!matchedDocument && extractedDocumentNumber && isLoadingDocuments && (
-                    <div className="text-sm text-muted-foreground flex items-center">
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Carregando lista de documentos...
                     </div>
                   )}
                 </div>

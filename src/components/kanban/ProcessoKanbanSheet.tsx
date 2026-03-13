@@ -105,7 +105,7 @@ export function ProcessoKanbanSheet({
   const [gruposDestino, setGruposDestino] = useState<TeamTag[]>([]);
   const [multiSelectAberto, setMultiSelectAberto] = useState(false);
   const { toast } = useToast();
-  const { usuario } = usePersistedAuth();
+  const { usuario, idUnidadeAtual, selectedUnidadeFiltro, updateSelectedUnidade } = usePersistedAuth();
   const router = useRouter();
   const [isMoving, setIsMoving] = useState(false);
 
@@ -1034,7 +1034,16 @@ export function ProcessoKanbanSheet({
         <div className="flex-shrink-0 pt-3 border-t">
           <Button
             className="w-full"
-            onClick={() => router.push(`/processo/${encodeURIComponent(processo.numero_processo)}/visualizar`)}
+            onClick={() => {
+              const unitId = selectedUnidadeFiltro || idUnidadeAtual;
+              if (unitId) {
+                updateSelectedUnidade(unitId);
+                router.push(`/processo/${encodeURIComponent(processo.numero_processo)}/visualizar`);
+              } else {
+                // No unit available — redirect to unit selection page
+                router.push(`/processo/${encodeURIComponent(processo.numero_processo)}`);
+              }
+            }}
           >
             <ExternalLink className="h-4 w-4 mr-2" />
             Abrir processo

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import type { ProcessoData, UnidadeAberta, Documento } from '@/types/process-flow';
+import type { ProcessoData, UnidadeAberta } from '@/types/process-flow';
 import { LinkedText } from '@/lib/linked-text';
 import type { ProcessCreationInfo } from '@/hooks/use-process-creation-info';
 import { Loader2, BookText, Info, CalendarDays, UserCircle, Building, CalendarClock, CheckCircle, Clock, ExternalLink, AlertTriangle, X, Share2, Copy } from 'lucide-react';
@@ -36,7 +36,6 @@ interface ProcessDetailsSheetProps {
   userOrgao: string | null;
   isExternalProcess: boolean;
   daysOpenInUserOrgao: number | null;
-  documents?: Documento[] | null;
   onNodeNavigate?: (id: string, type: 'andamento' | 'document') => void;
 }
 
@@ -54,7 +53,6 @@ export function ProcessDetailsSheet({
   userOrgao,
   isExternalProcess,
   daysOpenInUserOrgao,
-  documents,
   onNodeNavigate,
 }: ProcessDetailsSheetProps) {
   const { toast } = useToast();
@@ -233,7 +231,7 @@ export function ProcessDetailsSheet({
                       <LinkedText
                         text={processSummary}
                         andamentos={rawProcessData?.Andamentos || null}
-                        documents={documents || null}
+                        documents={null}
                         onNavigate={onNodeNavigate}
                       />
                     </pre>
@@ -266,7 +264,7 @@ export function ProcessDetailsSheet({
                       <LinkedText
                         text={situacaoAtual}
                         andamentos={rawProcessData?.Andamentos || null}
-                        documents={documents || null}
+                        documents={null}
                         onNavigate={onNodeNavigate}
                       />
                     </pre>

@@ -79,6 +79,19 @@ export const queryKeys = {
     byUser: (usuario: string) => ['searchHistory', usuario] as const,
   },
 
+  // Contagem de andamentos (lightweight metadata)
+  andamentosCount: {
+    all: ['andamentosCount'] as const,
+    byProcess: (processo: string) => ['andamentosCount', stripProcessNumber(processo)] as const,
+  },
+
+  // Situação atual do processo
+  situacaoAtual: {
+    all: ['situacaoAtual'] as const,
+    detail: (processo: string, unidade: string) =>
+      ['situacaoAtual', stripProcessNumber(processo), unidade] as const,
+  },
+
   // Health checks
   health: {
     seiApi: ['health', 'sei-api'] as const,

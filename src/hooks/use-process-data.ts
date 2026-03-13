@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { ProcessoData, Documento } from '@/types/process-flow';
-import { fetchProcessData, fetchDocuments, invalidateProcessCache } from '@/lib/sei-api-client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ProcessoData } from '@/types/process-flow';
+import { fetchProcessData, invalidateProcessCache } from '@/lib/sei-api-client';
 import { fetchSSEStreamWithRetry, getStreamProcessSummaryUrl, getStreamSituacaoAtualUrl, getStreamAndamentosProgressUrl } from '@/lib/streaming';
-import { withNetworkRetry } from '@/lib/network-retry';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { useToast } from '@/hooks/use-toast';
+import { queryKeys } from '@/lib/react-query/keys';
+import { stripProcessNumber } from '@/lib/utils';
 
 /** Retry a fetch on server errors (5xx) or network failures. Skips retry for 4xx client errors. */
 async function fetchWithRetry<T>(
@@ -35,6 +37,44 @@ async function fetchWithRetry<T>(
   return fn();
 }
 
+// Client-side doc extraction from andamentos (mirrors backend logic)
+const DOC_TASK_PREFIXES = [
+  "GERACAO-DOCUMENTO",
+  "ASSINATURA-DOCUMENTO",
+  "DOCUMENTO-INCLUIDO-EM-BLOCO",
+  "DOCUMENTO-RETIRADO-DO-BLOCO",
+];
+
+function extractDocsFromAndamentos(andamentos: any[]): { primeiro: string | null; ultimo: string | null } {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const a of andamentos) {
+    const tarefa = a.Tarefa || "";
+    if (!DOC_TASK_PREFIXES.some(p => tarefa.startsWith(p))) continue;
+    const attrs = a.Atributos || [];
+    if (attrs.length > 0) {
+      const val = attrs[0].Valor || "";
+      if (val && !seen.has(val)) {
+        seen.add(val);
+        ordered.push(val);
+      }
+    }
+  }
+  return {
+    primeiro: ordered[0] || null,
+    ultimo: ordered[ordered.length - 1] || null,
+  };
+}
+
+/** Custom error with HTTP status code */
+class ProcessDataError extends Error {
+  status: number;
+  constructor(result: { error: string; status?: number }) {
+    super(result.error);
+    this.status = result.status || 500;
+  }
+}
+
 interface UseProcessDataOptions {
   numeroProcesso: string;
   sessionToken: string | null;
@@ -55,332 +95,319 @@ export function useProcessData({
   refetchOpenUnits,
 }: UseProcessDataOptions) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const [rawProcessData, setRawProcessData] = useState<ProcessoData | null>(null);
-  const [documents, setDocuments] = useState<Documento[] | null>(null);
-  const [processSummary, setProcessSummary] = useState<string | null>(null);
-  const [situacaoAtual, setSituacaoAtual] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [refreshKey, setRefreshKey] = useState<number>(0);
-  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
-  const [isPartialData, setIsPartialData] = useState<boolean>(false);
-  const [andamentosFailed, setAndamentosFailed] = useState<boolean>(false);
-  const [documentsFailed, setDocumentsFailed] = useState<boolean>(false);
+  // Streaming state (progressive display, not cached)
+  const [resumoStreamText, setResumoStreamText] = useState<string>("");
+  const [situacaoStreamText, setSituacaoStreamText] = useState<string>("");
   const [andamentosProgress, setAndamentosProgress] = useState<{ loaded: number; total: number } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Ref to track phase-2 timeout for cleanup
-  const phase2TimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Prevents secondary data (docs + resumo) from loading more than once per render cycle
-  const secondaryLoadedRef = useRef(false);
+  // Track Phase 2 SSE to prevent re-triggering
+  const phase2StartedRef = useRef(false);
 
-  const [backgroundLoading, setBackgroundLoading] = useState({
-    andamentos: false,
-    documentos: false,
-    resumo: false,
-    situacao: false,
-  });
+  const processo = numeroProcesso;
+  const unidade = selectedUnidadeFiltro || '';
+  const token = sessionToken || '';
 
-  const hasBackgroundLoading = Object.values(backgroundLoading).some(loading => loading);
+  // ──────────────────────────────────────────────────────────────────────
+  // Query 1: Andamentos (Phase 1 — partial fetch)
+  // ──────────────────────────────────────────────────────────────────────
+  const andamentosQuery = useQuery<ProcessoData, ProcessDataError>({
+    queryKey: queryKeys.processData.detail(processo, unidade),
 
-  // Auto-recover when network comes back online
-  useNetworkStatus({
-    onOnline: () => {
-      setTimeout(() => {
-        const dataComplete = rawProcessData && documents !== null && (processSummary !== null || unitAccessDenied);
-        if (!dataComplete) {
-          setRefreshKey((prev) => prev + 1);
-        }
-      }, 1500);
-    },
-  });
-
-  // Load process data (two-phase: partial first, then full)
-  useEffect(() => {
-    if (!isAuthenticated || !sessionToken || !selectedUnidadeFiltro || !numeroProcesso) {
-      return;
-    }
-
-    // Clear any pending phase-2 timer from previous render
-    if (phase2TimerRef.current) {
-      clearTimeout(phase2TimerRef.current);
-      phase2TimerRef.current = null;
-    }
-
-    const loadProcessData = async () => {
-      setIsLoading(true);
-      setRawProcessData(null);
-      setDocuments(null);
-      setProcessSummary(null);
-      setSituacaoAtual(null);
-      setIsPartialData(false);
-      setAndamentosFailed(false);
-      setDocumentsFailed(false);
-      setAndamentosProgress(null);
-      secondaryLoadedRef.current = false;
-
-      setBackgroundLoading({
-        andamentos: true,
-        documentos: !unitAccessDenied,
-        resumo: !unitAccessDenied,
-        situacao: false,
-      });
-
-      if (unitAccessDenied) {
-        setDocuments([]);
-      }
-
-      const token = sessionToken || '';
-      if (!token) {
-        toast({ title: "Sessão expirada", description: "Sua sessão expirou. Faça login novamente para continuar.", variant: "destructive" });
-        setIsLoading(false);
-        setBackgroundLoading({ andamentos: false, documentos: false, resumo: false, situacao: false });
-        return;
-      }
-
-      // Fetch partial andamentos for fast initial render (docs + resumo deferred to secondary effect)
-      const andamentosPromise = fetchWithRetry(
-        () => fetchProcessData(token, numeroProcesso, selectedUnidadeFiltro, true),
+    queryFn: async () => {
+      const result = await fetchWithRetry(
+        () => fetchProcessData(token, processo, unidade, true, true),
         'andamentos',
       );
 
-      // Handle andamentos result
-      andamentosPromise
-        .then((processData: any) => {
-          if ('error' in processData && typeof processData.error === 'string') {
-            let errorTitle = "Erro ao buscar dados do processo";
-            let errorDescription = processData.error;
-            if (processData.status === 422) { errorTitle = "Dados inválidos"; errorDescription = `Verifique se o número do processo está correto e se a unidade selecionada é a correta. O número deve ter 20 dígitos.`; }
-            else if (processData.status === 404) { errorTitle = "Processo não localizado"; errorDescription = `O processo informado não foi encontrado na unidade '${selectedUnidadeFiltro}'. Verifique se o processo existe ou se está na unidade correta.`; }
-            else if (processData.status === 401) { errorTitle = "Sessão expirada"; errorDescription = "Sua sessão no sistema expirou. Você será redirecionado para fazer login novamente."; onSessionExpired(); }
-            else if (processData.status === 500) { errorTitle = "Erro no servidor SEI"; errorDescription = `O sistema SEI está temporariamente indisponível. Aguarde alguns minutos e tente novamente.`; }
-            toast({ title: errorTitle, description: errorDescription, variant: "destructive", duration: 9000 });
-            setRawProcessData(null);
-            setAndamentosFailed(true);
-            setIsLoading(false);
-            setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
-            return;
-          }
-
-          if (!('error' in processData) && processData.Andamentos && Array.isArray(processData.Andamentos)) {
-            const isParcial = processData.Info?.Parcial === true;
-            setRawProcessData(processData);
-            setLastFetchedAt(new Date());
-            setIsPartialData(isParcial);
-
-            if (isParcial) {
-              toast({ title: "Processo carregado", description: `Exibindo ${processData.Andamentos.length} de ${processData.Info?.TotalItens || '?'} andamentos. Carregando restante...` });
-            } else {
-              toast({ title: "Processo carregado com sucesso", description: `Encontrados ${processData.Andamentos.length} andamentos para visualização.` });
-            }
-
-            // Phase 2: If partial, use SSE stream to fetch full data with progress
-            if (isParcial) {
-              setAndamentosProgress({ loaded: processData.Andamentos.length, total: processData.Info?.TotalItens || 0 });
-              fetchSSEStreamWithRetry(
-                getStreamAndamentosProgressUrl(numeroProcesso, selectedUnidadeFiltro),
-                token,
-                () => {}, // no chunks for this stream
-                (fullResult: any) => {
-                  if (fullResult?.Andamentos && Array.isArray(fullResult.Andamentos)) {
-                    setRawProcessData(fullResult);
-                    setIsPartialData(false);
-                    toast({ title: "Dados completos carregados", description: `Todos os ${fullResult.Andamentos.length} andamentos foram carregados.` });
-                  }
-                  setAndamentosProgress(null);
-                },
-                (error) => {
-                  console.warn('Phase 2 SSE andamentos fetch failed, partial data remains:', error);
-                  setAndamentosProgress(null);
-                },
-                {
-                  onProgress: (progress) => {
-                    setAndamentosProgress(progress);
-                  },
-                },
-              );
-            }
-          } else {
-            toast({ title: "Formato de dados inesperado", description: "Os dados recebidos não estão no formato esperado. Entre em contato com o suporte técnico.", variant: "destructive" });
-            setRawProcessData(null);
-            setAndamentosFailed(true);
-          }
-          setIsLoading(false);
-          setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
-        })
-        .catch(() => {
-          setRawProcessData(null);
-          setAndamentosFailed(true);
-          toast({ title: "Erro ao Buscar Andamentos", description: "Falha na requisição de andamentos.", variant: "destructive" });
-          setIsLoading(false);
-          setBackgroundLoading(prev => ({ ...prev, andamentos: false }));
-        });
-
-    };
-
-    loadProcessData();
-
-    return () => {
-      if (phase2TimerRef.current) {
-        clearTimeout(phase2TimerRef.current);
-        phase2TimerRef.current = null;
+      if ('error' in result && typeof (result as any).error === 'string') {
+        throw new ProcessDataError(result as { error: string; status?: number });
       }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, sessionToken, selectedUnidadeFiltro, numeroProcesso, refreshKey, unitAccessDenied]);
 
-  // Load documents + resumo in background after initial andamentos render
+      const data = result as ProcessoData;
+      if (!data.Andamentos || !Array.isArray(data.Andamentos)) {
+        throw new ProcessDataError({ error: "Formato de dados inesperado", status: 500 });
+      }
+
+      return data;
+    },
+
+    enabled: isAuthenticated && !!token && !!unidade && !!processo,
+    staleTime: 2 * 60 * 1000, // 2 minutes — backend validates with TotalItens anyway
+    gcTime: 30 * 60 * 1000, // 30 minutes
+
+    retry: (failureCount, error) => {
+      if (error.status < 500) return false;
+      return failureCount < 2;
+    },
+    retryDelay: (attempt) => 2000 * (attempt + 1),
+
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    networkMode: 'online',
+  });
+
+  const rawProcessData = andamentosQuery.data ?? null;
+  const isPartialData = rawProcessData?.Info?.Parcial === true;
+
+  // Extract document IDs from response
+  const primeiroDocFormatado = rawProcessData?.DocumentosExtraidos?.primeiro ?? null;
+  const ultimoDocFormatado = rawProcessData?.DocumentosExtraidos?.ultimo ?? null;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Error handling for andamentos
+  // ──────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!rawProcessData || secondaryLoadedRef.current) return;
-    if (!sessionToken || !selectedUnidadeFiltro || unitAccessDenied) return;
+    if (!andamentosQuery.error) return;
+    const error = andamentosQuery.error;
+    const status = error.status;
 
-    secondaryLoadedRef.current = true;
-    const token = sessionToken;
+    let title = "Erro ao buscar dados do processo";
+    let description = error.message || "Falha na requisição de andamentos.";
 
-    // Documents (partial first, then full in background)
-    fetchWithRetry(
-      () => fetchDocuments(token, numeroProcesso, selectedUnidadeFiltro, true),
-      'documentos',
-    )
-      .then((documentsResponse: any) => {
-        if ('error' in documentsResponse) {
-          setDocuments([]);
-          setDocumentsFailed(true);
-        } else {
-          setDocuments(documentsResponse.Documentos);
+    if (status === 422) {
+      title = "Dados inválidos";
+      description = "Verifique se o número do processo está correto e se a unidade selecionada é a correta.";
+    } else if (status === 404) {
+      title = "Processo não localizado";
+      description = `O processo informado não foi encontrado na unidade '${unidade}'.`;
+    } else if (status === 401) {
+      title = "Sessão expirada";
+      description = "Sua sessão no sistema expirou. Você será redirecionado para fazer login novamente.";
+      onSessionExpired();
+    } else if (status === 500) {
+      title = "Erro no servidor SEI";
+      description = "O sistema SEI está temporariamente indisponível. Aguarde alguns minutos e tente novamente.";
+    }
 
-          const isDocsParcial = documentsResponse.Info?.Parcial === true;
-          if (isDocsParcial) {
-            phase2TimerRef.current = setTimeout(() => {
-              withNetworkRetry(
-                () => fetchDocuments(token, numeroProcesso, selectedUnidadeFiltro, false),
-                'documentos-full',
-              ).then((fullDocsResponse: any) => {
-                if (!('error' in fullDocsResponse) && fullDocsResponse.Documentos) {
-                  setDocuments(fullDocsResponse.Documentos);
-                }
-              }).catch(() => {
-                console.warn('Phase 2 full documents fetch failed, partial data remains');
-              });
-            }, 4000);
-          }
-        }
-        setBackgroundLoading(prev => ({ ...prev, documentos: false }));
-      })
-      .catch(() => {
-        setDocuments([]);
-        setDocumentsFailed(true);
-        setBackgroundLoading(prev => ({ ...prev, documentos: false }));
-      });
+    toast({ title, description, variant: "destructive", duration: 9000 });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [andamentosQuery.error]);
 
-    // Resumo SSE streaming
-    setProcessSummary("");
+  // ──────────────────────────────────────────────────────────────────────
+  // Phase 2: Full andamentos via SSE (when Phase 1 returns partial)
+  // ──────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isPartialData || !token || !unidade) return;
+
+    // Prevent re-triggering when setQueryData updates the data
+    if (phase2StartedRef.current) return;
+    phase2StartedRef.current = true;
+
+    const abortController = new AbortController();
+
+    setAndamentosProgress({
+      loaded: rawProcessData?.Andamentos?.length || 0,
+      total: rawProcessData?.Info?.TotalItens || 0,
+    });
+
     fetchSSEStreamWithRetry(
-      getStreamProcessSummaryUrl(numeroProcesso, selectedUnidadeFiltro),
+      getStreamAndamentosProgressUrl(processo, unidade),
       token,
-      (chunk) => {
-        setProcessSummary(prev => (prev || "") + chunk);
-      },
-      (fullResult) => {
-        const summaryText = typeof fullResult === 'string'
-          ? fullResult
-          : fullResult?.resumo_combinado?.resposta_ia || fullResult?.resumo?.resposta_ia || "";
-        setProcessSummary(summaryText.replace(/[#*]/g, ''));
-        setBackgroundLoading(prev => ({ ...prev, resumo: false }));
-        toast({ title: "Resumo do Processo Gerado", description: "Resumo carregado com sucesso." });
+      () => {}, // no chunks for this stream
+      (fullResult: any) => {
+        if (fullResult?.Andamentos && Array.isArray(fullResult.Andamentos)) {
+          // Client-side doc extraction for full data
+          const fullDocs = extractDocsFromAndamentos(fullResult.Andamentos);
+          const qk = queryKeys.processData.detail(processo, unidade);
+
+          queryClient.setQueryData(qk, (old: ProcessoData | undefined) => ({
+            ...fullResult,
+            DocumentosExtraidos: {
+              primeiro: old?.DocumentosExtraidos?.primeiro || fullDocs.primeiro,
+              ultimo: fullDocs.ultimo || old?.DocumentosExtraidos?.ultimo,
+            },
+          }));
+        }
+        setAndamentosProgress(null);
       },
       (error) => {
-        setProcessSummary(null);
-        setBackgroundLoading(prev => ({ ...prev, resumo: false }));
-        console.warn("Resumo indisponível:", error);
+        console.warn('Phase 2 SSE andamentos fetch failed, partial data remains:', error);
+        setAndamentosProgress(null);
+      },
+      {
+        signal: abortController.signal,
+        onProgress: (progress) => setAndamentosProgress(progress),
       },
     );
+
+    return () => abortController.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawProcessData, sessionToken, selectedUnidadeFiltro, numeroProcesso, unitAccessDenied]);
+  }, [isPartialData, token, processo, unidade]);
 
-  // Eager-load situação atual when dependencies are ready
+  // Reset Phase 2 ref when the query key changes (new process/unit)
   useEffect(() => {
-    if (unitAccessDenied) return;
-    if (situacaoAtual !== null) return;
-    if (backgroundLoading.situacao) return;
-    if (backgroundLoading.resumo) return;
-    if (rawProcessData === null) return;
-    if (documents === null) return;
-    if (!sessionToken || !selectedUnidadeFiltro) return;
+    phase2StartedRef.current = false;
+  }, [processo, unidade]);
 
-    setBackgroundLoading(prev => ({ ...prev, situacao: true }));
-    setSituacaoAtual("");
+  // ──────────────────────────────────────────────────────────────────────
+  // Query 2: Resumo (SSE-based, wrapped in React Query)
+  // ──────────────────────────────────────────────────────────────────────
+  const resumoQuery = useQuery<string, Error>({
+    queryKey: queryKeys.processSummary.detail(processo, unidade),
 
-    fetchSSEStreamWithRetry(
-      getStreamSituacaoAtualUrl(numeroProcesso, selectedUnidadeFiltro),
-      sessionToken,
-      (chunk) => {
-        setSituacaoAtual(prev => (prev || "") + chunk);
-      },
-      (fullResult) => {
-        const text = typeof fullResult === 'string'
-          ? fullResult
-          : fullResult?.situacao_atual || "";
-        setSituacaoAtual(text.replace(/[#*]/g, ''));
-        setBackgroundLoading(prev => ({ ...prev, situacao: false }));
-      },
-      (error) => {
-        setSituacaoAtual("");
-        setBackgroundLoading(prev => ({ ...prev, situacao: false }));
-        console.warn("Situação atual indisponível:", error);
-      },
-    );
-  }, [processSummary, backgroundLoading.resumo, rawProcessData, documents, situacaoAtual, backgroundLoading.situacao, sessionToken, selectedUnidadeFiltro, numeroProcesso, unitAccessDenied]);
+    queryFn: ({ signal }) => new Promise<string>((resolve, reject) => {
+      setResumoStreamText("");
 
-  // Loading tasks for UI feedback
+      // Handle query cancellation (unmount, invalidation)
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          reject(new DOMException('Query cancelled', 'AbortError'));
+        });
+      }
+
+      fetchSSEStreamWithRetry(
+        getStreamProcessSummaryUrl(processo, unidade, primeiroDocFormatado || undefined),
+        token,
+        (chunk) => setResumoStreamText(prev => prev + chunk),
+        (fullResult) => {
+          const text = typeof fullResult === 'string'
+            ? fullResult
+            : fullResult?.resumo_combinado?.resposta_ia || fullResult?.resumo?.resposta_ia || "";
+          resolve(text.replace(/[#*]/g, ''));
+        },
+        (error) => reject(new Error(error)),
+        { signal },
+      );
+    }),
+
+    enabled: !!rawProcessData && !unitAccessDenied && !!token && !!unidade,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    retry: false, // SSE has its own retry logic
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    networkMode: 'online',
+  });
+
+  // Retry resumo when primeiroDocFormatado becomes available after initial failure
+  useEffect(() => {
+    if (primeiroDocFormatado && resumoQuery.isError) {
+      resumoQuery.refetch();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primeiroDocFormatado, resumoQuery.isError]);
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Query 3: Situação Atual (SSE-based, waits for resumo)
+  // ──────────────────────────────────────────────────────────────────────
+  const situacaoQuery = useQuery<string, Error>({
+    queryKey: queryKeys.situacaoAtual.detail(processo, unidade),
+
+    queryFn: ({ signal }) => new Promise<string>((resolve, reject) => {
+      setSituacaoStreamText("");
+
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          reject(new DOMException('Query cancelled', 'AbortError'));
+        });
+      }
+
+      fetchSSEStreamWithRetry(
+        getStreamSituacaoAtualUrl(processo, unidade, ultimoDocFormatado || undefined),
+        token,
+        (chunk) => setSituacaoStreamText(prev => prev + chunk),
+        (fullResult) => {
+          const text = typeof fullResult === 'string'
+            ? fullResult
+            : fullResult?.situacao_atual || "";
+          resolve(text.replace(/[#*]/g, ''));
+        },
+        (error) => reject(new Error(error)),
+        { signal },
+      );
+    }),
+
+    enabled: resumoQuery.isSuccess && !unitAccessDenied && !!token && !!unidade,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    networkMode: 'online',
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Computed values (matching previous hook interface)
+  // ──────────────────────────────────────────────────────────────────────
+
+  // Cached final result takes precedence; streaming text shown during fetch
+  const processSummary = resumoQuery.data ?? (resumoQuery.isFetching && resumoStreamText ? resumoStreamText : null);
+  const situacaoAtual = situacaoQuery.data ?? (situacaoQuery.isFetching && situacaoStreamText ? situacaoStreamText : null);
+
+  const backgroundLoading = {
+    andamentos: andamentosQuery.isFetching || !!andamentosProgress,
+    resumo: resumoQuery.isFetching,
+    situacao: situacaoQuery.isFetching,
+  };
+  const hasBackgroundLoading = Object.values(backgroundLoading).some(Boolean);
+
   const loadingTasks = useMemo(() => {
     const tasks: string[] = [];
-    if (backgroundLoading.andamentos) {
-      const total = rawProcessData?.Info?.TotalItens;
-      const loaded = rawProcessData?.Andamentos?.length;
-      if (total && loaded) {
-        tasks.push(`Buscando andamentos do processo (${loaded}/${total})`);
+    if (andamentosQuery.isFetching || andamentosProgress) {
+      if (andamentosProgress) {
+        tasks.push(`Buscando andamentos do processo (${andamentosProgress.loaded}/${andamentosProgress.total})`);
       } else {
         tasks.push("Buscando andamentos do processo");
       }
-    } else if (andamentosProgress) {
-      tasks.push(`Buscando andamentos do processo (${andamentosProgress.loaded}/${andamentosProgress.total})`);
     }
-    if (backgroundLoading.documentos) tasks.push("Carregando documentos");
-    if (backgroundLoading.resumo) tasks.push("Gerando resumo com IA");
+    if (resumoQuery.isFetching) tasks.push("Gerando resumo com IA");
     return tasks;
-  }, [backgroundLoading, rawProcessData?.Info?.TotalItens, rawProcessData?.Andamentos?.length, andamentosProgress]);
+  }, [andamentosQuery.isFetching, resumoQuery.isFetching, andamentosProgress]);
 
+  // ──────────────────────────────────────────────────────────────────────
+  // Refresh (invalidates backend cache then React Query cache)
+  // ──────────────────────────────────────────────────────────────────────
   const refresh = useCallback(async () => {
     if (isRefreshing || hasBackgroundLoading) return;
     setIsRefreshing(true);
     try {
-      await invalidateProcessCache(numeroProcesso);
+      await invalidateProcessCache(processo);
+      phase2StartedRef.current = false;
+      setResumoStreamText("");
+      setSituacaoStreamText("");
+
       refetchOpenUnits();
-      setRefreshKey(prev => prev + 1);
-      toast({ title: "Atualizando dados", description: "Cache invalidado. Buscando dados atualizados..." });
+      queryClient.invalidateQueries({ queryKey: queryKeys.andamentosCount.byProcess(processo) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.processData.detail(processo, unidade) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.processSummary.detail(processo, unidade) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.situacaoAtual.detail(processo, unidade) });
     } catch {
       toast({ title: "Erro ao atualizar", description: "Não foi possível invalidar o cache.", variant: "destructive" });
     } finally {
       setIsRefreshing(false);
     }
-  }, [isRefreshing, hasBackgroundLoading, numeroProcesso, refetchOpenUnits, toast]);
+  }, [isRefreshing, hasBackgroundLoading, processo, unidade, refetchOpenUnits, queryClient, toast]);
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Network recovery
+  // ──────────────────────────────────────────────────────────────────────
+  useNetworkStatus({
+    onOnline: () => {
+      setTimeout(() => {
+        if (!rawProcessData) {
+          andamentosQuery.refetch();
+        }
+      }, 1500);
+    },
+  });
 
   return {
     rawProcessData,
-    documents,
     processSummary,
     situacaoAtual,
-    isLoading,
+    isLoading: andamentosQuery.isLoading,
     isRefreshing,
-    lastFetchedAt,
+    lastFetchedAt: andamentosQuery.dataUpdatedAt ? new Date(andamentosQuery.dataUpdatedAt) : null,
     backgroundLoading,
     hasBackgroundLoading,
     loadingTasks,
     refresh,
     isPartialData,
-    andamentosFailed,
-    documentsFailed,
+    andamentosFailed: andamentosQuery.isError,
     andamentosProgress,
   };
 }

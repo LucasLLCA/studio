@@ -11,7 +11,8 @@ export async function fetchProcessData(
   token: string,
   protocoloProcedimento: string,
   unidadeId: string,
-  parcial: boolean = false
+  parcial: boolean = false,
+  extrairDocumentos: boolean = false,
 ): Promise<ProcessoData | ApiError> {
   if (!protocoloProcedimento || !unidadeId) {
     return { error: "Número do processo e unidade são obrigatórios para buscar andamentos.", status: 400 };
@@ -21,7 +22,8 @@ export async function fetchProcessData(
   if (tokenError) return tokenError;
 
   const parcialParam = parcial ? '&parcial=true' : '';
-  const url = `${getApiBaseUrl()}/sei/andamentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}${parcialParam}`;
+  const extrairDocsParam = extrairDocumentos ? '&extrair_documentos=true' : '';
+  const url = `${getApiBaseUrl()}/sei/andamentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}${parcialParam}${extrairDocsParam}`;
 
   return fetchWithErrorHandling<ProcessoData>(
     url,
@@ -177,6 +179,60 @@ export async function fetchDocuments(
       },
     },
     'Falha ao buscar documentos do processo'
+  );
+}
+
+export async function consultarDocumento(
+  token: string,
+  documentoFormatado: string,
+  unidadeId: string,
+): Promise<any | ApiError> {
+  if (!documentoFormatado || !unidadeId) {
+    return { error: "Documento e unidade são obrigatórios.", status: 400 };
+  }
+
+  const tokenError = validateToken(token);
+  if (tokenError) return tokenError;
+
+  const url = `${getApiBaseUrl()}/sei/documento/${encodeURIComponent(documentoFormatado)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+
+  return fetchWithErrorHandling<any>(
+    url,
+    {
+      method: 'GET',
+      headers: {
+        'X-SEI-Token': token,
+        'accept': 'application/json',
+      },
+    },
+    'Falha ao consultar documento'
+  );
+}
+
+export async function fetchAndamentosCount(
+  token: string,
+  protocoloProcedimento: string,
+  unidadeId: string,
+): Promise<{ total_itens: number } | ApiError> {
+  if (!protocoloProcedimento || !unidadeId) {
+    return { error: "Número do processo e unidade são obrigatórios.", status: 400 };
+  }
+
+  const tokenError = validateToken(token);
+  if (tokenError) return tokenError;
+
+  const url = `${getApiBaseUrl()}/sei/andamentos-count/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}`;
+
+  return fetchWithErrorHandling<{ total_itens: number }>(
+    url,
+    {
+      method: 'GET',
+      headers: {
+        'X-SEI-Token': token,
+        'accept': 'application/json',
+      },
+    },
+    'Falha ao verificar contagem de andamentos'
   );
 }
 

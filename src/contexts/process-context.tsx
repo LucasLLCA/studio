@@ -1,15 +1,13 @@
 "use client";
 
 import React, { createContext, useContext } from 'react';
-import type { Documento, UnidadeAberta } from '@/types/process-flow';
+import type { UnidadeAberta } from '@/types/process-flow';
 
 interface ProcessContextValue {
   sessionToken: string | null;
   isAuthenticated: boolean;
   selectedUnidadeFiltro: string | undefined;
   processNumber: string;
-  documents: Documento[] | null;
-  isLoadingDocuments: boolean;
   openUnitsInProcess: UnidadeAberta[] | null;
   refresh?: () => void;
 }

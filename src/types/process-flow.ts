@@ -40,9 +40,17 @@ export interface ProcessoInfo {
   Parcial?: boolean;
 }
 
+export interface DocumentosExtraidos {
+  todos: string[];
+  primeiro: string | null;
+  ultimo: string | null;
+  total: number;
+}
+
 export interface ProcessoData {
   Info: ProcessoInfo;
   Andamentos: Andamento[];
+  DocumentosExtraidos?: DocumentosExtraidos;
 }
 
 export interface ProcessedAndamento extends Andamento {

@@ -33,7 +33,7 @@ export function ProcessFlowDiagram({
   filteredLaneUnits = [],
   isPartialData = false,
 }: ProcessFlowDiagramProps) {
-  const { sessionToken, isAuthenticated, selectedUnidadeFiltro, processNumber, documents, isLoadingDocuments, openUnitsInProcess } = useProcessContext();
+  const { sessionToken, isAuthenticated, selectedUnidadeFiltro, processNumber, openUnitsInProcess } = useProcessContext();
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 

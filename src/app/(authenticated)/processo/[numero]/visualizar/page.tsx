@@ -21,6 +21,7 @@ import {
 import { processAndamentos } from '@/lib/process-flow-utils';
 import { formatProcessNumber } from '@/lib/utils';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
+import { useAndamentosCount } from '@/lib/react-query/queries/useAndamentosCount';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -88,7 +89,15 @@ function VisualizarProcessoContent() {
     });
   }, [usuario, numeroProcesso]);
 
-  // Open units via React Query
+  // Lightweight count query — reused from selecionar unidade if cached
+  const { data: countData } = useAndamentosCount({
+    processo: numeroProcesso,
+    unidade: selectedUnidadeFiltro || '',
+    token: sessionToken || '',
+    enabled: isAuthenticated && !!sessionToken && !!selectedUnidadeFiltro,
+  });
+
+  // Open units via React Query — skips refetch when TotalItens unchanged
   const {
     data: openUnitsData,
     isLoading: isLoadingOpenUnits,
@@ -100,6 +109,7 @@ function VisualizarProcessoContent() {
     unidadeOrigem: selectedUnidadeFiltro || '',
     token: sessionToken || '',
     enabled: isAuthenticated && !!sessionToken && !!selectedUnidadeFiltro,
+    currentTotalItens: countData?.total_itens,
   });
 
   const openUnitsInProcess = openUnitsData?.unidades || null;
@@ -113,7 +123,6 @@ function VisualizarProcessoContent() {
   // Data fetching hook
   const {
     rawProcessData,
-    documents,
     processSummary,
     situacaoAtual,
     isLoading,
@@ -125,7 +134,6 @@ function VisualizarProcessoContent() {
     refresh,
     isPartialData,
     andamentosFailed,
-    documentsFailed,
     andamentosProgress,
   } = useProcessData({
     numeroProcesso,
@@ -260,7 +268,6 @@ function VisualizarProcessoContent() {
             onRefresh={refresh}
             initialIsSaved={isSaved}
             onSavedStatusChange={setIsSaved}
-            documentsFailed={documentsFailed}
           />
         )}
 
@@ -279,7 +286,6 @@ function VisualizarProcessoContent() {
           userOrgao={userOrgao}
           isExternalProcess={isExternalProcess}
           daysOpenInUserOrgao={daysOpenInUserOrgao}
-          documents={documents}
           onNodeNavigate={handleNodeNavigate}
         />
 
@@ -289,8 +295,6 @@ function VisualizarProcessoContent() {
             isAuthenticated,
             selectedUnidadeFiltro,
             processNumber: numeroProcesso || rawProcessData?.Info?.NumeroProcesso || '',
-            documents: documents,
-            isLoadingDocuments: backgroundLoading.documentos,
             openUnitsInProcess,
             refresh,
           }}>

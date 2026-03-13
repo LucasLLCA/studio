@@ -9,6 +9,7 @@ import { Search, AlertTriangle } from 'lucide-react';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { LoadingFeedback } from '@/components/home/LoadingFeedback';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
+import { useAndamentosCount } from '@/lib/react-query/queries/useAndamentosCount';
 import { useToast } from '@/hooks/use-toast';
 import { formatProcessNumber, stripProcessNumber } from '@/lib/utils';
 import { saveSearchHistory } from '@/lib/history-api-client';
@@ -35,6 +36,14 @@ export default function ProcessoPage() {
 
   const idParaBuscarUnidades = idUnidadeAtual || (Array.isArray(unidadesFiltroList) && unidadesFiltroList.length > 0 ? unidadesFiltroList[0]?.Id : '');
 
+  // Lightweight count query — cached for 20 minutes, shared with visualizar page
+  const { data: countData } = useAndamentosCount({
+    processo: numeroProcesso,
+    unidade: idParaBuscarUnidades,
+    token: sessionToken || '',
+    enabled: isAuthenticated && !!sessionToken && !!idParaBuscarUnidades,
+  });
+
   const {
     data: openUnitsData,
     isLoading: isLoadingUnidadesAbertas,
@@ -45,6 +54,7 @@ export default function ProcessoPage() {
     unidadeOrigem: idParaBuscarUnidades,
     token: sessionToken || '',
     enabled: isAuthenticated && !!sessionToken && !!idParaBuscarUnidades,
+    currentTotalItens: countData?.total_itens,
   });
 
   const unidadesAbertas = openUnitsData?.unidades || null;

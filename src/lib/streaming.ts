@@ -99,17 +99,27 @@ export async function fetchSSEStream(
 export function getStreamProcessSummaryUrl(
   processNumber: string,
   unidadeId: string,
+  primeiroDocFormatado?: string,
 ): string {
   const cleaned = stripProcessNumber(processNumber);
-  return `${BASE_PATH}/api/stream/resumo-completo/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  let url = `${BASE_PATH}/api/stream/resumo-completo/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  if (primeiroDocFormatado) {
+    url += `&primeiro_doc_formatado=${encodeURIComponent(primeiroDocFormatado)}`;
+  }
+  return url;
 }
 
 export function getStreamSituacaoAtualUrl(
   processNumber: string,
   unidadeId: string,
+  ultimoDocFormatado?: string,
 ): string {
   const cleaned = stripProcessNumber(processNumber);
-  return `${BASE_PATH}/api/stream/resumo-situacao/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  let url = `${BASE_PATH}/api/stream/resumo-situacao/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  if (ultimoDocFormatado) {
+    url += `&ultimo_doc_formatado=${encodeURIComponent(ultimoDocFormatado)}`;
+  }
+  return url;
 }
 
 export function getStreamAndamentosProgressUrl(
