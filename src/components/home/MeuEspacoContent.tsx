@@ -32,8 +32,8 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { getMyTags, getTagWithProcessos, removeProcessoFromTag, deleteTag, updateTag } from '@/lib/api/tags-api-client';
-import type { Tag, TagWithProcessos } from '@/types/teams';
+import { getMyGrupos, getGrupoWithProcessos, removeProcessoFromGrupo, deleteGrupo, updateGrupo } from '@/lib/api/grupos-api-client';
+import type { GrupoProcesso, GrupoProcessoWithProcessos } from '@/types/teams';
 
 interface MeuEspacoContentProps {
   usuario: string;
@@ -45,8 +45,8 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
   const { toast } = useToast();
   const router = useRouter();
 
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [expandedTags, setExpandedTags] = useState<Record<string, TagWithProcessos>>({});
+  const [tags, setTags] = useState<GrupoProcesso[]>([]);
+  const [expandedTags, setExpandedTags] = useState<Record<string, GrupoProcessoWithProcessos>>({});
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [loadingTagId, setLoadingTagId] = useState<string | null>(null);
@@ -68,7 +68,7 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
   const loadTags = async () => {
     setIsLoading(true);
     try {
-      const result = await getMyTags(usuario);
+      const result = await getMyGrupos(usuario);
       if ('error' in result) {
         toast({ title: "Erro ao carregar grupos", description: result.error, variant: "destructive" });
         setTags([]);
@@ -89,7 +89,7 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
     if (!expandedTags[tagId]) {
       setLoadingTagId(tagId);
       try {
-        const result = await getTagWithProcessos(tagId, usuario);
+        const result = await getGrupoWithProcessos(tagId, usuario);
         if (!('error' in result)) {
           setExpandedTags(prev => ({ ...prev, [tagId]: result }));
         }
@@ -100,7 +100,7 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
   };
 
   const handleRemoveProcesso = async (tagId: string, processoId: string) => {
-    const result = await removeProcessoFromTag(tagId, processoId, usuario);
+    const result = await removeProcessoFromGrupo(tagId, processoId, usuario);
     if ('error' in result) {
       toast({ title: "Erro ao remover", description: result.error, variant: "destructive" });
       return;
@@ -121,7 +121,7 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
     if (!renameTagId || !renameValue.trim()) return;
     setIsRenaming(true);
     try {
-      const result = await updateTag(renameTagId, usuario, { nome: renameValue.trim() });
+      const result = await updateGrupo(renameTagId, usuario, { nome: renameValue.trim() });
       if ('error' in result) {
         toast({ title: "Erro ao renomear", description: result.error, variant: "destructive" });
         return;
@@ -138,7 +138,7 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
     if (!deleteTagId) return;
     setIsDeleting(true);
     try {
-      const result = await deleteTag(deleteTagId, usuario);
+      const result = await deleteGrupo(deleteTagId, usuario);
       if ('error' in result) {
         toast({ title: "Erro ao excluir", description: result.error, variant: "destructive" });
         return;

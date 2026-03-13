@@ -1,64 +1,94 @@
 "use client";
 
-import type { ProcessedAndamento } from '@/types/process-flow';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import type { ProcessedAndamento, UnidadeAberta } from '@/types/process-flow';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useState } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { TaskDetailsModal } from './TaskDetailsModal';
 
 interface ProcessAndamentosTableProps {
   andamentos: ProcessedAndamento[];
+  searchQuery?: string;
+  openUnitsInProcess?: UnidadeAberta[] | null;
 }
 
-export function ProcessAndamentosTable({ andamentos }: ProcessAndamentosTableProps) {
+const ROW_HEIGHT = 72; // Estimated row height in px
+
+export function ProcessAndamentosTable({ andamentos, searchQuery = '', openUnitsInProcess }: ProcessAndamentosTableProps) {
   const [selectedTask, setSelectedTask] = useState<ProcessedAndamento | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const parentRef = useRef<HTMLDivElement>(null);
 
-  const formatDateTime = (dateString: string) => {
+  // Build set of open unit IDs and find last andamento per open unit
+  const lastAndamentoIdsInOpenUnits = useMemo(() => {
+    const openUnitIds = new Set(
+      openUnitsInProcess?.map(u => u.Unidade.IdUnidade) || []
+    );
+    if (openUnitIds.size === 0) return new Set<string>();
+
+    const latestByUnit = new Map<string, ProcessedAndamento>();
+    for (const a of andamentos) {
+      if (!openUnitIds.has(a.Unidade.IdUnidade)) continue;
+      const existing = latestByUnit.get(a.Unidade.IdUnidade);
+      if (!existing || a.parsedDate.getTime() > existing.parsedDate.getTime()) {
+        latestByUnit.set(a.Unidade.IdUnidade, a);
+      }
+    }
+
+    return new Set(Array.from(latestByUnit.values()).map(a => a.IdAndamento));
+  }, [andamentos, openUnitsInProcess]);
+
+  const sortedAndFiltered = useMemo(() => {
+    const sorted = [...andamentos].sort(
+      (a, b) => b.parsedDate.getTime() - a.parsedDate.getTime()
+    );
+    if (!searchQuery.trim()) return sorted;
+    const q = searchQuery.toLowerCase();
+    return sorted.filter(a =>
+      a.Unidade.Sigla.toLowerCase().includes(q) ||
+      a.Unidade.Descricao.toLowerCase().includes(q) ||
+      a.Usuario.Sigla.toLowerCase().includes(q) ||
+      a.Usuario.Nome.toLowerCase().includes(q) ||
+      a.Descricao.replace(/<[^>]*>?/gm, '').toLowerCase().includes(q)
+    );
+  }, [andamentos, searchQuery]);
+
+  const virtualizer = useVirtualizer({
+    count: sortedAndFiltered.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+  });
+
+  const formatDateTime = useCallback((dateString: string) => {
     try {
       if (!dateString || dateString.trim() === '') return '-';
-
       const date = new Date(dateString);
-      // Validate if date is valid
-      if (isNaN(date.getTime())) {
-        return dateString;
-      }
-
+      if (isNaN(date.getTime())) return dateString;
       return date.toLocaleString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
       });
-    } catch (error) {
-      console.error('Error formatting date:', dateString, error);
+    } catch {
       return dateString;
     }
-  };
+  }, []);
 
-  const formatRelativeTime = (dateString: string) => {
+  const formatRelativeTime = useCallback((dateString: string) => {
     try {
       if (!dateString || dateString.trim() === '') return '';
-
       const date = new Date(dateString);
-      // Validate if date is valid
-      if (isNaN(date.getTime())) {
-        return '';
-      }
-
+      if (isNaN(date.getTime())) return '';
       return formatDistanceToNow(date, { addSuffix: true, locale: ptBR });
-    } catch (error) {
-      console.error('Error formatting relative time:', dateString, error);
+    } catch {
       return '';
     }
-  };
+  }, []);
 
-  const cleanDescription = (description: string) => {
+  const cleanDescription = useCallback((description: string) => {
     return description.replace(/<[^>]*>?/gm, '');
-  };
+  }, []);
 
   const handleRowClick = (andamento: ProcessedAndamento) => {
     setSelectedTask(andamento);
@@ -73,7 +103,7 @@ export function ProcessAndamentosTable({ andamentos }: ProcessAndamentosTablePro
   return (
     <>
       <div className="w-full border rounded-lg overflow-hidden bg-card shadow-sm">
-        <ScrollArea className="h-[400px] w-full">
+        <div ref={parentRef} className="h-[400px] w-full overflow-auto">
           <div className="w-full">
             <table className="w-full border-collapse text-sm">
               <thead className="sticky top-0 z-10 bg-slate-400 dark:bg-slate-600">
@@ -93,45 +123,75 @@ export function ProcessAndamentosTable({ andamentos }: ProcessAndamentosTablePro
                 </tr>
               </thead>
               <tbody>
-                {andamentos.map((andamento, index) => (
-                  <tr
-                    key={andamento.IdAndamento}
-                    onClick={() => handleRowClick(andamento)}
-                    className={`border-b last:border-b-0 transition-colors hover:bg-accent cursor-pointer ${
-                      index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
-                    }`}
-                  >
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-sm font-medium">
-                        {formatDateTime(andamento.DataHora)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatRelativeTime(andamento.DataHora)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-foreground">{andamento.Unidade.Sigla}</div>
-                      <div className="text-xs text-slate-400 dark:text-slate-500 truncate" title={andamento.Unidade.Descricao}>
-                        {andamento.Unidade.Descricao}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-foreground">{andamento.Usuario.Sigla}</div>
-                      <div className="text-xs text-slate-400 dark:text-slate-500 truncate" title={andamento.Usuario.Nome}>
-                        {andamento.Usuario.Nome}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm line-clamp-2 text-foreground" title={cleanDescription(andamento.Descricao)}>
-                        {cleanDescription(andamento.Descricao)}
-                      </div>
-                    </td>
+                {/* Spacer for items before the virtual window */}
+                {virtualizer.getVirtualItems().length > 0 && (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      style={{ height: virtualizer.getVirtualItems()[0]?.start ?? 0, padding: 0, border: 'none' }}
+                    />
                   </tr>
-                ))}
+                )}
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                  const andamento = sortedAndFiltered[virtualRow.index];
+                  const isOpenUnitLast = lastAndamentoIdsInOpenUnits.has(andamento.IdAndamento);
+                  return (
+                    <tr
+                      key={andamento.IdAndamento}
+                      data-index={virtualRow.index}
+                      ref={virtualizer.measureElement}
+                      onClick={() => handleRowClick(andamento)}
+                      className={`border-b last:border-b-0 transition-colors hover:bg-accent cursor-pointer ${
+                        isOpenUnitLast
+                          ? 'bg-red-50 dark:bg-red-950/30'
+                          : virtualRow.index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
+                      }`}
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium">
+                          {formatDateTime(andamento.DataHora)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatRelativeTime(andamento.DataHora)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className={`font-medium ${isOpenUnitLast ? 'text-destructive' : 'text-foreground'}`}>{andamento.Unidade.Sigla}</div>
+                        <div className="text-xs text-slate-400 dark:text-slate-500 truncate" title={andamento.Unidade.Descricao}>
+                          {andamento.Unidade.Descricao}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-foreground">{andamento.Usuario.Sigla}</div>
+                        <div className="text-xs text-slate-400 dark:text-slate-500 truncate" title={andamento.Usuario.Nome}>
+                          {andamento.Usuario.Nome}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm line-clamp-2 text-foreground" title={cleanDescription(andamento.Descricao)}>
+                          {cleanDescription(andamento.Descricao)}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {/* Spacer for items after the virtual window */}
+                {virtualizer.getVirtualItems().length > 0 && (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      style={{
+                        height: virtualizer.getTotalSize() - (virtualizer.getVirtualItems().at(-1)?.end ?? 0),
+                        padding: 0,
+                        border: 'none',
+                      }}
+                    />
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
       <TaskDetailsModal

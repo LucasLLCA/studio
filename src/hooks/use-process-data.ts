@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, startTransition } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ProcessoData } from '@/types/process-flow';
 import { fetchProcessData, invalidateProcessCache } from '@/lib/sei-api-client';
@@ -230,7 +230,7 @@ export function useProcessData({
       },
       {
         signal: abortController.signal,
-        onProgress: (progress) => setAndamentosProgress(progress),
+        onProgress: (progress) => startTransition(() => setAndamentosProgress(progress)),
       },
     );
 
@@ -262,7 +262,7 @@ export function useProcessData({
       fetchSSEStreamWithRetry(
         getStreamProcessSummaryUrl(processo, unidade, primeiroDocFormatado || undefined),
         token,
-        (chunk) => setResumoStreamText(prev => prev + chunk),
+        (chunk) => startTransition(() => setResumoStreamText(prev => prev + chunk)),
         (fullResult) => {
           const text = typeof fullResult === 'string'
             ? fullResult
@@ -309,7 +309,7 @@ export function useProcessData({
       fetchSSEStreamWithRetry(
         getStreamSituacaoAtualUrl(processo, unidade, ultimoDocFormatado || undefined),
         token,
-        (chunk) => setSituacaoStreamText(prev => prev + chunk),
+        (chunk) => startTransition(() => setSituacaoStreamText(prev => prev + chunk)),
         (fullResult) => {
           const text = typeof fullResult === 'string'
             ? fullResult

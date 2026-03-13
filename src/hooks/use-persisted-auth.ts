@@ -217,6 +217,12 @@ export function usePersistedAuth() {
     }
   }, []);
 
+  // Função para atualizar apenas o token de sessão (usado pelo token refresh)
+  const updateSessionToken = useCallback((newToken: string) => {
+    setSessionToken(newToken);
+    saveToStorage({ sessionToken: newToken });
+  }, [saveToStorage]);
+
   // Função para atualizar unidade selecionada
   const updateSelectedUnidade = useCallback((unidadeId: string | undefined) => {
     setSelectedUnidadeFiltro(unidadeId);
@@ -266,6 +272,7 @@ export function usePersistedAuth() {
     selectedUnidadeFiltro,
     login,
     logout,
+    updateSessionToken,
     updateSelectedUnidade,
     forceLogout
   };

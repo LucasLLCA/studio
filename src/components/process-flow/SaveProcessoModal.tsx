@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, Plus, ChevronRight, ChevronDown, Share2, Users, Trash2 } from 'lucide-react';
+import { Loader2, Plus, ChevronRight, ChevronDown, Users, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -13,18 +13,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { getMyTags, getTagWithProcessos, createTag, saveProcessoToTag, deleteTag, removeProcessoFromTag } from '@/lib/api/tags-api-client';
+import { getMyGrupos, getGrupoWithProcessos, createGrupo, saveProcessoToGrupo, deleteGrupo, removeProcessoFromGrupo } from '@/lib/api/grupos-api-client';
 import { getMyTeams } from '@/lib/api/teams-api-client';
-import { shareTag } from '@/lib/api/sharing-api-client';
-import { getKanbanBoard, salvarProcessoNoKanban } from '@/lib/api/team-tags-api-client';
+import { getKanbanBoard, salvarProcessoNoKanban } from '@/lib/api/tags-api-client';
 import { formatProcessNumber } from '@/lib/utils';
-import type { Tag, Team } from '@/types/teams';
+import type { GrupoProcesso } from '@/types/teams';
 
 type SelectedGroup =
   | { type: 'personal'; tagId: string; tagNome: string }
@@ -70,8 +67,6 @@ export function SaveProcessoModal({
   const { toast } = useToast();
   const { usuario } = usePersistedAuth();
 
-  const [step, setStep] = useState<1 | 2>(1);
-  const [teams, setTeams] = useState<Team[]>([]);
 
   // Grupos pessoais (criados pelo usuário)
   const [grupos, setGrupos] = useState<GrupoComProcessos[]>([]);
@@ -97,23 +92,12 @@ export function SaveProcessoModal({
   const [newTagName, setNewTagName] = useState('');
   const [isCreatingTag, setIsCreatingTag] = useState(false);
 
-  // Step 2
-  const [shareOption, setShareOption] = useState<'private' | 'share'>('private');
-  const [shareType, setShareType] = useState<'team' | 'user'>('team');
-  const [shareTeamId, setShareTeamId] = useState('');
-  const [shareUserEmail, setShareUserEmail] = useState('');
-
   useEffect(() => {
     if (open && usuario) loadData();
     if (!open) {
-      setStep(1);
       setSelectedGroup(null);
       setNewTagName('');
       setIsCreatingTag(false);
-      setShareOption('private');
-      setShareType('team');
-      setShareTeamId('');
-      setShareUserEmail('');
       setGruposOpen(true);
       setEquipesOpen(true);
       setExpandedKeys(new Set());
@@ -136,23 +120,22 @@ export function SaveProcessoModal({
     if (!usuario) return;
     setIsLoading(true);
     try {
-      const [tagsResult, teamsResult] = await Promise.all([
-        getMyTags(usuario),
+      const [gruposResult, teamsResult] = await Promise.all([
+        getMyGrupos(usuario),
         getMyTeams(usuario),
       ]);
 
-      const fetchedTags = !('error' in tagsResult) ? tagsResult : [];
+      const fetchedGrupos = !('error' in gruposResult) ? gruposResult : [];
       const fetchedTeams = !('error' in teamsResult) ? teamsResult : [];
-      setTeams(fetchedTeams);
 
-      const [tagDetailResults, kanbanResults] = await Promise.all([
-        Promise.all(fetchedTags.map((tag: Tag) => getTagWithProcessos(tag.id, usuario!))),
+      const [grupoDetailResults, kanbanResults] = await Promise.all([
+        Promise.all(fetchedGrupos.map((g: GrupoProcesso) => getGrupoWithProcessos(g.id, usuario!))),
         Promise.all(fetchedTeams.map((team: Team) => getKanbanBoard(team.id, usuario!))),
       ]);
 
       // Grupos pessoais
-      const personalGrupos: GrupoComProcessos[] = fetchedTags.map((tag: Tag, i: number) => {
-        const result = tagDetailResults[i];
+      const personalGrupos: GrupoComProcessos[] = fetchedGrupos.map((g: GrupoProcesso, i: number) => {
+        const result = grupoDetailResults[i];
         const processos: ProcessoItem[] = !('error' in result)
           ? result.processos.map((p: any) => ({
               id: p.id,
@@ -162,9 +145,9 @@ export function SaveProcessoModal({
           : [];
         return {
           type: 'personal' as const,
-          tagId: tag.id,
-          tagNome: tag.nome,
-          tagCor: tag.cor ?? null,
+          tagId: g.id,
+          tagNome: g.nome,
+          tagCor: g.cor ?? null,
           processos,
         };
       });
@@ -203,7 +186,7 @@ export function SaveProcessoModal({
     if (!usuario || !newTagName.trim()) return;
     setIsCreatingTag(true);
     try {
-      const result = await createTag(usuario, newTagName.trim());
+      const result = await createGrupo(usuario, newTagName.trim());
       if ('error' in result) {
         toast({ title: "Erro ao criar grupo", description: result.error, variant: "destructive" });
         return;
@@ -230,7 +213,7 @@ export function SaveProcessoModal({
     setConfirmDeleteGrupo(null);
     setDeletingTagId(tagId);
     try {
-      const result = await deleteTag(tagId, usuario);
+      const result = await deleteGrupo(tagId, usuario);
       if ('error' in result) {
         toast({ title: "Erro ao excluir grupo", description: result.error, variant: "destructive" });
         return;
@@ -249,7 +232,7 @@ export function SaveProcessoModal({
     if (!usuario) return;
     setRemovingProcessoId(processoId);
     try {
-      const result = await removeProcessoFromTag(tagId, processoId, usuario);
+      const result = await removeProcessoFromGrupo(tagId, processoId, usuario);
       if ('error' in result) {
         toast({ title: "Erro ao remover processo", description: result.error, variant: "destructive" });
         return;
@@ -281,7 +264,7 @@ export function SaveProcessoModal({
           return;
         }
       } else {
-        const saveResult = await saveProcessoToTag(
+        const saveResult = await saveProcessoToGrupo(
           selectedGroup.tagId,
           usuario,
           numeroProcesso,
@@ -293,18 +276,6 @@ export function SaveProcessoModal({
             : saveResult.error;
           toast({ title: "Erro ao salvar", description, variant: "destructive" });
           return;
-        }
-
-        if (shareOption === 'share') {
-          const destino = shareType === 'team'
-            ? { equipe_destino_id: shareTeamId }
-            : { usuario_destino: shareUserEmail };
-          const shareResult = await shareTag(usuario, selectedGroup.tagId, destino);
-          if ('error' in shareResult) {
-            toast({ title: "Processo salvo, mas erro ao compartilhar", description: shareResult.error, variant: "destructive" });
-            onOpenChange(false);
-            return;
-          }
         }
       }
 
@@ -319,10 +290,6 @@ export function SaveProcessoModal({
     }
   };
 
-  const canSave = shareOption === 'private' || (
-    shareType === 'team' ? !!shareTeamId : !!shareUserEmail.trim()
-  );
-
   // Verifica se o processo já está salvo no grupo selecionado
   const isAlreadySaved = (() => {
     if (!selectedGroup) return false;
@@ -336,27 +303,13 @@ export function SaveProcessoModal({
     }
   })();
 
-  const step1ActionButton = selectedGroup?.type === 'team' ? (
-    <Button onClick={handleSave} disabled={!selectedGroup || isSaving || isAlreadySaved}>
-      {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-      Salvar
-    </Button>
-  ) : (
-    <Button onClick={() => setStep(2)} disabled={!selectedGroup || isAlreadySaved}>
-      Próximo <ChevronRight className="ml-1 h-4 w-4" />
-    </Button>
-  );
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Salvar Processo</DialogTitle>
           <DialogDescription>
-            {step === 1
-              ? "Selecione um grupo para salvar este processo."
-              : "Deseja compartilhar este grupo?"
-            }
+            Selecione um grupo para salvar este processo.
           </DialogDescription>
         </DialogHeader>
 
@@ -364,7 +317,7 @@ export function SaveProcessoModal({
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : step === 1 ? (
+        ) : (
           <div className="space-y-4">
             <div>
               <Label>Processo: <span className="font-bold">{formatProcessNumber(numeroProcesso)}</span></Label>
@@ -607,56 +560,6 @@ export function SaveProcessoModal({
 
             </ScrollArea>
           </div>
-        ) : (
-          // Step 2: compartilhamento
-          <div className="space-y-4">
-            <RadioGroup value={shareOption} onValueChange={(v) => setShareOption(v as 'private' | 'share')}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="private" id="private" />
-                <Label htmlFor="private">Apenas para mim</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="share" id="share" />
-                <Label htmlFor="share" className="flex items-center gap-1">
-                  <Share2 className="h-3.5 w-3.5" /> Compartilhar
-                </Label>
-              </div>
-            </RadioGroup>
-
-            {shareOption === 'share' && (
-              <div className="space-y-3 pl-6">
-                <RadioGroup value={shareType} onValueChange={(v) => setShareType(v as 'team' | 'user')}>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="team" id="share-team" />
-                    <Label htmlFor="share-team">Com equipe</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="user" id="share-user" />
-                    <Label htmlFor="share-user">Com usuário</Label>
-                  </div>
-                </RadioGroup>
-
-                {shareType === 'team' ? (
-                  <Select value={shareTeamId} onValueChange={setShareTeamId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma equipe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teams.map(team => (
-                        <SelectItem key={team.id} value={team.id}>{team.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    placeholder="Email do usuário..."
-                    value={shareUserEmail}
-                    onChange={(e) => setShareUserEmail(e.target.value)}
-                  />
-                )}
-              </div>
-            )}
-          </div>
         )}
 
         {/* Confirmação de exclusão de grupo */}
@@ -704,20 +607,13 @@ export function SaveProcessoModal({
         )}
 
         <DialogFooter className="flex flex-col gap-2 sm:flex-col">
-          {step === 1 ? (
-            <div className="grid grid-cols-2 gap-2 w-full">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              {step1ActionButton}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 w-full">
-              <Button variant="outline" onClick={() => setStep(1)} disabled={isSaving}>Voltar</Button>
-              <Button onClick={handleSave} disabled={!canSave || isSaving}>
-                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Salvar
-              </Button>
-            </div>
-          )}
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button onClick={handleSave} disabled={!selectedGroup || isSaving || isAlreadySaved}>
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Salvar
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -12,7 +12,7 @@ interface TaskNodeProps {
   hideSequence?: boolean;
 }
 
-export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, hideSequence = false }) => {
+export const TaskNode: React.FC<TaskNodeProps> = React.memo(({ task, onTaskClick, hideSequence = false }) => {
   const handleNodeClick = () => {
     onTaskClick(task);
   };
@@ -105,6 +105,19 @@ export const TaskNode: React.FC<TaskNodeProps> = ({ task, onTaskClick, hideSeque
       }</title>
     </g>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom equality: skip re-render if task identity and position haven't changed
+  return (
+    prevProps.task.IdAndamento === nextProps.task.IdAndamento &&
+    prevProps.task.x === nextProps.task.x &&
+    prevProps.task.y === nextProps.task.y &&
+    prevProps.task.color === nextProps.task.color &&
+    prevProps.task.globalSequence === nextProps.task.globalSequence &&
+    prevProps.task.nodeRadius === nextProps.task.nodeRadius &&
+    prevProps.task.daysOpen === nextProps.task.daysOpen &&
+    prevProps.hideSequence === nextProps.hideSequence &&
+    prevProps.onTaskClick === nextProps.onTaskClick
+  );
+});
 
 TaskNode.displayName = 'TaskNode';

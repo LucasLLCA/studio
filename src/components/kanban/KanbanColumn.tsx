@@ -10,7 +10,7 @@ import type { KanbanColumn as KanbanColumnType, KanbanProcesso } from '@/types/t
 interface KanbanColumnProps {
   coluna: KanbanColumnType;
   onProcessoClick: (processo: KanbanProcesso) => void;
-  onDeleteColumn?: (compartilhamentoId: string) => void;
+  onDeleteColumn?: (tagId: string) => void;
   onDeleteProcesso?: (processo: KanbanProcesso) => void;
 }
 
@@ -33,17 +33,13 @@ export function KanbanColumn({ coluna, onProcessoClick, onDeleteColumn, onDelete
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0 shrink-0"
-            onClick={() => onDeleteColumn(coluna.compartilhamento_id)}
+            onClick={() => onDeleteColumn(coluna.tag_id)}
             title="Remover grupo do quadro"
           >
             <Trash2 className="h-3.5 w-3.5 text-destructive" />
           </Button>
         )}
       </div>
-      <p className="text-[10px] text-muted-foreground px-3 py-1">
-        por {coluna.compartilhado_por}
-      </p>
-
       {/* Scrollable cards */}
       <ScrollArea className="flex-1 px-2 pb-2">
         <div className="space-y-2 pt-1">

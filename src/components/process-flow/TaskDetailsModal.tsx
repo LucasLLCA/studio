@@ -283,23 +283,25 @@ export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProp
                 <Separator className="my-4" />
 
                 <div className="space-y-3">
-                  <h3 className="font-medium text-foreground flex items-center">
-                    <FileText className="h-5 w-5 mr-2 text-primary" />
-                    Documento Identificado ({extractedDocumentNumber})
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium text-foreground flex items-center">
+                      <FileText className="h-5 w-5 mr-2 text-primary" />
+                      Documento Identificado ({extractedDocumentNumber})
+                    </h3>
 
-                  {/* Not yet consulted — show button */}
-                  {!matchedDocument && !isLoadingDocument && !documentError && (
-                    <Button
-                      onClick={handleConsultarDocumento}
-                      variant="outline"
-                      size="sm"
-                      disabled={!sessionToken}
-                    >
-                      <Search className="mr-1 h-4 w-4" />
-                      Consultar documento
-                    </Button>
-                  )}
+                    {/* Not yet consulted — show button */}
+                    {!matchedDocument && !isLoadingDocument && !documentError && (
+                      <Button
+                        onClick={handleConsultarDocumento}
+                        variant="outline"
+                        size="sm"
+                        disabled={!sessionToken}
+                      >
+                        <Search className="mr-1 h-4 w-4" />
+                        Consultar documento
+                      </Button>
+                    )}
+                  </div>
 
                   {/* Loading document metadata */}
                   {isLoadingDocument && (
@@ -456,7 +458,7 @@ export function TaskDetailsModal({ task, isOpen, onClose }: TaskDetailsModalProp
           </div>
         </ScrollArea>
         <DialogFooter className="mt-auto pt-4 border-t">
-          <Button onClick={onClose} variant="outline" className="w-full">
+          <Button onClick={onClose} className="w-full">
             <CheckCircle className="mr-2 h-4 w-4" /> Fechar
           </Button>
         </DialogFooter>

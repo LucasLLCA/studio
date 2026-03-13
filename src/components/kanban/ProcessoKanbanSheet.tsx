@@ -42,19 +42,13 @@ import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useRouter } from 'next/navigation';
 import { formatProcessNumber, cn } from '@/lib/utils';
 import {
-  getProcessoTeamTags,
-  createTeamTag,
+  getTags,
+  getProcessoTags,
+  createTag,
   tagProcesso,
-  untagProcesso,
+  untagProcessoPorNumero,
   salvarProcessoNoKanban,
-} from '@/lib/api/team-tags-api-client';
-
-// Função para buscar o kanban da equipe
-async function getKanbanColunas(equipeId: string, usuario: string) {
-  const res = await fetch(`/equipes/${equipeId}/kanban?usuario=${encodeURIComponent(usuario)}`);
-  const json = await res.json();
-  return json.data.colunas;
-}
+} from '@/lib/api/tags-api-client';
 import {
   getObservacoes,
   createObservacao,
@@ -123,18 +117,33 @@ export function ProcessoKanbanSheet({
   }, [numeroAtual]);
 
 
-  // Team tags state
+  // Team tags state (rotulos/labels from team_tags table)
   const [processoTags, setProcessoTags] = useState<TeamTag[]>(processo.team_tags || []);
-  const [kanbanColunas, setKanbanColunas] = useState<any[]>([]); // Colunas do kanban
+  const [teamTagsList, setTeamTagsList] = useState<TeamTag[]>([]);
   const [tagFilter, setTagFilter] = useState('');
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [isLoadingTeamTags, setIsLoadingTeamTags] = useState(false);
 
-  // Busca as colunas do kanban ao abrir o sidebar
+  // Kanban columns state (groups from tags table — for the "Adicionar a outros grupos" feature)
+  const [kanbanColunas, setKanbanColunas] = useState<any[]>([]);
+
+  // Busca as tags da equipe (rotulos, não grupos)
+  const loadTeamTags = useCallback(async () => {
+    if (!usuario) return;
+    setIsLoadingTeamTags(true);
+    try {
+      const result = await getTags(usuario, equipeId);
+      setTeamTagsList('error' in result ? [] : result);
+    } finally {
+      setIsLoadingTeamTags(false);
+    }
+  }, [equipeId, usuario]);
+
+  // Busca as colunas do kanban (grupos de processos — para mover entre grupos)
   const loadKanbanColunas = useCallback(async () => {
     if (!usuario) return;
-    // Busca o board completo para garantir que está pegando as colunas corretas
-    const boardResult = await import('@/lib/api/team-tags-api-client').then(m => m.getKanbanBoard(equipeId, usuario));
+    const boardResult = await import('@/lib/api/tags-api-client').then(m => m.getKanbanBoard(equipeId, usuario));
     if (!('error' in boardResult)) {
       setKanbanColunas(boardResult.colunas);
     } else {
@@ -212,7 +221,7 @@ export function ProcessoKanbanSheet({
 
   const loadTags = useCallback(async () => {
     if (!usuario) return;
-    const result = await getProcessoTeamTags(equipeId, processo.numero_processo, usuario);
+    const result = await getProcessoTags(processo.numero_processo, usuario, equipeId);
     if (!('error' in result)) {
       setProcessoTags(result);
     }
@@ -310,14 +319,15 @@ export function ProcessoKanbanSheet({
     if (isOpen) {
       loadObservacoes();
       loadTags();
+      loadTeamTags();
       loadKanbanColunas();
       loadMembrosEBadge();
     }
-  }, [isOpen, loadObservacoes, loadTags, loadKanbanColunas, loadMembrosEBadge]);
+  }, [isOpen, loadObservacoes, loadTags, loadTeamTags, loadKanbanColunas, loadMembrosEBadge]);
 
   const handleAddTag = async (tag: TeamTag) => {
     if (!usuario) return;
-    const result = await tagProcesso(equipeId, tag.id, usuario, processo.numero_processo);
+    const result = await tagProcesso(tag.id, usuario, processo.numero_processo);
     if ('error' in result) {
       toast({ title: "Erro ao adicionar tag", description: result.error, variant: "destructive" });
       return;
@@ -330,18 +340,15 @@ export function ProcessoKanbanSheet({
 
   const handleRemoveTag = async (tag: TeamTag) => {
     if (!usuario) return;
-    // We need the ProcessoTeamTag id — re-fetch to find it
-    // For simplicity, call the API to find and remove
-    const tagsResult = await getProcessoTeamTags(equipeId, processo.numero_processo, usuario);
-    if ('error' in tagsResult) return;
-
-    // The untag endpoint needs the processo_team_tag id, but we have the tag.
-    // Since the backend tags/por-processo returns TeamTags (not associations),
-    // we need to search differently. Let's use the tag_id and find the association.
-    // Actually, the untag endpoint takes /{tag_id}/processos/{processo_tag_id}.
-    // We don't have the processo_tag_id readily. Let's add the tag and immediately re-fetch the board.
-    // For now, just refetch the board to get updated data.
+    // Optimistic remove
     setProcessoTags(prev => prev.filter(t => t.id !== tag.id));
+    const result = await untagProcessoPorNumero(tag.id, processo.numero_processo, usuario);
+    if ('error' in result) {
+      toast({ title: "Erro ao remover tag", description: result.error, variant: "destructive" });
+      // Revert on error
+      setProcessoTags(prev => [...prev, tag]);
+      return;
+    }
     onTagsChanged();
   };
 
@@ -349,7 +356,7 @@ export function ProcessoKanbanSheet({
     if (!usuario || !tagFilter.trim()) return;
     setIsCreatingTag(true);
     try {
-      const result = await createTeamTag(equipeId, usuario, tagFilter.trim());
+      const result = await createTag(usuario, tagFilter.trim(), undefined, equipeId);
       if ('error' in result) {
         toast({ title: "Erro ao criar tag", description: result.error, variant: "destructive" });
         return;
@@ -537,16 +544,7 @@ export function ProcessoKanbanSheet({
 
   // Filter available tags (not already applied)
   const appliedTagIds = new Set(processoTags.map(t => t.id));
-  const availableTags = kanbanColunas
-    .map(coluna => ({
-      id: coluna.tag_id,
-      nome: coluna.tag_nome,
-      cor: coluna.tag_cor,
-      equipe_id: coluna.equipe_id ?? equipeId,
-      criado_por: coluna.criado_por ?? '',
-      criado_em: coluna.criado_em ?? '',
-      atualizado_em: coluna.atualizado_em ?? '',
-    }))
+  const availableTags = teamTagsList
     .filter(t => !appliedTagIds.has(t.id) && t.nome.toLowerCase().includes(tagFilter.toLowerCase()));
 
   return (
@@ -728,6 +726,90 @@ export function ProcessoKanbanSheet({
         {processo.nota && (
           <p className="text-sm text-muted-foreground px-1 mt-1">{processo.nota}</p>
         )}
+
+        {/* Tags inline row */}
+        <div className="flex-shrink-0 flex flex-wrap items-center gap-1.5 py-3 border-b">
+          <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+          {processoTags.map((tag) => (
+            <Badge
+              key={tag.id}
+              variant="secondary"
+              className="text-xs flex items-center gap-1 pr-1"
+              style={tag.cor ? { backgroundColor: tag.cor, color: '#fff' } : undefined}
+            >
+              {tag.nome}
+              <button
+                className="ml-0.5 hover:opacity-70"
+                onClick={() => handleRemoveTag(tag)}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          <Popover
+            open={isTagPopoverOpen}
+            onOpenChange={(open) => {
+              setIsTagPopoverOpen(open);
+              if (!open) {
+                setTagFilter('');
+              }
+            }}
+          >
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-6 text-xs px-2">
+                <Plus className="h-3 w-3 mr-1" /> Tag
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2" align="start">
+              <Input
+                placeholder="Filtrar ou criar tag..."
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && tagFilter.trim() && availableTags.length === 0) {
+                    handleCreateAndAddTag();
+                  }
+                }}
+                className="h-8 text-sm mb-1"
+                autoFocus
+              />
+              {isLoadingTeamTags ? (
+                <div className="flex items-center justify-center py-3">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="max-h-[120px] overflow-y-auto space-y-0.5">
+                  {availableTags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      className="w-full text-left px-2 py-1 rounded text-sm hover:bg-accent flex items-center gap-2"
+                      onClick={() => handleAddTag(tag)}
+                    >
+                      {tag.cor && (
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.cor }} />
+                      )}
+                      {tag.nome}
+                    </button>
+                  ))}
+                  {tagFilter.trim() && availableTags.length === 0 && (
+                    <button
+                      className="w-full text-left px-2 py-1 rounded text-sm hover:bg-accent text-primary"
+                      onClick={handleCreateAndAddTag}
+                      disabled={isCreatingTag}
+                    >
+                      {isCreatingTag ? (
+                        <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+                      ) : (
+                        <Plus className="h-3 w-3 inline mr-1" />
+                      )}
+                      Criar &quot;{tagFilter.trim()}&quot;
+                    </button>
+                  )}
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
 
         <Separator className="my-3" />
 

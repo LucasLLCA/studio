@@ -43,6 +43,9 @@ export function extractDocumentNumber(descricao: string): string | null {
         // Rejeitar números muito grandes (mais de 12 dígitos)
         if (number.length > 12) continue;
 
+        // Rejeitar números compostos apenas por zeros (ex: 0000000)
+        if (/^0+$/.test(number)) continue;
+
         // Rejeitar padrões óbvios de data (formato YYYYMMDD ou DDMMYYYY)
         if (number.length === 8) {
           const year = parseInt(number.substring(0, 4));
