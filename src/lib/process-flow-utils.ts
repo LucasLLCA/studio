@@ -40,6 +40,24 @@ export const SIGNIFICANT_TASK_TYPES: string[] = [
   'REABERTURA-PROCESSO-UNIDADE',
 ];
 
+const AUTO_CONCLUSION_TASK_TYPE = 'CONCLUSAO-AUTOMATICA-UNIDADE';
+
+const getDateHourMinuteKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+};
+
+const buildAutoConclusionSummaryGroupKey = (andamento: AndamentoInternal): string => {
+  const userKey = andamento.Usuario.IdUsuario || andamento.Usuario.Sigla || 'unknown-user';
+  const unitKey = andamento.Unidade.IdUnidade;
+  const dateHourMinuteKey = getDateHourMinuteKey(andamento.parsedDate);
+  return `${userKey}|${unitKey}|${dateHourMinuteKey}`;
+};
+
 
 export function parseCustomDateString(dateString: string): Date {
   const [datePart, timePart] = dateString.split(' ');
@@ -107,9 +125,53 @@ export function processAndamentos(
   let displayableAndamentos_intermediate: AndamentoInternal[] = [];
 
   if (isSummarized) {
+    const autoConclusionGroupsByKey = new Map<string, AndamentoInternal[]>();
+    globallySortedAndamentos.forEach(andamento => {
+      if (andamento.Tarefa !== AUTO_CONCLUSION_TASK_TYPE) return;
+      const key = buildAutoConclusionSummaryGroupKey(andamento);
+      const existingGroup = autoConclusionGroupsByKey.get(key) || [];
+      existingGroup.push(andamento);
+      autoConclusionGroupsByKey.set(key, existingGroup);
+    });
+
+    const groupedAutoConclusionsByAndamentoId = new Map<string, { firstId: string; tasks: AndamentoInternal[] }>();
+    autoConclusionGroupsByKey.forEach(group => {
+      if (group.length <= 1) return;
+
+      const sortedGroup = [...group].sort(
+        (a, b) => a.trueChronologicalOrderIndex - b.trueChronologicalOrderIndex
+      );
+      const firstId = sortedGroup[0].IdAndamento;
+      sortedGroup.forEach(andamento => {
+        groupedAutoConclusionsByAndamentoId.set(andamento.IdAndamento, {
+          firstId,
+          tasks: sortedGroup,
+        });
+      });
+    });
+
     let i = 0;
     while (i < globallySortedAndamentos.length) {
       const currentOriginalAndamento = globallySortedAndamentos[i];
+      const autoConclusionGroup = groupedAutoConclusionsByAndamentoId.get(currentOriginalAndamento.IdAndamento);
+
+      if (autoConclusionGroup) {
+        if (currentOriginalAndamento.IdAndamento === autoConclusionGroup.firstId) {
+          const firstInGroup = autoConclusionGroup.tasks[0];
+          const summaryNode: AndamentoInternal = {
+            ...firstInGroup,
+            IdAndamento: `${firstInGroup.IdAndamento}-auto-summary-${i}`,
+            Descricao: `[${autoConclusionGroup.tasks.length}] conclusões automáticas realizadas nesta unidade na mesma data/hora.`,
+            isSummaryNode: true,
+            groupedTasksCount: autoConclusionGroup.tasks.length,
+            originalTaskIds: autoConclusionGroup.tasks.map(t => t.IdAndamento),
+          };
+          displayableAndamentos_intermediate.push(summaryNode);
+        }
+        i++;
+        continue;
+      }
+
       const isCurrentAnOutraAcao = !SIGNIFICANT_TASK_TYPES.includes(currentOriginalAndamento.Tarefa);
 
       if (isCurrentAnOutraAcao) {
@@ -127,8 +189,8 @@ export function processAndamentos(
         if (summaryGroup.length > 1) {
           const firstInGroup = summaryGroup[0];
           const summaryNode: AndamentoInternal = {
-            ...firstInGroup, 
-            IdAndamento: `${firstInGroup.IdAndamento}-summary-${i}`, 
+            ...firstInGroup,
+            IdAndamento: `${firstInGroup.IdAndamento}-summary-${i}`,
             Tarefa: "ACOES-DIVERSAS-AGRUPADAS",
             Descricao: `[${summaryGroup.length}] ações diversas realizadas nesta unidade.`,
             isSummaryNode: true,
@@ -136,7 +198,7 @@ export function processAndamentos(
             originalTaskIds: summaryGroup.map(t => t.IdAndamento),
           };
           displayableAndamentos_intermediate.push(summaryNode);
-          i = j; 
+          i = j;
         } else {
           displayableAndamentos_intermediate.push(currentOriginalAndamento);
           i++;
@@ -210,7 +272,7 @@ export function processAndamentos(
       if (lastActionInCurrentLane) { 
           if(lastActionInCurrentLane.IdAndamento !== currentTask.IdAndamento || lastActionInCurrentLane.globalSequence !== currentTask.globalSequence) {
              // Do not draw a connection if the last action was a conclusion (manual or automatic).
-             if (lastActionInCurrentLane.Tarefa !== 'CONCLUSAO-AUTOMATICA-UNIDADE' &&
+             if (lastActionInCurrentLane.Tarefa !== AUTO_CONCLUSION_TASK_TYPE &&
                  lastActionInCurrentLane.Tarefa !== 'CONCLUSAO-PROCESSO-UNIDADE') {
                 connections.push({ sourceTask: lastActionInCurrentLane, targetTask: currentTask });
              }
