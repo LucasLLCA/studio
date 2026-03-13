@@ -124,9 +124,9 @@ function LoginPageContent() {
           return;
         }
 
-        // Auto-login failed (401/404/410 — no stored creds or invalid)
+        // Auto-login failed (401/422/404/410 — no stored creds or invalid)
         setIsAutoLogging(false);
-        if (response.status === 401) {
+        if (response.status === 401 || response.status === 422) {
           setLoginError({ tipo: 'geral', mensagem: 'Suas credenciais SEI armazenadas estão inválidas. Por favor, faça login novamente.' });
         }
       } catch (err) {
@@ -174,8 +174,8 @@ function LoginPageContent() {
   } => {
     const status = response.status ?? 0;
 
-    // 401 → credenciais inválidas (usuário ou senha errada)
-    if (status === 401) {
+    // 401/422 → credenciais inválidas (usuário ou senha errada)
+    if (status === 401 || status === 422) {
       const detalhe =
         extrairMensagem(response.details) ??
         extrairMensagem(response.error) ??

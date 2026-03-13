@@ -28,14 +28,13 @@ import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useParams, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { getKanbanBoard } from '@/lib/api/team-tags-api-client';
-import { createTag, removeProcessoFromTag } from '@/lib/api/tags-api-client';
+import { getKanbanBoard } from '@/lib/api/tags-api-client';
+import { createGrupo, deleteGrupo, removeProcessoFromGrupo } from '@/lib/api/grupos-api-client';
 import {
   addTeamMember,
   removeTeamMember,
   deleteTeam,
 } from '@/lib/api/teams-api-client';
-import { revokeShare, shareTag } from '@/lib/api/sharing-api-client';
 import {
   Dialog,
   DialogContent,
@@ -185,15 +184,15 @@ export default function EquipeKanbanPage() {
 
   const handleDeleteColumn = async () => {
     if (!usuario || !deleteColumnId) return;
-    const result = await revokeShare(deleteColumnId, usuario);
+    const result = await deleteGrupo(deleteColumnId, usuario);
     if ('error' in result) {
       toast({ title: "Erro ao remover grupo", description: result.error, variant: "destructive" });
     } else {
       setBoard(prev => prev ? {
         ...prev,
-        colunas: prev.colunas.filter(c => c.compartilhamento_id !== deleteColumnId),
+        colunas: prev.colunas.filter(c => c.tag_id !== deleteColumnId),
       } : prev);
-      toast({ title: "Grupo removido do quadro" });
+      toast({ title: "Grupo excluído" });
     }
     setDeleteColumnId(null);
   };
@@ -202,11 +201,7 @@ export default function EquipeKanbanPage() {
     if (!usuario || !deleteProcessoData || !board) return;
     setIsDeletingProcesso(true);
     try {
-      // O processo está numa tag pessoal compartilhada com a equipe.
-      // O endpoint requer o usuario dono da tag (compartilhado_por da coluna).
-      const coluna = board.colunas.find(c => c.tag_id === deleteProcessoData.tag_id);
-      const donoTag = coluna?.compartilhado_por ?? usuario;
-      const result = await removeProcessoFromTag(deleteProcessoData.tag_id, deleteProcessoData.id, donoTag);
+      const result = await removeProcessoFromGrupo(deleteProcessoData.tag_id, deleteProcessoData.id, usuario);
       if ('error' in result) {
         toast({ title: "Erro ao remover processo", description: result.error, variant: "destructive" });
         return;
@@ -260,16 +255,9 @@ export default function EquipeKanbanPage() {
     if (!usuario || !newGroupName.trim()) return;
     setIsCreatingGroup(true);
     try {
-      // 1. Create the tag (grupo)
-      const tagResult = await createTag(usuario, newGroupName.trim());
-      if ('error' in tagResult) {
-        toast({ title: "Erro ao criar grupo", description: tagResult.error, variant: "destructive" });
-        return;
-      }
-      // 2. Share it with the team
-      const shareResult = await shareTag(usuario, tagResult.id, { equipe_destino_id: equipeId });
-      if ('error' in shareResult) {
-        toast({ title: "Grupo criado, mas erro ao compartilhar", description: shareResult.error, variant: "destructive" });
+      const result = await createGrupo(usuario, newGroupName.trim(), undefined, equipeId);
+      if ('error' in result) {
+        toast({ title: "Erro ao criar grupo", description: result.error, variant: "destructive" });
         return;
       }
       setIsNewGroupOpen(false);
@@ -519,14 +507,14 @@ export default function EquipeKanbanPage() {
       <AlertDialog open={!!deleteColumnId} onOpenChange={(open) => { if (!open) setDeleteColumnId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover grupo do quadro?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir grupo?</AlertDialogTitle>
             <AlertDialogDescription>
-              O compartilhamento sera revogado e o grupo nao aparecera mais neste quadro.
+              O grupo e todos os processos associados serao removidos deste quadro.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteColumn}>Remover</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteColumn} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

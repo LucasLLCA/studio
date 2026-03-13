@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import type { ProcessoData, UnidadeAberta } from '@/types/process-flow';
-import { Loader2, ExternalLink, PanelRight, Bookmark, BookmarkCheck, Bell, RefreshCw, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Loader2, ExternalLink, PanelRight, Bookmark, BookmarkCheck, Bell, RefreshCw, MessageSquare } from 'lucide-react';
 import { StatusIndicator } from '@/components/ui/status-indicator';
 import { Button } from '@/components/ui/button';
 import { formatProcessNumber } from '@/lib/utils';
@@ -24,7 +24,6 @@ interface ProcessToolbarProps {
   onRefresh: () => void;
   initialIsSaved: boolean;
   onSavedStatusChange: (saved: boolean) => void;
-  documentsFailed?: boolean;
 }
 
 export function ProcessToolbar({
@@ -40,7 +39,6 @@ export function ProcessToolbar({
   onRefresh,
   initialIsSaved,
   onSavedStatusChange,
-  documentsFailed = false,
 }: ProcessToolbarProps) {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isObservacoesOpen, setIsObservacoesOpen] = useState(false);
@@ -60,15 +58,6 @@ export function ProcessToolbar({
             <span className="text-muted-foreground/40">|</span>
             <span className="text-xs text-muted-foreground">
               Atualizado {formatDistanceToNowStrict(lastFetchedAt, { addSuffix: true, locale: ptBR })}
-            </span>
-          </>
-        )}
-        {documentsFailed && (
-          <>
-            <span className="text-muted-foreground/40">|</span>
-            <span className="flex items-center gap-1 text-xs text-destructive" title="Falha ao carregar documentos do SEI">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Docs indisponíveis
             </span>
           </>
         )}

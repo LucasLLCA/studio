@@ -26,7 +26,8 @@ export interface TeamDetail {
   membros: TeamMember[];
 }
 
-export interface Tag {
+/** Personal process group (formerly "Tag") */
+export interface GrupoProcesso {
   id: string;
   nome: string;
   usuario: string;
@@ -35,6 +36,9 @@ export interface Tag {
   atualizado_em: string;
   total_processos: number;
 }
+
+/** @deprecated Use GrupoProcesso instead */
+export type Tag = GrupoProcesso;
 
 export interface SavedProcesso {
   id: string;
@@ -45,7 +49,7 @@ export interface SavedProcesso {
   criado_em: string;
 }
 
-export interface TagWithProcessos {
+export interface GrupoProcessoWithProcessos {
   id: string;
   nome: string;
   usuario: string;
@@ -54,6 +58,9 @@ export interface TagWithProcessos {
   atualizado_em: string;
   processos: SavedProcesso[];
 }
+
+/** @deprecated Use GrupoProcessoWithProcessos instead */
+export type TagWithProcessos = GrupoProcessoWithProcessos;
 
 export interface SharedWithMeItem {
   compartilhamento_id: string;
@@ -102,12 +109,13 @@ export interface Observacao {
 
 export interface ProcessoSalvoCheck {
   salvo: boolean;
+  // Backend still returns field as "tags" — kept for API compatibility
   tags: { tag_id: string; tag_nome: string; tag_cor: string | null }[];
 }
 
 export interface TeamTag {
   id: string;
-  equipe_id: string;
+  equipe_id?: string | null;
   nome: string;
   cor?: string | null;
   criado_por: string;
@@ -124,11 +132,10 @@ export interface ProcessoTeamTag {
 }
 
 export interface KanbanColumn {
-  compartilhamento_id: string;
   tag_id: string;
   tag_nome: string;
   tag_cor?: string | null;
-  compartilhado_por: string;
+  criado_por: string;
   processos: KanbanProcesso[];
 }
 

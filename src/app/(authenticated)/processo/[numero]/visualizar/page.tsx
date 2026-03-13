@@ -2,7 +2,7 @@
 
 import { ProcessFlowDiagram } from '@/components/process-flow/ProcessFlowDiagram';
 import type { ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
-import { Loader2, GanttChartSquare, BookText, Info, ChevronsLeft, ChevronsRight, HelpCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Loader2, GanttChartSquare, BookText, Info, ChevronsLeft, ChevronsRight, HelpCircle, AlertTriangle, RefreshCw, Search, Table2 } from 'lucide-react';
 import { LoadingFeedback } from '@/components/home/LoadingFeedback';
 import React, { Suspense, useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -21,9 +21,11 @@ import {
 import { processAndamentos } from '@/lib/process-flow-utils';
 import { formatProcessNumber } from '@/lib/utils';
 import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
+import { useAndamentosCount } from '@/lib/react-query/queries/useAndamentosCount';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -38,8 +40,12 @@ import { useOrgaoMetrics } from '@/hooks/use-orgao-metrics';
 import { ProcessToolbar } from '@/components/process-flow/ProcessToolbar';
 import { ProcessDetailsSheet } from '@/components/process-flow/ProcessDetailsSheet';
 import { OpenUnitsCard } from '@/components/process-flow/OpenUnitsCard';
+import { ProcessAndamentosTable } from '@/components/process-flow/ProcessAndamentosTable';
+import { ProcessProductivityTable } from '@/components/process-flow/ProcessProductivityTable';
 import { ProcessProvider } from '@/contexts/process-context';
-import { checkProcessoSalvo } from '@/lib/api/tags-api-client';
+import { ProcessProductivityUnitFilter } from '@/components/process-flow/ProcessProductivityTable';
+import { useLastViewedProcess } from '@/contexts/last-viewed-process-context';
+import { checkProcessoSalvo } from '@/lib/api/grupos-api-client';
 
 export default function VisualizarProcessoPage() {
   return (
@@ -58,6 +64,12 @@ function VisualizarProcessoContent() {
 
   const noDocAccessParam = searchParams.get('noDocAccess') === '1';
 
+  // Track last viewed process for header navigation
+  const { setLastViewedProcess, clearLastViewedProcess } = useLastViewedProcess();
+  useEffect(() => {
+    if (numeroProcesso) setLastViewedProcess(numeroProcesso);
+  }, [numeroProcesso, setLastViewedProcess]);
+
   const {
     isAuthenticated,
     sessionToken,
@@ -75,6 +87,10 @@ function VisualizarProcessoContent() {
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [selectedLaneUnits, setSelectedLaneUnits] = useState<string[]>([]);
+  const [andamentosView, setAndamentosView] = useState<'timeline' | 'table'>('timeline');
+  const [andamentosSearchQuery, setAndamentosSearchQuery] = useState('');
+  const [prodSearchQuery, setProdSearchQuery] = useState('');
+  const [prodUnitFilter, setProdUnitFilter] = useState('');
 
   // Tag/bookmark status — fetched independently of andamentos
   const [isSaved, setIsSaved] = useState(false);
@@ -88,7 +104,15 @@ function VisualizarProcessoContent() {
     });
   }, [usuario, numeroProcesso]);
 
-  // Open units via React Query
+  // Lightweight count query — reused from selecionar unidade if cached
+  const { data: countData } = useAndamentosCount({
+    processo: numeroProcesso,
+    unidade: selectedUnidadeFiltro || '',
+    token: sessionToken || '',
+    enabled: isAuthenticated && !!sessionToken && !!selectedUnidadeFiltro,
+  });
+
+  // Open units via React Query — skips refetch when TotalItens unchanged
   const {
     data: openUnitsData,
     isLoading: isLoadingOpenUnits,
@@ -100,6 +124,7 @@ function VisualizarProcessoContent() {
     unidadeOrigem: selectedUnidadeFiltro || '',
     token: sessionToken || '',
     enabled: isAuthenticated && !!sessionToken && !!selectedUnidadeFiltro,
+    currentTotalItens: countData?.total_itens,
   });
 
   const openUnitsInProcess = openUnitsData?.unidades || null;
@@ -113,7 +138,6 @@ function VisualizarProcessoContent() {
   // Data fetching hook
   const {
     rawProcessData,
-    documents,
     processSummary,
     situacaoAtual,
     isLoading,
@@ -125,7 +149,6 @@ function VisualizarProcessoContent() {
     refresh,
     isPartialData,
     andamentosFailed,
-    documentsFailed,
     andamentosProgress,
   } = useProcessData({
     numeroProcesso,
@@ -133,7 +156,7 @@ function VisualizarProcessoContent() {
     selectedUnidadeFiltro,
     isAuthenticated,
     unitAccessDenied,
-    onSessionExpired: () => { persistLogout(); router.push('/'); },
+    onSessionExpired: () => { persistLogout(); clearLastViewedProcess(); router.push('/'); },
     refetchOpenUnits,
   });
 
@@ -260,7 +283,6 @@ function VisualizarProcessoContent() {
             onRefresh={refresh}
             initialIsSaved={isSaved}
             onSavedStatusChange={setIsSaved}
-            documentsFailed={documentsFailed}
           />
         )}
 
@@ -279,7 +301,6 @@ function VisualizarProcessoContent() {
           userOrgao={userOrgao}
           isExternalProcess={isExternalProcess}
           daysOpenInUserOrgao={daysOpenInUserOrgao}
-          documents={documents}
           onNodeNavigate={handleNodeNavigate}
         />
 
@@ -289,12 +310,10 @@ function VisualizarProcessoContent() {
             isAuthenticated,
             selectedUnidadeFiltro,
             processNumber: numeroProcesso || rawProcessData?.Info?.NumeroProcesso || '',
-            documents: documents,
-            isLoadingDocuments: backgroundLoading.documentos,
             openUnitsInProcess,
             refresh,
           }}>
-            <div className="flex flex-1 overflow-hidden flex-col gap-6">
+            <div className="flex flex-col gap-6">
               {/* Open Units */}
               <OpenUnitsCard
                 openUnitsInProcess={openUnitsInProcess}
@@ -305,125 +324,216 @@ function VisualizarProcessoContent() {
                 isPartialData={isPartialData}
               />
 
-              {/* Timeline */}
-              <Card className="flex-1 flex flex-col overflow-hidden">
+              {/* Andamentos (Timeline or Table) */}
+              <Card className="flex flex-col" data-diagram-card>
                 <CardHeader className="pb-3 flex-shrink-0">
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2 text-lg">
-                      <GanttChartSquare className="h-5 w-5" /> Linha do Tempo
+                      <GanttChartSquare className="h-5 w-5" /> Andamentos
                     </CardTitle>
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center space-x-2">
-                        <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading} />
-                        <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
+                      {/* View toggle */}
+                      <div className="flex items-center border rounded-md overflow-hidden">
+                        <Button
+                          variant={andamentosView === 'timeline' ? 'default' : 'ghost'}
+                          size="sm"
+                          className="rounded-none h-8"
+                          onClick={() => setAndamentosView('timeline')}
+                        >
+                          <GanttChartSquare className="mr-1 h-4 w-4" />
+                          <span className="hidden sm:inline">Linha do Tempo</span>
+                        </Button>
+                        <Button
+                          variant={andamentosView === 'table' ? 'default' : 'ghost'}
+                          size="sm"
+                          className="rounded-none h-8"
+                          onClick={() => setAndamentosView('table')}
+                        >
+                          <Table2 className="mr-1 h-4 w-4" />
+                          <span className="hidden sm:inline">Tabela</span>
+                        </Button>
                       </div>
-                      {isPartialData && rawProcessData?.Info && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          <span>
-                            {andamentosProgress?.loaded ?? rawProcessData.Andamentos?.length ?? 0} de {andamentosProgress?.total ?? rawProcessData.Info.TotalItens} andamentos carregados
-                          </span>
-                        </div>
-                      )}
-                      <Separator orientation="vertical" className="h-5" />
-                      <Button onClick={handleScrollToFirstTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
-                        <ChevronsLeft className="mr-1 h-4 w-4" /> Inicio
-                      </Button>
-                      <Button onClick={handleScrollToLastTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
-                        <ChevronsRight className="mr-1 h-4 w-4" /> Fim
-                      </Button>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
-                            <GanttChartSquare className="mr-1 h-4 w-4" />
-                            Filtrar Unidades
-                            {selectedLaneUnits.length > 0 && (
-                              <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
-                                {selectedLaneUnits.length}
-                              </span>
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80" align="end">
-                          <div className="space-y-4">
-                            <div>
-                              <h4 className="font-medium text-sm mb-2">Filtrar Raias por Unidade</h4>
-                              <p className="text-xs text-muted-foreground">
-                                Selecione as unidades para reorganizá-las no topo
-                              </p>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <Button variant="outline" size="sm" onClick={() => setSelectedLaneUnits(availableLaneUnits)}>
-                                Todas
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => setSelectedLaneUnits([])}>
-                                Limpar
-                              </Button>
-                            </div>
-                            <ScrollArea className="h-[300px]">
-                              <div className="space-y-2">
-                                {availableLaneUnits.map((unit) => (
-                                  <div key={unit} className="flex items-center space-x-2">
-                                    <input
-                                      type="checkbox"
-                                      id={`unit-${unit}`}
-                                      checked={selectedLaneUnits.includes(unit)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedLaneUnits([...selectedLaneUnits, unit]);
-                                        } else {
-                                          setSelectedLaneUnits(selectedLaneUnits.filter(u => u !== unit));
-                                        }
-                                      }}
-                                      className="h-4 w-4 rounded border-gray-300 cursor-pointer"
-                                    />
-                                    <Label htmlFor={`unit-${unit}`} className="text-sm cursor-pointer flex-1">
-                                      {unit}
-                                    </Label>
-                                  </div>
-                                ))}
-                              </div>
-                            </ScrollArea>
+
+                      {andamentosView === 'timeline' && (
+                        <>
+                          <Separator orientation="vertical" className="h-5" />
+                          <div className="flex items-center space-x-2">
+                            <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading} />
+                            <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
                           </div>
-                        </PopoverContent>
-                      </Popover>
-                      <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <HelpCircle className="mr-1 h-4 w-4" /> Legenda
+                          {isPartialData && rawProcessData?.Info && (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              <span>
+                                {andamentosProgress?.loaded ?? rawProcessData.Andamentos?.length ?? 0} de {andamentosProgress?.total ?? rawProcessData.Info.TotalItens} andamentos carregados
+                              </span>
+                            </div>
+                          )}
+                          <Separator orientation="vertical" className="h-5" />
+                          <Button onClick={handleScrollToFirstTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
+                            <ChevronsLeft className="mr-1 h-4 w-4" /> Inicio
                           </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle className="sr-only">Legenda do Fluxo</DialogTitle>
-                          </DialogHeader>
-                          <ProcessFlowLegend />
-                        </DialogContent>
-                      </Dialog>
+                          <Button onClick={handleScrollToLastTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
+                            <ChevronsRight className="mr-1 h-4 w-4" /> Fim
+                          </Button>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
+                                <GanttChartSquare className="mr-1 h-4 w-4" />
+                                Filtrar Unidades
+                                {selectedLaneUnits.length > 0 && (
+                                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                                    {selectedLaneUnits.length}
+                                  </span>
+                                )}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80" align="end">
+                              <div className="space-y-4">
+                                <div>
+                                  <h4 className="font-medium text-sm mb-2">Filtrar Raias por Unidade</h4>
+                                  <p className="text-xs text-muted-foreground">
+                                    Selecione as unidades para reorganizá-las no topo
+                                  </p>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <Button variant="outline" size="sm" onClick={() => setSelectedLaneUnits(availableLaneUnits)}>
+                                    Todas
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => setSelectedLaneUnits([])}>
+                                    Limpar
+                                  </Button>
+                                </div>
+                                <ScrollArea className="h-[300px]">
+                                  <div className="space-y-2">
+                                    {availableLaneUnits.map((unit) => (
+                                      <div key={unit} className="flex items-center space-x-2">
+                                        <input
+                                          type="checkbox"
+                                          id={`unit-${unit}`}
+                                          checked={selectedLaneUnits.includes(unit)}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setSelectedLaneUnits([...selectedLaneUnits, unit]);
+                                            } else {
+                                              setSelectedLaneUnits(selectedLaneUnits.filter(u => u !== unit));
+                                            }
+                                          }}
+                                          className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                                        />
+                                        <Label htmlFor={`unit-${unit}`} className="text-sm cursor-pointer flex-1">
+                                          {unit}
+                                        </Label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </ScrollArea>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <HelpCircle className="mr-1 h-4 w-4" /> Legenda
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                              <DialogHeader>
+                                <DialogTitle className="sr-only">Legenda do Fluxo</DialogTitle>
+                              </DialogHeader>
+                              <ProcessFlowLegend />
+                            </DialogContent>
+                          </Dialog>
+                        </>
+                      )}
+
+                      {andamentosView === 'table' && (
+                        <>
+                          <Separator orientation="vertical" className="h-5" />
+                          <div className="relative w-72">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input
+                              placeholder="Buscar unidade, usuário ou descrição..."
+                              value={andamentosSearchQuery}
+                              onChange={(e) => setAndamentosSearchQuery(e.target.value)}
+                              className="h-8 pl-8 text-sm text-foreground font-medium"
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
                 <Separator />
-                <CardContent className="flex-1 overflow-hidden p-0 px-6 pb-6 pt-4">
-                  {processedFlowData && processedFlowData.tasks.length > 0 ? (
-                    <div className="h-full flex flex-col w-full">
-                      <ProcessFlowDiagram
-                        tasks={processedFlowData.tasks}
-                        connections={processedFlowData.connections}
-                        svgWidth={processedFlowData.svgWidth}
-                        svgHeight={processedFlowData.svgHeight}
-                        laneMap={processedFlowData.laneMap}
-                        taskToScrollTo={taskToScrollTo}
-                        taskToSelect={taskToSelect}
-                        filteredLaneUnits={selectedLaneUnits}
-                        isPartialData={isPartialData}
-                      />
-                    </div>
+                <CardContent className="overflow-hidden p-0 px-6 pb-6 pt-4">
+                  {andamentosView === 'timeline' ? (
+                    processedFlowData && processedFlowData.tasks.length > 0 ? (
+                      <div className="h-[600px] flex flex-col w-full">
+                        <ProcessFlowDiagram
+                          tasks={processedFlowData.tasks}
+                          connections={processedFlowData.connections}
+                          svgWidth={processedFlowData.svgWidth}
+                          svgHeight={processedFlowData.svgHeight}
+                          laneMap={processedFlowData.laneMap}
+                          taskToScrollTo={taskToScrollTo}
+                          taskToSelect={taskToSelect}
+                          filteredLaneUnits={selectedLaneUnits}
+                          isPartialData={isPartialData}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir ou dados inválidos.</p>
+                    )
                   ) : (
-                    <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir ou dados inválidos.</p>
+                    processedFlowData && processedFlowData.tasks.length > 0 ? (
+                      <ProcessAndamentosTable
+                        andamentos={processedFlowData.tasks}
+                        searchQuery={andamentosSearchQuery}
+                        openUnitsInProcess={openUnitsInProcess}
+                      />
+                    ) : (
+                      <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir ou dados inválidos.</p>
+                    )
                   )}
                 </CardContent>
               </Card>
+
+              {/* Productivity Table */}
+              {rawProcessData?.Andamentos?.length > 0 && (
+                <Card className="flex flex-col">
+                  <CardHeader className="pb-3 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <GanttChartSquare className="h-5 w-5" /> Tabela Produtividade
+                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        <div className="relative w-64">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            placeholder="Buscar unidade ou usuário..."
+                            value={prodSearchQuery}
+                            onChange={(e) => setProdSearchQuery(e.target.value)}
+                            className="h-8 pl-8 text-sm text-foreground font-medium"
+                          />
+                        </div>
+                        <ProcessProductivityUnitFilter
+                          andamentos={rawProcessData.Andamentos}
+                          value={prodUnitFilter}
+                          onChange={setProdUnitFilter}
+                        />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <Separator />
+                  <CardContent className="overflow-hidden p-0 px-6 pb-6 pt-4">
+                    <ProcessProductivityTable
+                      andamentos={rawProcessData.Andamentos}
+                      searchQuery={prodSearchQuery}
+                      unitFilter={prodUnitFilter}
+                    />
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </ProcessProvider>
         )}

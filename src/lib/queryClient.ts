@@ -56,6 +56,39 @@ export const invalidateQueries = {
     });
   },
 
+  processSummary: (processo?: string) => {
+    if (processo) {
+      return queryClient.invalidateQueries({
+        queryKey: ['processSummary', processo],
+      });
+    }
+    return queryClient.invalidateQueries({
+      queryKey: ['processSummary'],
+    });
+  },
+
+  situacaoAtual: (processo?: string) => {
+    if (processo) {
+      return queryClient.invalidateQueries({
+        queryKey: ['situacaoAtual', processo],
+      });
+    }
+    return queryClient.invalidateQueries({
+      queryKey: ['situacaoAtual'],
+    });
+  },
+
+  andamentosCount: (processo?: string) => {
+    if (processo) {
+      return queryClient.invalidateQueries({
+        queryKey: ['andamentosCount', processo],
+      });
+    }
+    return queryClient.invalidateQueries({
+      queryKey: ['andamentosCount'],
+    });
+  },
+
   all: () => {
     return queryClient.invalidateQueries();
   },

@@ -10,7 +10,7 @@ interface KanbanBoardProps {
   colunas: KanbanColumnType[];
   teamTags: TeamTag[];
   onProcessoClick: (processo: KanbanProcesso, tagNome: string) => void;
-  onDeleteColumn?: (compartilhamentoId: string) => void;
+  onDeleteColumn?: (tagId: string) => void;
   onDeleteProcesso?: (processo: KanbanProcesso) => void;
   onAddGroup?: () => void;
 }
@@ -37,7 +37,7 @@ export function KanbanBoard({ colunas, teamTags, onProcessoClick, onDeleteColumn
     <div className="flex overflow-x-auto gap-4 p-4 pb-6 h-full">
       {colunas.map((coluna) => (
         <KanbanColumn
-          key={coluna.compartilhamento_id}
+          key={coluna.tag_id}
           coluna={coluna}
           onProcessoClick={(processo) => onProcessoClick(processo, coluna.tag_nome)}
           onDeleteColumn={onDeleteColumn}

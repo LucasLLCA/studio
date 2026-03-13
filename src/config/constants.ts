@@ -5,7 +5,7 @@
 // Configurações de autenticação
 export const AUTH_CONFIG = {
   STORAGE_KEY: 'sei_auth_data',
-  EXPIRY_HOURS: 8,
+  EXPIRY_HOURS: 24,
   TOKEN_CACHE_DURATION_MS: 30 * 60 * 1000, // 30 minutos
 } as const;
 

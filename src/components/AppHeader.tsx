@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState } from 'react';
-import { LogOut, Activity, Newspaper, Info, HelpCircle, Search, Clock, Users, Sparkles, CheckCircle2 } from 'lucide-react';
+import { LogOut, Activity, Newspaper, Info, HelpCircle, Search, Clock, Users, Sparkles, CheckCircle2, FileText } from 'lucide-react';
 import { AlertBox } from '@/components/ui/alert-box';
 import { Button } from '@/components/ui/button';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { useLastViewedProcess } from '@/contexts/last-viewed-process-context';
+import { formatProcessNumber } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -20,8 +22,14 @@ import { hasAuthTokenCookie, clearAuthTokenCookie } from '@/app/sei-actions';
 
 export default function AppHeader() {
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   const { isAuthenticated, logout: persistLogout } = usePersistedAuth();
+  const { lastViewedProcess, clearLastViewedProcess } = useLastViewedProcess();
+
+  const isOnHome = pathname === '/home';
+  const isOnProcesso = pathname.includes('/visualizar');
+  const isOnEquipes = pathname.startsWith('/equipes');
 
   const [isApiStatusModalOpen, setIsApiStatusModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
@@ -35,6 +43,7 @@ export default function AppHeader() {
 
   const handleLogout = () => {
     persistLogout();
+    clearLastViewedProcess();
     clearAuthTokenCookie();
     toast({ title: "Logout realizado." });
     router.push('/');
@@ -52,11 +61,24 @@ export default function AppHeader() {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/home')} title={"P\u00e1gina Inicial"}>
+            <Button className={`bg-transparent border-0 rounded-b-none ${isOnHome ? 'border-b-2 border-primary text-primary' : ''}`} variant="outline" size="sm" onClick={() => router.push('/home')} title={"P\u00e1gina Inicial"}>
               <Search className="sm:mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Procurar Novo Processo</span>
             </Button>
-            <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => router.push('/equipes')} title="Equipes">
+            <Button
+              className={`bg-transparent border-0 rounded-b-none ${isOnProcesso ? 'border-b-2 border-primary text-primary' : ''}`}
+              variant="outline"
+              size="sm"
+              disabled={!lastViewedProcess}
+              onClick={() => lastViewedProcess && router.push(`/processo/${encodeURIComponent(lastViewedProcess)}/visualizar`)}
+              title={lastViewedProcess ? `Processo ${formatProcessNumber(lastViewedProcess)}` : "Nenhum processo visualizado"}
+            >
+              <FileText className="sm:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">
+                {lastViewedProcess ? formatProcessNumber(lastViewedProcess) : "Processo"}
+              </span>
+            </Button>
+            <Button className={`bg-transparent border-0 rounded-b-none ${isOnEquipes ? 'border-b-2 border-primary text-primary' : ''}`} variant="outline" size="sm" onClick={() => router.push('/equipes')} title="Equipes">
               <Users className="sm:mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Equipes</span>
             </Button>

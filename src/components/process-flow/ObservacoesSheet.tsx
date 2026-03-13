@@ -24,11 +24,12 @@ import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { getObservacoes, createObservacao, deleteObservacao, getMencoesNaoLidas, marcarMencaoVista } from '@/lib/api/observacoes-api-client';
 import { getMyTeams, getTeamDetail } from '@/lib/api/teams-api-client';
 import {
-  getTeamTags,
-  getProcessoTeamTags,
-  createTeamTag,
+  getTags,
+  getProcessoTags,
+  createTag,
   tagProcesso,
-} from '@/lib/api/team-tags-api-client';
+  untagProcessoPorNumero,
+} from '@/lib/api/tags-api-client';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -53,7 +54,7 @@ function getInitials(email: string): string {
 interface AppliedTag {
   tag: TeamTag;
   teamName: string;
-  teamId: string;
+  teamId: string | null; // null = personal tag
 }
 
 export function ObservacoesSheet({
@@ -148,15 +149,27 @@ export function ObservacoesSheet({
     if (!usuario) return;
     setIsLoadingTeams(true);
     try {
-      const teamsResult = await getMyTeams(usuario);
-      if ('error' in teamsResult) return;
-      setTeams(teamsResult);
+      const [teamsResult, personalTagsResult] = await Promise.all([
+        getMyTeams(usuario),
+        getProcessoTags(numeroProcesso, usuario), // personal tags (no equipeId)
+      ]);
 
-      // Fetch applied tags across all teams
+      const fetchedTeams = 'error' in teamsResult ? [] : teamsResult;
+      setTeams(fetchedTeams);
+
       const allApplied: AppliedTag[] = [];
+
+      // Personal applied tags
+      if (!('error' in personalTagsResult)) {
+        for (const tag of personalTagsResult) {
+          allApplied.push({ tag, teamName: 'Pessoal', teamId: null });
+        }
+      }
+
+      // Team applied tags
       await Promise.all(
-        teamsResult.map(async (team) => {
-          const tagsResult = await getProcessoTeamTags(team.id, numeroProcesso, usuario);
+        fetchedTeams.map(async (team) => {
+          const tagsResult = await getProcessoTags(numeroProcesso, usuario, team.id);
           if (!('error' in tagsResult)) {
             for (const tag of tagsResult) {
               allApplied.push({ tag, teamName: team.nome, teamId: team.id });
@@ -178,14 +191,32 @@ export function ObservacoesSheet({
     }
   }, [isOpen, loadObservacoes, loadTeamsAndAppliedTags, loadMembrosEBadge]);
 
+  // Track whether popover is in personal or team mode
+  const [isPersonalMode, setIsPersonalMode] = useState(false);
+
+  const handleSelectPersonal = async () => {
+    if (!usuario) return;
+    setIsPersonalMode(true);
+    setSelectedTeam(null);
+    setIsLoadingTeamTags(true);
+    setTagFilter('');
+    try {
+      const result = await getTags(usuario); // no equipeId = personal
+      setTeamTagsList('error' in result ? [] : result);
+    } finally {
+      setIsLoadingTeamTags(false);
+    }
+  };
+
   // When a team is selected in the popover, fetch its tags
   const handleSelectTeam = async (team: Team) => {
     if (!usuario) return;
+    setIsPersonalMode(false);
     setSelectedTeam(team);
     setIsLoadingTeamTags(true);
     setTagFilter('');
     try {
-      const result = await getTeamTags(team.id, usuario);
+      const result = await getTags(usuario, team.id);
       setTeamTagsList('error' in result ? [] : result);
     } finally {
       setIsLoadingTeamTags(false);
@@ -193,15 +224,18 @@ export function ObservacoesSheet({
   };
 
   const handleAddTag = async (tag: TeamTag) => {
-    if (!usuario || !selectedTeam) return;
-    const result = await tagProcesso(selectedTeam.id, tag.id, usuario, numeroProcesso);
+    if (!usuario || (!selectedTeam && !isPersonalMode)) return;
+    const result = await tagProcesso(tag.id, usuario, numeroProcesso);
     if ('error' in result) {
       toast({ title: "Erro ao adicionar tag", description: result.error, variant: "destructive" });
       return;
     }
-    setAppliedTags(prev => [...prev, { tag, teamName: selectedTeam.nome, teamId: selectedTeam.id }]);
+    const teamName = isPersonalMode ? 'Pessoal' : selectedTeam!.nome;
+    const teamId = isPersonalMode ? null : selectedTeam!.id;
+    setAppliedTags(prev => [...prev, { tag, teamName, teamId }]);
     setIsTagPopoverOpen(false);
     setSelectedTeam(null);
+    setIsPersonalMode(false);
     setTagFilter('');
   };
 
@@ -209,22 +243,21 @@ export function ObservacoesSheet({
     if (!usuario) return;
     // Optimistic remove
     setAppliedTags(prev => prev.filter(a => !(a.tag.id === applied.tag.id && a.teamId === applied.teamId)));
-    // Re-fetch to confirm
-    const refreshed = await getProcessoTeamTags(applied.teamId, numeroProcesso, usuario);
-    if (!('error' in refreshed)) {
-      setAppliedTags(prev => {
-        const otherTeams = prev.filter(a => a.teamId !== applied.teamId);
-        const thisTeam = refreshed.map(t => ({ tag: t, teamName: applied.teamName, teamId: applied.teamId }));
-        return [...otherTeams, ...thisTeam];
-      });
+    // Call backend to actually remove the association
+    const result = await untagProcessoPorNumero(applied.tag.id, numeroProcesso, usuario);
+    if ('error' in result) {
+      toast({ title: "Erro ao remover tag", description: result.error, variant: "destructive" });
+      // Revert on error
+      setAppliedTags(prev => [...prev, applied]);
     }
   };
 
   const handleCreateAndAddTag = async () => {
-    if (!usuario || !selectedTeam || !tagFilter.trim()) return;
+    if (!usuario || (!selectedTeam && !isPersonalMode) || !tagFilter.trim()) return;
     setIsCreatingTag(true);
     try {
-      const result = await createTeamTag(selectedTeam.id, usuario, tagFilter.trim());
+      const equipeId_param = isPersonalMode ? undefined : selectedTeam!.id;
+      const result = await createTag(usuario, tagFilter.trim(), undefined, equipeId_param);
       if ('error' in result) {
         toast({ title: "Erro ao criar tag", description: result.error, variant: "destructive" });
         return;
@@ -413,9 +446,10 @@ export function ObservacoesSheet({
   const isSendDisabled = !conteudo.trim() || isSending
     || (escopo === 'equipe' && !equipeId && !escopoEquipeId);
 
-  // Filter available tags (exclude already applied for selected team)
+  // Filter available tags (exclude already applied for selected scope)
+  const currentScopeId = isPersonalMode ? null : selectedTeam?.id ?? null;
   const appliedIdsForSelectedTeam = new Set(
-    appliedTags.filter(a => a.teamId === selectedTeam?.id).map(a => a.tag.id)
+    appliedTags.filter(a => a.teamId === currentScopeId).map(a => a.tag.id)
   );
   const availableTags = teamTagsList.filter(
     t => !appliedIdsForSelectedTeam.has(t.id) && t.nome.toLowerCase().includes(tagFilter.toLowerCase())
@@ -479,13 +513,14 @@ export function ObservacoesSheet({
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" />
             </span>
-          ) : teams.length > 0 ? (
+          ) : (
             <Popover
               open={isTagPopoverOpen}
               onOpenChange={(open) => {
                 setIsTagPopoverOpen(open);
                 if (!open) {
                   setSelectedTeam(null);
+                  setIsPersonalMode(false);
                   setTagFilter('');
                   setTeamTagsList([]);
                 }
@@ -497,17 +532,25 @@ export function ObservacoesSheet({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-2" align="start">
-                {!selectedTeam ? (
-                  /* Step 1: Pick a team */
+                {!selectedTeam && !isPersonalMode ? (
+                  /* Step 1: Pick personal or a team */
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1.5 px-1">Selecione a equipe</p>
-                    <div className="max-h-[160px] overflow-y-auto space-y-0.5">
+                    <p className="text-xs text-muted-foreground mb-1.5 px-1">Selecione o escopo</p>
+                    <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+                      <button
+                        className="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-accent flex items-center gap-2"
+                        onClick={handleSelectPersonal}
+                      >
+                        <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                        Pessoal
+                      </button>
                       {teams.map((team) => (
                         <button
                           key={team.id}
-                          className="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-accent"
+                          className="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-accent flex items-center gap-2"
                           onClick={() => handleSelectTeam(team)}
                         >
+                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
                           {team.nome}
                         </button>
                       ))}
@@ -518,9 +561,9 @@ export function ObservacoesSheet({
                   <div>
                     <button
                       className="text-xs text-muted-foreground hover:text-foreground mb-1.5 px-1 flex items-center gap-1"
-                      onClick={() => { setSelectedTeam(null); setTagFilter(''); setTeamTagsList([]); }}
+                      onClick={() => { setSelectedTeam(null); setIsPersonalMode(false); setTagFilter(''); setTeamTagsList([]); }}
                     >
-                      &larr; {selectedTeam.nome}
+                      &larr; {isPersonalMode ? 'Pessoal' : selectedTeam!.nome}
                     </button>
                     <Input
                       placeholder="Filtrar ou criar tag..."
@@ -572,7 +615,7 @@ export function ObservacoesSheet({
                 )}
               </PopoverContent>
             </Popover>
-          ) : null}
+          )}
         </div>
 
         {/* Input box */}

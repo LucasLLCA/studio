@@ -1,9 +1,63 @@
 import { MOCK_PROCESS_SUMMARY_TEXT } from '@/lib/mock-data';
 import { isNetworkError } from '@/lib/network-retry';
 import { stripProcessNumber } from '@/lib/utils';
+import { isTokenInvalidError, executeRefresh } from '@/lib/api/token-refresh-manager';
 
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_DATA === 'true';
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
+/** Reads and dispatches SSE events from a successful Response. */
+async function processSSEResponse(
+  response: Response,
+  onChunk: (text: string) => void,
+  onDone: (fullResult: any) => void,
+  onError: (error: string) => void,
+  onProgress?: (progress: { loaded: number; total: number }) => void,
+): Promise<void> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    onError("Navegador não suporta streaming");
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() || "";
+
+    for (const part of parts) {
+      const lines = part.split("\n");
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const jsonStr = line.slice(6);
+          try {
+            const event = JSON.parse(jsonStr);
+            if (event.type === "chunk") {
+              onChunk(event.content);
+            } else if (event.type === "progress") {
+              onProgress?.(event.content);
+            } else if (event.type === "done") {
+              onDone(event.content);
+              return;
+            } else if (event.type === "error") {
+              onError(event.content);
+              return;
+            }
+          } catch {
+            // Skip malformed JSON lines
+          }
+        }
+      }
+    }
+  }
+}
 
 /**
  * Fetches an SSE stream from the backend and calls callbacks as events arrive.
@@ -41,55 +95,39 @@ export async function fetchSSEStream(
     });
 
     if (!response.ok) {
+      // Check for token-invalid 422 — attempt silent refresh and retry once
+      let errorBody: unknown;
+      try {
+        errorBody = await response.clone().json();
+      } catch {
+        errorBody = await response.text();
+      }
+
+      if (isTokenInvalidError(response.status, errorBody)) {
+        const newToken = await executeRefresh();
+        if (newToken) {
+          const retryResponse = await fetch(url, {
+            method: "GET",
+            headers: {
+              "X-SEI-Token": newToken,
+              Accept: "text/event-stream",
+            },
+            signal,
+          });
+          if (retryResponse.ok) {
+            // Continue with the retried response below
+            return processSSEResponse(retryResponse, onChunk, onDone, onError, onProgress);
+          }
+        }
+        onError('Sessão expirada. Faça login novamente.');
+        return;
+      }
+
       onError(`Erro HTTP ${response.status}: ${response.statusText}`);
       return;
     }
 
-    const reader = response.body?.getReader();
-    if (!reader) {
-      onError("Navegador não suporta streaming");
-      return;
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-
-      // SSE events are separated by double newlines
-      const parts = buffer.split("\n\n");
-      // Keep the last (potentially incomplete) part in the buffer
-      buffer = parts.pop() || "";
-
-      for (const part of parts) {
-        const lines = part.split("\n");
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const jsonStr = line.slice(6);
-            try {
-              const event = JSON.parse(jsonStr);
-              if (event.type === "chunk") {
-                onChunk(event.content);
-              } else if (event.type === "progress") {
-                onProgress?.(event.content);
-              } else if (event.type === "done") {
-                onDone(event.content);
-                return;
-              } else if (event.type === "error") {
-                onError(event.content);
-                return;
-              }
-            } catch {
-              // Skip malformed JSON lines
-            }
-          }
-        }
-      }
-    }
+    await processSSEResponse(response, onChunk, onDone, onError, onProgress);
   } catch (err: any) {
     if (err?.name === "AbortError") return;
     onError(err?.message || "Erro de conexão com o servidor");
@@ -99,17 +137,27 @@ export async function fetchSSEStream(
 export function getStreamProcessSummaryUrl(
   processNumber: string,
   unidadeId: string,
+  primeiroDocFormatado?: string,
 ): string {
   const cleaned = stripProcessNumber(processNumber);
-  return `${BASE_PATH}/api/stream/resumo-completo/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  let url = `${BASE_PATH}/api/stream/resumo-completo/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  if (primeiroDocFormatado) {
+    url += `&primeiro_doc_formatado=${encodeURIComponent(primeiroDocFormatado)}`;
+  }
+  return url;
 }
 
 export function getStreamSituacaoAtualUrl(
   processNumber: string,
   unidadeId: string,
+  ultimoDocFormatado?: string,
 ): string {
   const cleaned = stripProcessNumber(processNumber);
-  return `${BASE_PATH}/api/stream/resumo-situacao/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  let url = `${BASE_PATH}/api/stream/resumo-situacao/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
+  if (ultimoDocFormatado) {
+    url += `&ultimo_doc_formatado=${encodeURIComponent(ultimoDocFormatado)}`;
+  }
+  return url;
 }
 
 export function getStreamAndamentosProgressUrl(

@@ -1,4 +1,5 @@
 import type { ApiError } from '@/types/process-flow';
+import { isTokenInvalidError, executeRefresh } from './token-refresh-manager';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
 
@@ -36,6 +37,26 @@ export async function fetchWithErrorHandling<T>(
       } catch {
         errorDetails = await response.text();
       }
+
+      // Token expired — attempt silent refresh and retry once
+      if (isTokenInvalidError(response.status, errorDetails)) {
+        const newToken = await executeRefresh();
+        if (newToken) {
+          const retryHeaders = new Headers(options.headers);
+          retryHeaders.set('X-SEI-Token', newToken);
+          const retryResponse = await fetch(url, {
+            ...options,
+            headers: retryHeaders,
+            cache: 'no-store',
+          });
+          if (retryResponse.ok) {
+            return await retryResponse.json() as T;
+          }
+        }
+        // Refresh failed or retry failed — treat as session expired
+        return { error: 'Sessão expirada. Faça login novamente.', status: 401 };
+      }
+
       return {
         error: `${errorContext}: ${response.status}`,
         details: errorDetails,

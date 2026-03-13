@@ -32,8 +32,8 @@ interface ProcessInfoCardsProps {
   backgroundLoading: {
     andamentos: boolean;
     unidades: boolean;
-    documentos: boolean;
     resumo: boolean;
+    [key: string]: boolean;
   };
 }
 
@@ -50,7 +50,6 @@ export function ProcessInfoCards({
   const loadingTasks = [];
   if (backgroundLoading.andamentos) loadingTasks.push('Buscando andamentos do processo');
   if (backgroundLoading.unidades) loadingTasks.push('Verificando unidades abertas');
-  if (backgroundLoading.documentos) loadingTasks.push('Carregando documentos');
   if (backgroundLoading.resumo) loadingTasks.push('Gerando resumo com IA');
 
   return (
