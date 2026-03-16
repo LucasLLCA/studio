@@ -646,8 +646,17 @@ function LoginPageContent() {
                 <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '4px' }}>{errors.orgao.message}</p>
               )}
             </div>
+            {/* Move o Lembrar de mim para a direita */}
             {!embedIdentity && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '4px',
+                    marginLeft: 'auto',
+                    width: 'fit-content'
+                  }}
+                >
                 <input
                   type="checkbox"
                   id="remember-me"
