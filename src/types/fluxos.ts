@@ -1,7 +1,13 @@
+export interface UnidadeSei {
+  id_unidade: number;
+  sigla: string;
+  descricao: string;
+}
+
 export interface FluxoNode {
   id: string;
   node_id: string;
-  tipo: 'sei_task' | 'etapa' | 'decisao' | 'inicio' | 'fim' | 'fork' | 'join';
+  tipo: 'etapa' | 'decisao' | 'inicio' | 'fim' | 'fork' | 'join';
   nome: string;
   descricao?: string | null;
   sei_task_key?: string | null;

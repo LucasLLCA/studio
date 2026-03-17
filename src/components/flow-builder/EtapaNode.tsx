@@ -8,6 +8,7 @@ function EtapaNode({ data, selected }: NodeProps) {
   const nome = d.nome as string;
   const descricao = d.descricao as string | undefined;
   const responsavel = d.responsavel as string | undefined;
+  const unidades = (d.unidades_etapa as Array<{ sigla: string; incluir_filhas?: boolean }>) || [];
 
   return (
     <div
@@ -19,6 +20,11 @@ function EtapaNode({ data, selected }: NodeProps) {
       <div className="text-sm font-semibold text-foreground truncate">{nome}</div>
       {descricao && (
         <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{descricao}</div>
+      )}
+      {unidades.length > 0 && (
+        <div className="text-[10px] text-indigo-600 mt-1 truncate">
+          {unidades.map(u => u.sigla + (u.incluir_filhas ? '/*' : '')).join(', ')}
+        </div>
       )}
       {responsavel && (
         <div className="text-xs text-muted-foreground mt-1 truncate">{responsavel}</div>

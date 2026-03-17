@@ -36,7 +36,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import ApiHealthCheck from "@/components/ApiHealthCheck";
 import { hasAuthTokenCookie, clearAuthTokenCookie } from "@/app/sei-actions";
 
 export default function AppHeader() {
@@ -54,7 +53,6 @@ export default function AppHeader() {
 
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isApiStatusModalOpen, setIsApiStatusModalOpen] = useState(false);
 
   const [mounted, setMounted] = useState(false);
   const [isEmbedMode, setIsEmbedMode] = useState(false);
@@ -301,17 +299,6 @@ export default function AppHeader() {
           </div>
         </div>
       </div>
-
-      <ApiHealthCheck />
-
-      <Dialog open={isApiStatusModalOpen} onOpenChange={setIsApiStatusModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="sr-only">Status da API</DialogTitle>
-          </DialogHeader>
-          <ApiHealthCheck showDetails={true} className="border-0 bg-transparent p-0 shadow-none" />
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={isInfoModalOpen} onOpenChange={setIsInfoModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden">

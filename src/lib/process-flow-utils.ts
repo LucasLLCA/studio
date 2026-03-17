@@ -106,11 +106,19 @@ export function processAndamentos(
     };
   }
   
-  const globallySortedAndamentos: AndamentoInternal[] = [...andamentosInput]
+  // Deduplicate andamentos by IdAndamento (SEI API can return duplicates)
+  const seenIds = new Set<string>();
+  const deduplicatedInput = andamentosInput.filter(a => {
+    if (seenIds.has(a.IdAndamento)) return false;
+    seenIds.add(a.IdAndamento);
+    return true;
+  });
+
+  const globallySortedAndamentos: AndamentoInternal[] = [...deduplicatedInput]
     .map((andamento, index) => ({
       ...andamento,
       parsedDate: parseCustomDateString(andamento.DataHora),
-      originalGlobalSequence: index + 1, 
+      originalGlobalSequence: index + 1,
     }))
     .sort((a, b) => {
       const dateDiff = a.parsedDate.getTime() - b.parsedDate.getTime();

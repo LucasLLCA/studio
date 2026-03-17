@@ -20,7 +20,6 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import SeiTaskNode from './SeiTaskNode';
 import EtapaNode from './EtapaNode';
 import DecisaoNode from './DecisaoNode';
 import InicioFimNode from './InicioFimNode';
@@ -31,7 +30,6 @@ import LoopEdge from './LoopEdge';
 import type { FluxoDetalhe, FluxoSaveCanvasPayload } from '@/types/fluxos';
 
 const nodeTypes: NodeTypes = {
-  sei_task: SeiTaskNode,
   etapa: EtapaNode,
   decisao: DecisaoNode,
   inicio: InicioFimNode,
@@ -64,6 +62,10 @@ function dbToNodes(fluxo: FluxoDetalhe): Node[] {
       checklist: n.checklist,
       regras_prazo: n.regras_prazo,
       metadata_extra: n.metadata_extra,
+      // Hydrate from metadata_extra for node-specific fields
+      unidades_inicio: (n.metadata_extra as Record<string, unknown>)?.unidades_inicio || null,
+      publico_alvo: (n.metadata_extra as Record<string, unknown>)?.publico_alvo || 'publico',
+      unidades_etapa: (n.metadata_extra as Record<string, unknown>)?.unidades_etapa || null,
     },
     ...(n.largura && n.altura ? { width: n.largura, height: n.altura } : {}),
   }));
@@ -107,7 +109,12 @@ function buildPayload(
         documentos_necessarios: (d.documentos_necessarios as string[]) || null,
         checklist: (d.checklist as Array<{ item: string; obrigatorio: boolean }>) || null,
         regras_prazo: (d.regras_prazo as Record<string, unknown>) || null,
-        metadata_extra: (d.metadata_extra as Record<string, unknown>) || null,
+        metadata_extra: {
+          ...((d.metadata_extra as Record<string, unknown>) || {}),
+          ...(d.unidades_inicio ? { unidades_inicio: d.unidades_inicio } : {}),
+          ...(d.publico_alvo ? { publico_alvo: d.publico_alvo } : {}),
+          ...(d.unidades_etapa ? { unidades_etapa: d.unidades_etapa } : {}),
+        },
         posicao_x: n.position.x,
         posicao_y: n.position.y,
         largura: n.measured?.width ?? n.width ?? null,
@@ -198,7 +205,7 @@ export default function FlowEditor({
       const raw = e.dataTransfer.getData('application/reactflow');
       if (!raw) return;
 
-      const parsed = JSON.parse(raw) as { tipo: string; nome: string; sei_task_key?: string };
+      const parsed = JSON.parse(raw) as { tipo: string; nome: string };
       const reactFlowBounds = (e.target as HTMLElement).closest('.react-flow')?.getBoundingClientRect();
       if (!reactFlowBounds) return;
 
@@ -214,7 +221,6 @@ export default function FlowEditor({
         data: {
           nome: parsed.nome,
           tipo: parsed.tipo,
-          sei_task_key: parsed.sei_task_key || null,
           descricao: null,
           responsavel: null,
           duracao_estimada_horas: null,

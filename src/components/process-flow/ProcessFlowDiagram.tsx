@@ -530,9 +530,9 @@ export function ProcessFlowDiagram({
                 );
               })}
 
-              {visibleConnections.map((conn) => (
+              {visibleConnections.map((conn, idx) => (
                 <path
-                  key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}-${conn.sourceTask.globalSequence}-${conn.targetTask.globalSequence}`}
+                  key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}-${conn.sourceTask.globalSequence}-${conn.targetTask.globalSequence}-${idx}`}
                   d={getPathDefinition(conn)}
                   stroke="hsl(var(--muted-foreground))"
                   strokeWidth="2"
