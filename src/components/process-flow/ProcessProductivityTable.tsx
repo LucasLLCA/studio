@@ -8,11 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TASK_GROUPS, getGroupKeyForTask, getGroupTooltip } from '@/lib/task-groups';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface ProcessProductivityTableProps {
   andamentos: Andamento[];
   searchQuery?: string;
   unitFilter?: string;
+  horasConfig?: Record<string, number>;
 }
 
 interface UserRow {
@@ -78,7 +81,29 @@ export function ProcessProductivityUnitFilter({
   );
 }
 
-export function ProcessProductivityTable({ andamentos, searchQuery = '', unitFilter = '' }: ProcessProductivityTableProps) {
+export function ProcessProductivityTable({ andamentos, searchQuery = '', unitFilter = '', horasConfig }: ProcessProductivityTableProps) {
+  const [displayMode, setDisplayMode] = useState<'count' | 'hours'>('count');
+  const hasHorasConfig = !!horasConfig && Object.values(horasConfig).some(v => v > 0);
+
+  const formatValue = (count: number, groupKey: string): string => {
+    if (displayMode === 'hours' && horasConfig) {
+      const coef = horasConfig[groupKey] ?? 0;
+      return `${(count * coef).toFixed(1)}h`;
+    }
+    return String(count);
+  };
+
+  const formatTotal = (groupCounts: Record<string, number>): string => {
+    if (displayMode === 'hours' && horasConfig) {
+      let total = 0;
+      for (const [key, count] of Object.entries(groupCounts)) {
+        total += count * (horasConfig[key] ?? 0);
+      }
+      return `${total.toFixed(1)}h`;
+    }
+    const total = Object.values(groupCounts).reduce((a, b) => a + b, 0);
+    return String(total);
+  };
   // Determine which groups are actually present in the data
   const { activeGroups, unitGroups } = useMemo(() => {
     const unitMap = new Map<string, {
@@ -226,6 +251,18 @@ export function ProcessProductivityTable({ andamentos, searchQuery = '', unitFil
   return (
     <TooltipProvider delayDuration={200}>
       <div className="w-full border rounded-lg overflow-hidden bg-card shadow-sm">
+        {hasHorasConfig && (
+          <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30">
+            <Switch
+              id="prod-display-mode"
+              checked={displayMode === 'hours'}
+              onCheckedChange={(checked) => setDisplayMode(checked ? 'hours' : 'count')}
+            />
+            <Label htmlFor="prod-display-mode" className="text-sm text-muted-foreground">
+              Exibir em horas
+            </Label>
+          </div>
+        )}
         <ScrollArea className="h-[400px] w-full">
           <div className="w-max min-w-full">
             <table className="border-collapse text-sm">
@@ -284,12 +321,12 @@ export function ProcessProductivityTable({ andamentos, searchQuery = '', unitFil
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-center">
-                        <span className="font-bold text-foreground">{group.total}</span>
+                        <span className="font-bold text-foreground">{formatTotal(group.groupTotals)}</span>
                       </td>
                       {activeGroups.map((ag) => (
                         <td key={`${group.unitId}-${ag.key}`} className="px-3 py-2.5 text-center">
                           <span className="font-semibold text-foreground">
-                            {group.groupTotals[ag.key] || 0}
+                            {formatValue(group.groupTotals[ag.key] || 0, ag.key)}
                           </span>
                         </td>
                       ))}
@@ -310,12 +347,12 @@ export function ProcessProductivityTable({ andamentos, searchQuery = '', unitFil
                           </div>
                         </td>
                         <td className="px-4 py-2.5 text-center">
-                          <span className="font-semibold text-foreground">{row.total}</span>
+                          <span className="font-semibold text-foreground">{formatTotal(row.groupCounts)}</span>
                         </td>
                         {activeGroups.map((ag) => (
                           <td key={`${group.unitId}-${row.userId}-${ag.key}`} className="px-3 py-2.5 text-center">
                             <span className="font-medium text-foreground">
-                              {row.groupCounts[ag.key] || 0}
+                              {formatValue(row.groupCounts[ag.key] || 0, ag.key)}
                             </span>
                           </td>
                         ))}

@@ -89,6 +89,8 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
     const tokenToReturn = typeof data.Token === 'string' ? data.Token : String(data.Token);
     const idUnidadeAtual = idUnidadeAtualFromAPI;
 
+    const extended = data as Record<string, unknown>;
+
     return {
       success: true,
       token: tokenToReturn,
@@ -98,6 +100,8 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
       idUsuario: data.Login?.IdUsuario,
       idLogin: data.Login?.IdLogin,
       cargoAssinatura: data.Login?.UltimoCargoAssinatura,
+      papelGlobal: typeof extended.papel_global === 'string' ? extended.papel_global : undefined,
+      idPessoa: typeof extended.id_pessoa === 'number' ? extended.id_pessoa : undefined,
     };
 
   } catch (error) {

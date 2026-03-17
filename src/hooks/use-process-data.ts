@@ -106,6 +106,9 @@ export function useProcessData({
   // Track Phase 2 SSE to prevent re-triggering
   const phase2StartedRef = useRef(false);
 
+  // AbortControllers for all SSE streams — enables clean cancellation on refresh/unmount
+  const phase2AbortRef = useRef<AbortController | null>(null);
+
   const processo = numeroProcesso;
   const unidade = selectedUnidadeFiltro || '';
   const token = sessionToken || '';
@@ -197,7 +200,10 @@ export function useProcessData({
     if (phase2StartedRef.current) return;
     phase2StartedRef.current = true;
 
+    // Abort any previous Phase 2 stream before starting a new one
+    phase2AbortRef.current?.abort();
     const abortController = new AbortController();
+    phase2AbortRef.current = abortController;
 
     setAndamentosProgress({
       loaded: rawProcessData?.Andamentos?.length || 0,
@@ -209,6 +215,8 @@ export function useProcessData({
       token,
       () => {}, // no chunks for this stream
       (fullResult: any) => {
+        // Ignore results from aborted streams
+        if (abortController.signal.aborted) return;
         if (fullResult?.Andamentos && Array.isArray(fullResult.Andamentos)) {
           // Client-side doc extraction for full data
           const fullDocs = extractDocsFromAndamentos(fullResult.Andamentos);
@@ -225,6 +233,7 @@ export function useProcessData({
         setAndamentosProgress(null);
       },
       (error) => {
+        if (abortController.signal.aborted) return;
         console.warn('Phase 2 SSE andamentos fetch failed, partial data remains:', error);
         setAndamentosProgress(null);
       },
@@ -365,6 +374,13 @@ export function useProcessData({
     if (isRefreshing || hasBackgroundLoading) return;
     setIsRefreshing(true);
     try {
+      // Abort all in-flight SSE streams before invalidating queries.
+      // Phase 3 (resumo) and Phase 4 (situação) are managed by React Query's
+      // built-in AbortSignal — invalidateQueries will cancel and re-trigger them.
+      // Phase 2 uses a manual AbortController since it's outside React Query.
+      phase2AbortRef.current?.abort();
+      phase2AbortRef.current = null;
+
       await invalidateProcessCache(processo);
       phase2StartedRef.current = false;
       setResumoStreamText("");

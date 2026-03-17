@@ -97,6 +97,23 @@ export const queryKeys = {
     seiApi: ['health', 'sei-api'] as const,
     summaryApi: ['health', 'summary-api'] as const,
   },
+
+  // Fluxos de Processos
+  fluxos: {
+    all: ['fluxos'] as const,
+    list: (usuario: string, equipeId?: string, orgao?: string) =>
+      ['fluxos', usuario, equipeId ?? '', orgao ?? ''] as const,
+    detail: (fluxoId: string) => ['fluxos', 'detail', fluxoId] as const,
+    processos: (fluxoId: string) => ['fluxos', 'processos', fluxoId] as const,
+  },
+
+  // Admin
+  admin: {
+    usuarios: (search?: string) => ['admin', 'usuarios', search ?? ''] as const,
+    configuracaoHoras: (orgao: string) => ['admin', 'configuracaoHoras', orgao] as const,
+    orgaos: ['admin', 'orgaos'] as const,
+    configuracaoHorasPublic: (orgao: string) => ['configuracaoHoras', orgao] as const,
+  },
 } as const;
 
 /**

@@ -291,7 +291,7 @@ function LoginPageContent() {
           }
         }
 
-        persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, data.orgao, data.usuario, nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura);
+        persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, data.orgao, data.usuario, nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura, response.papelGlobal, response.idPessoa);
 
         toast({
           title: "Login realizado com sucesso!",

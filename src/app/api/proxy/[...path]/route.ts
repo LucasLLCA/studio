@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 const BACKEND_BASE_URL =
   process.env.NEXT_PUBLIC_SUMMARY_API_BASE_URL || "http://127.0.0.1:8000";
 
-const FORWARDED_HEADERS = ["x-sei-token", "content-type", "accept"];
+const FORWARDED_HEADERS = [
+  "x-sei-token", "content-type", "accept",
+  // W3C Trace Context propagation for distributed tracing
+  "traceparent", "tracestate",
+];
 
 function forwardHeaders(request: NextRequest): Record<string, string> {
   const headers: Record<string, string> = {};

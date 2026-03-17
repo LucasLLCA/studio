@@ -57,5 +57,9 @@ EXPOSE 80
 ENV PORT=80
 ENV HOSTNAME="0.0.0.0"
 
+# OpenTelemetry configuration
+ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://otelcollectorhttp.10.0.122.91.sslip.io
+ENV OTEL_SERVICE_NAME=studio-frontend
+
 CMD ["node", "server.js"]
  

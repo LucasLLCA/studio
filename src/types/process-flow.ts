@@ -184,6 +184,8 @@ export interface ClientLoginResponse {
   idUsuario?: string; // IdUsuario from Login response — needed for document signing
   idLogin?: string; // IdLogin from Login response — needed for document signing
   cargoAssinatura?: string; // UltimoCargoAssinatura from Login response — needed for document signing
+  papelGlobal?: string; // Global role (admin, beta, user)
+  idPessoa?: number; // id_pessoa from credential storage
   error?: string;
   status?: number;
   details?: any; // To pass through any additional error details from SEI API

@@ -15,12 +15,19 @@ export function proxySSE(backendPath: string) {
     const url = `${BACKEND_BASE_URL}${backendPath}${separator}${searchParams}`;
 
     try {
+      // Forward W3C Trace Context headers for distributed tracing
+      const traceHeaders: Record<string, string> = {
+        "X-SEI-Token": token,
+        Accept: "text/event-stream",
+      };
+      const traceparent = request.headers.get("traceparent");
+      if (traceparent) traceHeaders["traceparent"] = traceparent;
+      const tracestate = request.headers.get("tracestate");
+      if (tracestate) traceHeaders["tracestate"] = tracestate;
+
       const backendResponse = await fetch(url, {
         method: "GET",
-        headers: {
-          "X-SEI-Token": token,
-          Accept: "text/event-stream",
-        },
+        headers: traceHeaders,
       });
 
       if (!backendResponse.ok || !backendResponse.body) {

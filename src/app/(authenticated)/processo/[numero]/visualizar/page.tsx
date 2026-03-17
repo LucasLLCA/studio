@@ -45,7 +45,8 @@ import { ProcessProductivityTable } from '@/components/process-flow/ProcessProdu
 import { ProcessProvider } from '@/contexts/process-context';
 import { ProcessProductivityUnitFilter } from '@/components/process-flow/ProcessProductivityTable';
 import { useLastViewedProcess } from '@/contexts/last-viewed-process-context';
-import { checkProcessoSalvo } from '@/lib/api/grupos-api-client';
+import { useProcessoSalvo } from '@/lib/react-query/queries/useProcessoSalvo';
+import { useConfiguracaoHorasPublic } from '@/lib/react-query/queries/useAdminQueries';
 
 export default function VisualizarProcessoPage() {
   return (
@@ -92,17 +93,20 @@ function VisualizarProcessoContent() {
   const [prodSearchQuery, setProdSearchQuery] = useState('');
   const [prodUnitFilter, setProdUnitFilter] = useState('');
 
-  // Tag/bookmark status — fetched independently of andamentos
+  // Hour coefficient config for productivity table
+  const { data: horasConfig } = useConfiguracaoHorasPublic(userOrgao);
+
+  // Tag/bookmark status — cached via React Query, deduped across mounts
+  const { data: processoSalvoData } = useProcessoSalvo({
+    usuario: usuario || '',
+    numeroProcesso,
+    enabled: !!usuario,
+  });
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
-    if (!usuario || !numeroProcesso) return;
-    checkProcessoSalvo(usuario, numeroProcesso).then((result) => {
-      if (!('error' in result)) {
-        setIsSaved(result.salvo);
-      }
-    });
-  }, [usuario, numeroProcesso]);
+    if (processoSalvoData) setIsSaved(processoSalvoData.salvo);
+  }, [processoSalvoData]);
 
   // Lightweight count query — reused from selecionar unidade if cached
   const { data: countData } = useAndamentosCount({
@@ -530,6 +534,7 @@ function VisualizarProcessoContent() {
                       andamentos={rawProcessData.Andamentos}
                       searchQuery={prodSearchQuery}
                       unitFilter={prodUnitFilter}
+                      horasConfig={horasConfig}
                     />
                   </CardContent>
                 </Card>

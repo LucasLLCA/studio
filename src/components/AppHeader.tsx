@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { LogOut, Activity, Newspaper, Info, HelpCircle, Search, Clock, Users, Sparkles, CheckCircle2, FileText } from 'lucide-react';
+import { LogOut, Newspaper, HelpCircle, Search, Users, Sparkles, CheckCircle2, FileText, Shield, GitBranch } from 'lucide-react';
 import { AlertBox } from '@/components/ui/alert-box';
 import { Button } from '@/components/ui/button';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
@@ -17,21 +17,21 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import ApiHealthCheck from '@/components/ApiHealthCheck';
 import { hasAuthTokenCookie, clearAuthTokenCookie } from '@/app/sei-actions';
 
 export default function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
-  const { isAuthenticated, logout: persistLogout } = usePersistedAuth();
+  const { isAuthenticated, papelGlobal, logout: persistLogout } = usePersistedAuth();
   const { lastViewedProcess, clearLastViewedProcess } = useLastViewedProcess();
 
   const isOnHome = pathname === '/home';
   const isOnProcesso = pathname.includes('/visualizar');
   const isOnEquipes = pathname.startsWith('/equipes');
+  const isOnAdmin = pathname.startsWith('/admin');
+  const isOnFluxos = pathname.startsWith('/fluxos');
 
-  const [isApiStatusModalOpen, setIsApiStatusModalOpen] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
   const [mounted, setMounted] = useState(false);
@@ -82,6 +82,18 @@ export default function AppHeader() {
               <Users className="sm:mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Equipes</span>
             </Button>
+            {mounted && (papelGlobal === 'admin' || papelGlobal === 'beta') && (
+              <Button className={`bg-transparent border-0 rounded-b-none ${isOnFluxos ? 'border-b-2 border-primary text-primary' : ''}`} variant="outline" size="sm" onClick={() => router.push('/fluxos')} title="Fluxos de Processos">
+                <GitBranch className="sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Fluxos</span>
+              </Button>
+            )}
+            {mounted && papelGlobal === 'admin' && (
+              <Button className={`bg-transparent border-0 rounded-b-none ${isOnAdmin ? 'border-b-2 border-primary text-primary' : ''}`} variant="outline" size="sm" onClick={() => router.push('/admin')} title="Administração">
+                <Shield className="sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Admin</span>
+              </Button>
+            )}
             <Button className="bg-transparent border-0" variant="outline" size="sm" onClick={() => setIsInfoModalOpen(true)} title={"Informa\u00e7\u00f5es do Sistema"}>
               <Newspaper className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">{"Atualizações"}</span>
@@ -93,16 +105,6 @@ export default function AppHeader() {
         </div>
       </div>
 
-      <ApiHealthCheck />
-
-      <Dialog open={isApiStatusModalOpen} onOpenChange={setIsApiStatusModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="sr-only">Status da API</DialogTitle>
-          </DialogHeader>
-          <ApiHealthCheck showDetails={true} className="border-0 shadow-none p-0 bg-transparent" />
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={isInfoModalOpen} onOpenChange={setIsInfoModalOpen}>
         <DialogContent className="sm:max-w-2xl">

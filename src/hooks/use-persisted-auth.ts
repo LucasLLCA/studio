@@ -14,6 +14,8 @@ interface PersistedAuthData {
   idUsuario: string | null; // IdUsuario — needed for document signing
   idLogin: string | null; // IdLogin — needed for document signing
   cargoAssinatura: string | null; // UltimoCargoAssinatura — needed for document signing
+  papelGlobal: string | null; // Papel global do usuário (admin, beta, user)
+  idPessoa: number | null; // id_pessoa from credential storage
   unidadesFiltroList: UnidadeFiltro[];
   selectedUnidadeFiltro: string | undefined;
   timestamp: number;
@@ -115,6 +117,16 @@ export function usePersistedAuth() {
     return stored?.cargoAssinatura || null;
   });
 
+  const [papelGlobal, setPapelGlobal] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.papelGlobal || 'user';
+  });
+
+  const [idPessoa, setIdPessoa] = useState<number | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.idPessoa || null;
+  });
+
   const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>(() => {
     const stored = loadFromStorage();
     return stored?.unidadesFiltroList || [];
@@ -140,6 +152,8 @@ export function usePersistedAuth() {
         idUsuario: null,
         idLogin: null,
         cargoAssinatura: null,
+        papelGlobal: 'user',
+        idPessoa: null,
         unidadesFiltroList: [],
         selectedUnidadeFiltro: undefined,
         timestamp: Date.now()
@@ -159,7 +173,7 @@ export function usePersistedAuth() {
   }, [loadFromStorage]);
 
   // Função para fazer login
-  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string, userEmail?: string, userName?: string, userIdUsuario?: string, userIdLogin?: string, userCargoAssinatura?: string) => {
+  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string, userEmail?: string, userName?: string, userIdUsuario?: string, userIdLogin?: string, userCargoAssinatura?: string, userPapelGlobal?: string, userIdPessoa?: number) => {
     // Tentar converter token para string se necessário
     let validToken: string;
     if (typeof token === 'string') {
@@ -182,6 +196,8 @@ export function usePersistedAuth() {
     setIdUsuario(userIdUsuario || null);
     setIdLogin(userIdLogin || null);
     setCargoAssinatura(userCargoAssinatura || null);
+    setPapelGlobal(userPapelGlobal || 'user');
+    setIdPessoa(userIdPessoa || null);
     setUnidadesFiltroList(unidades);
 
     saveToStorage({
@@ -194,6 +210,8 @@ export function usePersistedAuth() {
       idUsuario: userIdUsuario || null,
       idLogin: userIdLogin || null,
       cargoAssinatura: userCargoAssinatura || null,
+      papelGlobal: userPapelGlobal || 'user',
+      idPessoa: userIdPessoa || null,
       unidadesFiltroList: unidades
     });
   }, [saveToStorage]);
@@ -209,6 +227,8 @@ export function usePersistedAuth() {
     setIdUsuario(null);
     setIdLogin(null);
     setCargoAssinatura(null);
+    setPapelGlobal(null);
+    setIdPessoa(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
 
@@ -240,6 +260,8 @@ export function usePersistedAuth() {
     setIdUsuario(null);
     setIdLogin(null);
     setCargoAssinatura(null);
+    setPapelGlobal(null);
+    setIdPessoa(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
     if (typeof window !== 'undefined') {
@@ -268,6 +290,8 @@ export function usePersistedAuth() {
     idUsuario,
     idLogin,
     cargoAssinatura,
+    papelGlobal,
+    idPessoa,
     unidadesFiltroList,
     selectedUnidadeFiltro,
     login,
