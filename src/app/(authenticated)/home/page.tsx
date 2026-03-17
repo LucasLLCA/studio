@@ -193,27 +193,41 @@ function HomeContent() {
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FeatureCard
-                icon={<GanttChartSquare className="w-8 h-8" />}
-                title="Seja Agil"
-                subtitle="Analise objetivamente com a linha do tempo"
-              />
-              <FeatureCard
-                icon={<Brain className="w-8 h-8" />}
-                title="Use IA a seu favor"
-                subtitle="Entendimento automatizado de processos e documentos"
-              />
-              <FeatureCard
-                icon={<Share2 className="w-8 h-8" />}
-                title="Salve e acompanhe"
-                subtitle="Crie grupos, favorite e compartilhe processos com outros gestores"
-              />
-              <FeatureCard
-                icon={<FileSignature className="w-8 h-8" />}
-                title={"Tome a\u00e7\u00f5es rapidas"}
-                subtitle={"(Em breve) Assine oficios, compartilhe entendimentos e situa\u00e7\u00f5es"}
-              />
+            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible md:snap-none">
+            
+
+            {/* Carrossel adicionado */}
+          <div className="min-w-[85%] snap-center md:min-w-0">
+            <FeatureCard
+              icon={<GanttChartSquare className="w-8 h-8" />}
+              title="Seja Agil"
+              subtitle="Analise objetivamente com a linha do tempo"
+            />
+          </div>
+
+          <div className="min-w-[85%] snap-center md:min-w-0">
+            <FeatureCard
+              icon={<Brain className="w-8 h-8" />}
+              title="Use IA a seu favor"
+              subtitle="Entendimento automatizado de processos e documentos"
+            />
+          </div>
+
+          <div className="min-w-[85%] snap-center md:min-w-0">
+            <FeatureCard
+              icon={<Share2 className="w-8 h-8" />}
+              title="Salve e acompanhe"
+              subtitle="Crie grupos, favorite e compartilhe processos com outros gestores"
+            />
+          </div>
+
+          <div className="min-w-[85%] snap-center md:min-w-0">
+            <FeatureCard
+              icon={<FileSignature className="w-8 h-8" />}
+              title="Tome ações rapidas"
+              subtitle="(Em breve) Assine oficios, compartilhe entendimentos e situações"
+            />
+          </div>
             </div>
           </section>
 

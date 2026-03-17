@@ -64,11 +64,12 @@ function ComboboxInput({
   showClear?: boolean
 }) {
   return (
-    <InputGroup className={cn("w-auto", className)}>
+    <InputGroup className={cn("w-full", className)}>
       <ComboboxPrimitive.Input
-        render={<InputGroupInput disabled={disabled} />}
+        render={<InputGroupInput disabled={disabled} className="h-10" />}
         {...props}
       />
+
       <InputGroupAddon align="inline-end">
         {showTrigger && (
           <InputGroupButton
