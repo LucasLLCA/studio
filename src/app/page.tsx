@@ -119,7 +119,7 @@ function LoginPageContent() {
           // Use email from stored credentials (not CPF from JWE)
           const usuario = response.usuarioSei || identity.usuario;
           const orgao = response.orgao;
-          persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, orgao, usuario, response.nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura);
+          persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, orgao, usuario, response.nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura, response.papelGlobal, response.idPessoa);
           router.push('/home');
           return;
         }
