@@ -86,6 +86,7 @@ function VisualizarProcessoContent() {
     selectedUnidadeFiltro,
     orgao: userOrgao,
     usuario,
+    papelGlobal,
     logout: persistLogout,
   } = usePersistedAuth();
 
@@ -527,6 +528,7 @@ function VisualizarProcessoContent() {
                           value={prodActiveTab}
                           onValueChange={(value) => setProdActiveTab(value as ProductivityTab)}
                           hasHorasConfig={hasHorasConfig}
+                          canViewFinanceiro={papelGlobal === 'admin' || papelGlobal === 'beta'}
                         />
                         <>
                           <div className="relative w-64">
@@ -558,6 +560,7 @@ function VisualizarProcessoContent() {
                       activeTab={prodActiveTab}
                       onActiveTabChange={setProdActiveTab}
                       hideInternalTabs
+                      papelGlobal={papelGlobal}
                       processStartDate={rawProcessData?.Info?.DataAutuacao || processCreationInfo?.dataCriacao}
                       processEndDate={rawProcessData?.Info?.DataConclusao}
                       numeroProcesso={numeroProcesso}

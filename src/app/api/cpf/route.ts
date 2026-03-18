@@ -154,18 +154,25 @@ export async function GET(request: NextRequest) {
       return extractCpfFromResponse(data, targetName);
     };
 
-    // 1) Search by matricula first
-    if (matricula && matricula !== '' && matricula.replace(/[^\d]/g, '') !== '00000000') {
-      const matriculaCandidates = buildMatriculaCandidates(matricula);
+    const isValidMatricula = (mat: string | null): boolean => {
+      if (!mat || mat.trim() === '') return false;
+      const digitsOnly = mat.replace(/[^\d]/g, '');
+      // Rejeita matrícula vazia ou "00000000"
+      return digitsOnly !== '' && digitsOnly !== '00000000';
+    };
+
+    // 1) Search by matricula first (if valid)
+    if (isValidMatricula(matricula)) {
+      const matriculaCandidates = buildMatriculaCandidates(matricula!);
       for (const matriculaCandidate of matriculaCandidates) {
-        if (!matriculaCandidate || matriculaCandidate.replace(/[^\d]/g, '') === '00000000') continue;
+        if (!isValidMatricula(matriculaCandidate)) continue;
         const url = `${apiUrl}/pessoa/produtividade?matricula=${encodeURIComponent(matriculaCandidate)}`;
         const cpf = await queryCpf(url);
         if (cpf) return NextResponse.json({ cpf });
       }
     }
 
-    // 2) Fallback to nome with strict matching
+    // 2) Fallback to nome with strict matching (sempre tenta, mesmo se matricula foi fornecida)
     if (nome) {
       const nameCandidates = buildNameCandidates(nome);
       for (const candidate of nameCandidates) {

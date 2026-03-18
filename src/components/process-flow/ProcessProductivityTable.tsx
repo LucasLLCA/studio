@@ -24,6 +24,7 @@ interface ProcessProductivityTableProps {
   activeTab?: ProductivityTab;
   onActiveTabChange?: (value: ProductivityTab) => void;
   hideInternalTabs?: boolean;
+  papelGlobal?: string | null;
 }
 
 interface UserRow {
@@ -101,14 +102,17 @@ export function ProcessProductivityTable({
   activeTab,
   onActiveTabChange,
   hideInternalTabs = false,
+  papelGlobal,
 }: ProcessProductivityTableProps) {
   const [internalActiveTab, setInternalActiveTab] = useState<ProductivityTab>('tarefas');
   const hasHorasConfig = !!horasConfig && Object.values(horasConfig).some(v => v > 0);
-  const resolvedActiveTab = hasHorasConfig ? (activeTab ?? internalActiveTab) : 'tarefas';
+  const canViewFinanceiro = papelGlobal === 'admin' || papelGlobal === 'beta';
+  const resolvedActiveTab = hasHorasConfig && canViewFinanceiro ? (activeTab ?? internalActiveTab) : 'tarefas';
 
   const handleTabChange = (value: string) => {
     const nextTab = value as ProductivityTab;
     if (!hasHorasConfig && nextTab !== 'tarefas') return;
+    if (nextTab === 'financeiro' && !canViewFinanceiro) return;
     if (activeTab === undefined) setInternalActiveTab(nextTab);
     onActiveTabChange?.(nextTab);
   };
@@ -284,6 +288,7 @@ export function ProcessProductivityTable({
             value={resolvedActiveTab}
             hasHorasConfig={hasHorasConfig}
             onValueChange={handleTabChange}
+            canViewFinanceiro={canViewFinanceiro}
           />
         )}
 
@@ -415,10 +420,12 @@ export function ProcessProductivityTabs({
   value,
   onValueChange,
   hasHorasConfig = false,
+  canViewFinanceiro = false,
 }: {
   value: ProductivityTab;
   onValueChange: (value: string) => void;
   hasHorasConfig?: boolean;
+  canViewFinanceiro?: boolean;
 }) {
   const safeValue = hasHorasConfig ? value : 'tarefas';
 
@@ -446,7 +453,7 @@ export function ProcessProductivityTabs({
           Horas
         </button>
       )}
-      {hasHorasConfig && (
+      {hasHorasConfig && canViewFinanceiro && (
         <button
           onClick={() => onValueChange('financeiro')}
           className={`px-3 py-1.5 text-sm font-medium h-8 transition-colors border-l ${
