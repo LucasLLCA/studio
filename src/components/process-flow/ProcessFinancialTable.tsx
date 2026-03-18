@@ -267,66 +267,77 @@ export function ProcessFinancialTable({
       const cpfCache = new Map<string, string | null>();
       const salaryCache = new Map<string, number | null>();
 
-      const nextEntries = await Promise.all(
-        flatUsers.map(async (user) => {
-          const userKey = `${user.unitId}|${user.userId}`;
+      // Limita requisições simultâneas para evitar 504
+      const batchSize = 5;
+      const nextEntries: Array<readonly [string, UserExternalFinancialData]> = [];
 
-          const cpfLookupKey = `${user.matricula || ''}|${user.userName}`.trim();
-          let cpf: string | null = null;
-          if (cpfLookupKey) {
-            if (cpfCache.has(cpfLookupKey)) {
-              cpf = cpfCache.get(cpfLookupKey) ?? null;
-            } else {
-              const params = new URLSearchParams();
-              if (user.matricula) params.set('matricula', user.matricula);
-              params.set('nome', user.userName);
+      for (let i = 0; i < flatUsers.length; i += batchSize) {
+        if (cancelled) break;
 
-              try {
-                const headers: Record<string, string> = {};
-                if (sessionToken) headers['x-sei-token'] = sessionToken;
-                const response = await fetch(`${basePath}/api/cpf?${params.toString()}`, { headers });
-                const payload = await response.json();
-                cpf = typeof payload?.cpf === 'string' ? payload.cpf : null;
-              } catch {
-                cpf = null;
-              }
-              cpfCache.set(cpfLookupKey, cpf);
-            }
-          }
+        const batch = flatUsers.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(async (user) => {
+            const userKey = `${user.unitId}|${user.userId}`;
 
-          const cpfDigits = cpf ? cpf.replace(/\D/g, '') : '';
-          let mediaSalarioBruto: number | null = null;
-          if (cpfDigits.length === 11) {
-            const salaryLookupKey = `${cpfDigits}|${periodParams.mesInicio}|${periodParams.anoInicio}|${periodParams.mesFim}|${periodParams.anoFim}`;
-            if (salaryCache.has(salaryLookupKey)) {
-              mediaSalarioBruto = salaryCache.get(salaryLookupKey) ?? null;
-            } else {
-              try {
-                const salaryParams = new URLSearchParams({
-                  cpf: cpfDigits,
-                  mes_inicio: periodParams.mesInicio,
-                  mes_fim: periodParams.mesFim,
-                  ano_inicio: periodParams.anoInicio,
-                  ano_fim: periodParams.anoFim,
-                });
+            const cpfLookupKey = `${user.matricula || ''}|${user.userName}`.trim();
+            let cpf: string | null = null;
+            if (cpfLookupKey) {
+              if (cpfCache.has(cpfLookupKey)) {
+                cpf = cpfCache.get(cpfLookupKey) ?? null;
+              } else {
+                const params = new URLSearchParams();
+                if (user.matricula) params.set('matricula', user.matricula);
+                params.set('nome', user.userName);
 
-                const response = await fetch(`${basePath}/api/salario-historico?${salaryParams.toString()}`);
-                if (response.ok) {
-                  const salaryPayload = await response.json();
-                  const rawValue = salaryPayload?.resumo?.media_salario_bruto;
-                  const parsedValue = Number(rawValue);
-                  mediaSalarioBruto = Number.isFinite(parsedValue) ? parsedValue : null;
+                try {
+                  const headers: Record<string, string> = {};
+                  if (sessionToken) headers['x-sei-token'] = sessionToken;
+                  const response = await fetch(`${basePath}/api/cpf?${params.toString()}`, { headers });
+                  const payload = await response.json();
+                  cpf = typeof payload?.cpf === 'string' ? payload.cpf : null;
+                } catch {
+                  cpf = null;
                 }
-              } catch {
-                mediaSalarioBruto = null;
+                cpfCache.set(cpfLookupKey, cpf);
               }
-              salaryCache.set(salaryLookupKey, mediaSalarioBruto);
             }
-          }
 
-          return [userKey, { cpf, mediaSalarioBruto }] as const;
-        })
-      );
+            const cpfDigits = cpf ? cpf.replace(/\D/g, '') : '';
+            let mediaSalarioBruto: number | null = null;
+            if (cpfDigits.length === 11) {
+              const salaryLookupKey = `${cpfDigits}|${periodParams.mesInicio}|${periodParams.anoInicio}|${periodParams.mesFim}|${periodParams.anoFim}`;
+              if (salaryCache.has(salaryLookupKey)) {
+                mediaSalarioBruto = salaryCache.get(salaryLookupKey) ?? null;
+              } else {
+                try {
+                  const salaryParams = new URLSearchParams({
+                    cpf: cpfDigits,
+                    mes_inicio: periodParams.mesInicio,
+                    mes_fim: periodParams.mesFim,
+                    ano_inicio: periodParams.anoInicio,
+                    ano_fim: periodParams.anoFim,
+                  });
+
+                  const response = await fetch(`${basePath}/api/salario-historico?${salaryParams.toString()}`);
+                  if (response.ok) {
+                    const salaryPayload = await response.json();
+                    const rawValue = salaryPayload?.resumo?.media_salario_bruto;
+                    const parsedValue = Number(rawValue);
+                    mediaSalarioBruto = Number.isFinite(parsedValue) ? parsedValue : null;
+                  }
+                } catch {
+                  mediaSalarioBruto = null;
+                }
+                salaryCache.set(salaryLookupKey, mediaSalarioBruto);
+              }
+            }
+
+            return [userKey, { cpf, mediaSalarioBruto }] as const;
+          })
+        );
+
+        nextEntries.push(...batchResults);
+      }
 
       if (!cancelled) {
         setExternalDataByUser(Object.fromEntries(nextEntries));
