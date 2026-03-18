@@ -5,17 +5,26 @@ import type { Andamento } from '@/types/process-flow';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { parseCustomDateString } from '@/lib/process-flow-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TASK_GROUPS, getGroupKeyForTask, getGroupTooltip } from '@/lib/task-groups';
+import { TASK_GROUPS, getGroupKeyForTask } from '@/lib/task-groups';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import { ProcessFinancialTable } from './ProcessFinancialTable';
+
+export type ProductivityTab = 'tarefas' | 'horas' | 'financeiro';
 
 interface ProcessProductivityTableProps {
   andamentos: Andamento[];
   searchQuery?: string;
   unitFilter?: string;
   horasConfig?: Record<string, number>;
+  processStartDate?: string;
+  processEndDate?: string;
+  numeroProcesso?: string;
+  sessionToken?: string | null;
+  activeTab?: ProductivityTab;
+  onActiveTabChange?: (value: ProductivityTab) => void;
+  hideInternalTabs?: boolean;
+  papelGlobal?: string | null;
 }
 
 interface UserRow {
@@ -81,12 +90,35 @@ export function ProcessProductivityUnitFilter({
   );
 }
 
-export function ProcessProductivityTable({ andamentos, searchQuery = '', unitFilter = '', horasConfig }: ProcessProductivityTableProps) {
-  const [displayMode, setDisplayMode] = useState<'count' | 'hours'>('count');
+export function ProcessProductivityTable({
+  andamentos,
+  searchQuery = '',
+  unitFilter = '',
+  horasConfig,
+  processStartDate,
+  processEndDate,
+  numeroProcesso,
+  sessionToken,
+  activeTab,
+  onActiveTabChange,
+  hideInternalTabs = false,
+  papelGlobal,
+}: ProcessProductivityTableProps) {
+  const [internalActiveTab, setInternalActiveTab] = useState<ProductivityTab>('tarefas');
   const hasHorasConfig = !!horasConfig && Object.values(horasConfig).some(v => v > 0);
+  const canViewFinanceiro = papelGlobal === 'admin' || papelGlobal === 'beta';
+  const resolvedActiveTab = hasHorasConfig && canViewFinanceiro ? (activeTab ?? internalActiveTab) : 'tarefas';
+
+  const handleTabChange = (value: string) => {
+    const nextTab = value as ProductivityTab;
+    if (!hasHorasConfig && nextTab !== 'tarefas') return;
+    if (nextTab === 'financeiro' && !canViewFinanceiro) return;
+    if (activeTab === undefined) setInternalActiveTab(nextTab);
+    onActiveTabChange?.(nextTab);
+  };
 
   const formatValue = (count: number, groupKey: string): string => {
-    if (displayMode === 'hours' && horasConfig) {
+    if (resolvedActiveTab === 'horas' && horasConfig) {
       const coef = horasConfig[groupKey] ?? 0;
       return `${(count * coef).toFixed(1)}h`;
     }
@@ -94,7 +126,7 @@ export function ProcessProductivityTable({ andamentos, searchQuery = '', unitFil
   };
 
   const formatTotal = (groupCounts: Record<string, number>): string => {
-    if (displayMode === 'hours' && horasConfig) {
+    if (resolvedActiveTab === 'horas' && horasConfig) {
       let total = 0;
       for (const [key, count] of Object.entries(groupCounts)) {
         total += count * (horasConfig[key] ?? 0);
@@ -251,21 +283,19 @@ export function ProcessProductivityTable({ andamentos, searchQuery = '', unitFil
   return (
     <TooltipProvider delayDuration={200}>
       <div className="w-full border rounded-lg overflow-hidden bg-card shadow-sm">
-        {hasHorasConfig && (
-          <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30">
-            <Switch
-              id="prod-display-mode"
-              checked={displayMode === 'hours'}
-              onCheckedChange={(checked) => setDisplayMode(checked ? 'hours' : 'count')}
-            />
-            <Label htmlFor="prod-display-mode" className="text-sm text-muted-foreground">
-              Exibir em horas
-            </Label>
-          </div>
+        {!hideInternalTabs && (
+          <ProcessProductivityTabs
+            value={resolvedActiveTab}
+            hasHorasConfig={hasHorasConfig}
+            onValueChange={handleTabChange}
+            canViewFinanceiro={canViewFinanceiro}
+          />
         )}
-        <ScrollArea className="h-[400px] w-full">
-          <div className="w-max min-w-full">
-            <table className="border-collapse text-sm">
+
+        {resolvedActiveTab === 'tarefas' || resolvedActiveTab === 'horas' ? (
+          <ScrollArea className="h-[400px] w-full">
+            <div className="w-max min-w-full">
+              <table className="border-collapse text-sm">
               <thead className="sticky top-0 z-10 bg-slate-400 dark:bg-slate-600">
                 <tr className="border-b">
                   <th className="px-4 py-3 text-left font-semibold text-slate-50 min-w-[200px]">
@@ -365,8 +395,76 @@ export function ProcessProductivityTable({ andamentos, searchQuery = '', unitFil
           </div>
           <ScrollBar orientation="horizontal" />
           <ScrollBar orientation="vertical" />
-        </ScrollArea>
+          </ScrollArea>
+        ) : (
+          <div className="overflow-hidden p-0 px-6 pb-6 pt-4">
+            {/* Financeiro tab content */}
+            {andamentos && horasConfig && (
+              <ProcessFinancialTable
+                andamentos={andamentos}
+                horasConfig={horasConfig}
+                processStartDate={processStartDate}
+                processEndDate={processEndDate}
+                numeroProcesso={numeroProcesso}
+                sessionToken={sessionToken}
+              />
+            )}
+          </div>
+        )}
       </div>
     </TooltipProvider>
+  );
+}
+
+export function ProcessProductivityTabs({
+  value,
+  onValueChange,
+  hasHorasConfig = false,
+  canViewFinanceiro = false,
+}: {
+  value: ProductivityTab;
+  onValueChange: (value: string) => void;
+  hasHorasConfig?: boolean;
+  canViewFinanceiro?: boolean;
+}) {
+  const safeValue = hasHorasConfig ? value : 'tarefas';
+
+  return (
+    <div className="flex items-center border rounded-md overflow-hidden">
+      <button
+        onClick={() => onValueChange('tarefas')}
+        className={`px-3 py-1.5 text-sm font-medium h-8 transition-colors ${
+          safeValue === 'tarefas'
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-transparent text-foreground hover:bg-muted'
+        }`}
+      >
+        Tarefas
+      </button>
+      {hasHorasConfig && (
+        <button
+          onClick={() => onValueChange('horas')}
+          className={`px-3 py-1.5 text-sm font-medium h-8 transition-colors border-l ${
+            safeValue === 'horas'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-transparent text-foreground hover:bg-muted'
+          }`}
+        >
+          Horas
+        </button>
+      )}
+      {hasHorasConfig && canViewFinanceiro && (
+        <button
+          onClick={() => onValueChange('financeiro')}
+          className={`px-3 py-1.5 text-sm font-medium h-8 transition-colors border-l ${
+            safeValue === 'financeiro'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-transparent text-foreground hover:bg-muted'
+          }`}
+        >
+          Financeiro
+        </button>
+      )}
+    </div>
   );
 }
