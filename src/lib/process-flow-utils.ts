@@ -322,9 +322,19 @@ export function processAndamentos(
   const maxX = processedTasks.length > 0 ? Math.max(...processedTasks.map(t => t.x)) : INITIAL_X_OFFSET;
   const calculatedSvgHeight = (laneMap.size || 1) * VERTICAL_LANE_SPACING + INITIAL_Y_OFFSET;
 
+  // Deduplicate connections — same (source, target) pair can be pushed more than once
+  // when summary nodes or remetido tasks share IdAndamento values across iterations.
+  const seenConns = new Set<string>();
+  const uniqueConnections = connections.filter(conn => {
+    const k = `${conn.sourceTask.IdAndamento}|${conn.targetTask.IdAndamento}|${conn.sourceTask.globalSequence}|${conn.targetTask.globalSequence}`;
+    if (seenConns.has(k)) return false;
+    seenConns.add(k);
+    return true;
+  });
+
   return {
     tasks: processedTasks,
-    connections,
+    connections: uniqueConnections,
     svgWidth: maxX + NODE_RADIUS + HORIZONTAL_SPACING_BASE, 
     svgHeight: Math.max(calculatedSvgHeight, INITIAL_Y_OFFSET * 2),
     laneMap,

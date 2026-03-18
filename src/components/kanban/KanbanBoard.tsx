@@ -19,7 +19,7 @@ export function KanbanBoard({ colunas, teamTags, onProcessoClick, onDeleteColumn
   
   if (colunas.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
+      <div className="flex items-center justify-center min-h-[400px] h-full text-muted-foreground">
         <div className="text-center">
           <p className="text-sm">Nenhum grupo de processos nesta equipe.</p>
           <p className="text-xs mt-1">Crie um grupo de processos para comecar.</p>

@@ -186,7 +186,12 @@ export default function EquipeKanbanPage() {
     if (!usuario || !deleteColumnId) return;
     const result = await deleteGrupo(deleteColumnId, usuario);
     if ('error' in result) {
-      toast({ title: "Erro ao remover grupo", description: result.error, variant: "destructive" });
+      const isInUse = result.status === 409;
+      toast({
+        title: isInUse ? "Grupo em uso" : "Erro ao remover grupo",
+        description: result.error,
+        variant: "destructive",
+      });
     } else {
       setBoard(prev => prev ? {
         ...prev,
@@ -389,7 +394,7 @@ export default function EquipeKanbanPage() {
       {/* Kanban Board */}
       <div className="flex-1 overflow-hidden">
         {filtroAtivo && colunasVisiveis.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
+          <div className="flex items-center justify-center min-h-[400px] h-full text-muted-foreground">
             <div className="text-center">
               <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">Nenhum processo encontrado para os filtros aplicados.</p>

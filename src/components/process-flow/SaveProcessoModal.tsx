@@ -215,7 +215,12 @@ export function SaveProcessoModal({
     try {
       const result = await deleteGrupo(tagId, usuario);
       if ('error' in result) {
-        toast({ title: "Erro ao excluir grupo", description: result.error, variant: "destructive" });
+        const isInUse = result.status === 409;
+        toast({
+          title: isInUse ? "Grupo em uso" : "Erro ao excluir grupo",
+          description: result.error,
+          variant: "destructive",
+        });
         return;
       }
       if (selectedGroup?.type === 'personal' && selectedGroup.tagId === tagId) {

@@ -140,7 +140,12 @@ export function MeuEspacoContent({ usuario, onShareTag, contextoMap = {} }: MeuE
     try {
       const result = await deleteGrupo(deleteTagId, usuario);
       if ('error' in result) {
-        toast({ title: "Erro ao excluir", description: result.error, variant: "destructive" });
+        const isInUse = result.status === 409;
+        toast({
+          title: isInUse ? "Grupo em uso" : "Erro ao excluir",
+          description: result.error,
+          variant: "destructive",
+        });
         return;
       }
       setTags(prev => prev.filter(t => t.id !== deleteTagId));
