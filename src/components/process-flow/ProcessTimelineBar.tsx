@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import React from 'react';
 import { CheckCircle, FileText, Send, ChevronsRight, CornerRightUp, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -94,39 +95,83 @@ export function ProcessTimelineBar({ tasks, svgWidth, isPartialData = false }: P
 
         {/* Timeline markers */}
         <div className="relative w-full h-full">
-          {significantTasks.map((task, index) => {
-             const isAbove = index % 2 === 0;
-            return (
-            <Tooltip key={`${task.IdAndamento}-${index}`}>
-              <TooltipTrigger asChild>
-                <div
-                  className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-                  style={{ left: `${task.x}px` }}
-                >
-                    {/* Container for date and connecting line */}
-                    <div className={`absolute flex flex-col items-center ${isAbove ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
-                       <span className="text-xs text-muted-foreground whitespace-nowrap">
-                         {formatTimelineDate(task.parsedDate)}
-                       </span>
-                       <div className="h-2 w-px bg-border"></div>
-                    </div>
+          {(() => {
+            // Distância mínima (px) entre dois rótulos de data para não sobreposição
+            const MIN_LABEL_SPACING = 48;
+            let lastLabelAboveX = -Infinity;
+            let lastLabelBelowX = -Infinity;
 
-                    {/* The dot on the timeline */}
-                    <div className="h-3 w-3 rounded-full bg-primary border-2 border-card shadow-sm cursor-pointer z-10"></div>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side={isAbove ? 'top' : 'bottom'} className="max-w-xs shadow-lg rounded-lg">
-                <div className="p-2 space-y-1">
-                   <div className="flex items-center gap-2">
-                     {getIconForTask(task.Tarefa)}
-                     <p className="font-semibold text-sm text-foreground">{task.Tarefa}</p>
-                   </div>
-                  <p className="text-xs text-muted-foreground">Unidade: {task.Unidade.Sigla}</p>
-                  <p className="text-xs text-muted-foreground">Usuário: {task.Usuario.Nome}</p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          )})}
+            return significantTasks.map((task, index) => {
+              // Track preferencial: par = cima, ímpar = baixo
+              const preferAbove = index % 2 === 0;
+
+              const fitsAbove = (task.x - lastLabelAboveX) >= MIN_LABEL_SPACING;
+              const fitsBelow = (task.x - lastLabelBelowX) >= MIN_LABEL_SPACING;
+
+              // Tenta o track preferencial; se não couber, tenta o oposto;
+              // se nenhum couber, omite o label (mas mantém o ponto + tooltip).
+              let showLabel = false;
+              let isAbove = preferAbove;
+
+              if (preferAbove ? fitsAbove : fitsBelow) {
+                // Cabe no track preferencial
+                showLabel = true;
+                isAbove = preferAbove;
+              } else if (preferAbove ? fitsBelow : fitsAbove) {
+                // Não cabe no preferencial, mas cabe no oposto
+                showLabel = true;
+                isAbove = !preferAbove;
+              }
+              // else: ambos ocupados → omite label
+
+              if (showLabel) {
+                if (isAbove) lastLabelAboveX = task.x;
+                else lastLabelBelowX = task.x;
+              }
+
+              return (
+                <Tooltip key={`${task.IdAndamento}-${index}`}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                      style={{ left: `${task.x}px` }}
+                    >
+                      {/* Rótulo de data — migra para o track oposto antes de suprimir */}
+                      {showLabel && (
+                        <div className={`absolute flex flex-col items-center ${isAbove ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {formatTimelineDate(task.parsedDate)}
+                          </span>
+                          <div className="h-2 w-px bg-border"></div>
+                        </div>
+                      )}
+
+                      {/* Ponto na linha do tempo */}
+                      <div className="h-3 w-3 rounded-full bg-primary border-2 border-card shadow-sm cursor-pointer z-10"></div>
+                    </div>
+                  </TooltipTrigger>
+                  {/* Portal garante que o tooltip escapa de qualquer overflow:hidden pai */}
+                  <TooltipPrimitive.Portal>
+                    <TooltipContent
+                      side="bottom"
+                      sideOffset={8}
+                      collisionPadding={12}
+                      className="max-w-xs shadow-lg rounded-lg z-[200]"
+                    >
+                      <div className="p-2 space-y-1">
+                        <div className="flex items-center gap-2">
+                          {getIconForTask(task.Tarefa)}
+                          <p className="font-semibold text-sm text-foreground">{task.Tarefa}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Unidade: {task.Unidade.Sigla}</p>
+                        <p className="text-xs text-muted-foreground">Usuário: {task.Usuario.Nome}</p>
+                      </div>
+                    </TooltipContent>
+                  </TooltipPrimitive.Portal>
+                </Tooltip>
+              );
+            });
+          })()}
         </div>
       </div>
     </TooltipProvider>

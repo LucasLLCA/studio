@@ -105,7 +105,7 @@ export function ProcessFlowDiagram({
     });
 
     const filteredTaskIds = new Set(repositionedTasks.map(t => t.IdAndamento));
-    return connections
+    const mapped = connections
       .filter(conn =>
         filteredTaskIds.has(conn.sourceTask.IdAndamento) &&
         filteredTaskIds.has(conn.targetTask.IdAndamento)
@@ -115,6 +115,16 @@ export function ProcessFlowDiagram({
         sourceTask: taskPositionMap.get(conn.sourceTask.IdAndamento) || conn.sourceTask,
         targetTask: taskPositionMap.get(conn.targetTask.IdAndamento) || conn.targetTask,
       }));
+
+    // Após o remapeamento, conexões que diferiam apenas em globalSequence
+    // mas apontam para o mesmo nó repositionado tornam-se visualmente idênticas.
+    const seen = new Set<string>();
+    return mapped.filter(conn => {
+      const k = `${conn.sourceTask.IdAndamento}|${conn.targetTask.IdAndamento}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
   }, [repositionedTasks, connections]);
 
   const laneEntries = useMemo(() => Array.from(repositionedLaneMap.entries()), [repositionedLaneMap]);
@@ -532,7 +542,7 @@ export function ProcessFlowDiagram({
 
               {visibleConnections.map((conn, idx) => (
                 <path
-                  key={`conn-${conn.sourceTask.IdAndamento}-${conn.targetTask.IdAndamento}-${conn.sourceTask.globalSequence}-${conn.targetTask.globalSequence}-${idx}`}
+                  key={`conn|${conn.sourceTask.IdAndamento}|${conn.targetTask.IdAndamento}|${conn.sourceTask.globalSequence}|${conn.targetTask.globalSequence}`}
                   d={getPathDefinition(conn)}
                   stroke="hsl(var(--muted-foreground))"
                   strokeWidth="2"

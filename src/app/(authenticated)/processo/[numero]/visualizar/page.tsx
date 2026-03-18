@@ -41,13 +41,9 @@ import { ProcessToolbar } from '@/components/process-flow/ProcessToolbar';
 import { ProcessDetailsSheet } from '@/components/process-flow/ProcessDetailsSheet';
 import { OpenUnitsCard } from '@/components/process-flow/OpenUnitsCard';
 import { ProcessAndamentosTable } from '@/components/process-flow/ProcessAndamentosTable';
-import {
-  ProcessProductivityTable,
-  ProcessProductivityTabs,
-  ProcessProductivityUnitFilter,
-  type ProductivityTab,
-} from '@/components/process-flow/ProcessProductivityTable';
+import { ProcessProductivityTable } from '@/components/process-flow/ProcessProductivityTable';
 import { ProcessProvider } from '@/contexts/process-context';
+import { ProcessProductivityUnitFilter } from '@/components/process-flow/ProcessProductivityTable';
 import { useLastViewedProcess } from '@/contexts/last-viewed-process-context';
 import { useProcessoSalvo } from '@/lib/react-query/queries/useProcessoSalvo';
 import { useConfiguracaoHorasPublic } from '@/lib/react-query/queries/useAdminQueries';
@@ -69,11 +65,6 @@ function VisualizarProcessoContent() {
 
   const noDocAccessParam = searchParams.get('noDocAccess') === '1';
 
-  // Ensure hydration match - only render conditional content after mount
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
   // Track last viewed process for header navigation
   const { setLastViewedProcess, clearLastViewedProcess } = useLastViewedProcess();
   useEffect(() => {
@@ -86,9 +77,13 @@ function VisualizarProcessoContent() {
     selectedUnidadeFiltro,
     orgao: userOrgao,
     usuario,
-    papelGlobal,
     logout: persistLogout,
   } = usePersistedAuth();
+
+  // Prevent hydration mismatch: queries start fetching immediately on client
+  // but the server renders with no loading state, so defer condition-based rendering.
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => { setIsMounted(true); }, []);
 
   // UI-level state
   const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
@@ -102,12 +97,9 @@ function VisualizarProcessoContent() {
   const [andamentosSearchQuery, setAndamentosSearchQuery] = useState('');
   const [prodSearchQuery, setProdSearchQuery] = useState('');
   const [prodUnitFilter, setProdUnitFilter] = useState('');
-  const [prodActiveTab, setProdActiveTab] = useState<ProductivityTab>('tarefas');
-  const [isClient, setIsClient] = useState(false);
 
   // Hour coefficient config for productivity table
   const { data: horasConfig } = useConfiguracaoHorasPublic(userOrgao);
-  const hasHorasConfig = !!horasConfig && Object.values(horasConfig).some((v) => v > 0);
 
   // Tag/bookmark status — cached via React Query, deduped across mounts
   const { data: processoSalvoData } = useProcessoSalvo({
@@ -259,7 +251,7 @@ function VisualizarProcessoContent() {
     <>
       <div className="flex-1 flex flex-col overflow-y-auto px-8 py-4 w-full">
         {/* Loading feedback when no data */}
-        {isClient && hasBackgroundLoading && !rawProcessData && (
+        {isMounted && hasBackgroundLoading && !rawProcessData && (
           <LoadingFeedback
             title="Carregando dados..."
             loadingTasks={allLoadingTasks}
@@ -524,28 +516,20 @@ function VisualizarProcessoContent() {
                         <GanttChartSquare className="h-5 w-5" /> Tabela Produtividade
                       </CardTitle>
                       <div className="flex items-center gap-2">
-                        <ProcessProductivityTabs
-                          value={prodActiveTab}
-                          onValueChange={(value) => setProdActiveTab(value as ProductivityTab)}
-                          hasHorasConfig={hasHorasConfig}
-                          canViewFinanceiro={papelGlobal === 'admin' || papelGlobal === 'beta'}
-                        />
-                        <>
-                          <div className="relative w-64">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                            <Input
-                              placeholder="Buscar unidade ou usuário..."
-                              value={prodSearchQuery}
-                              onChange={(e) => setProdSearchQuery(e.target.value)}
-                              className="h-8 pl-8 text-sm text-foreground font-medium"
-                            />
-                          </div>
-                          <ProcessProductivityUnitFilter
-                            andamentos={rawProcessData.Andamentos}
-                            value={prodUnitFilter}
-                            onChange={setProdUnitFilter}
+                        <div className="relative w-64">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            placeholder="Buscar unidade ou usuário..."
+                            value={prodSearchQuery}
+                            onChange={(e) => setProdSearchQuery(e.target.value)}
+                            className="h-8 pl-8 text-sm text-foreground font-medium"
                           />
-                        </>
+                        </div>
+                        <ProcessProductivityUnitFilter
+                          andamentos={rawProcessData.Andamentos}
+                          value={prodUnitFilter}
+                          onChange={setProdUnitFilter}
+                        />
                       </div>
                     </div>
                   </CardHeader>
@@ -556,14 +540,6 @@ function VisualizarProcessoContent() {
                       searchQuery={prodSearchQuery}
                       unitFilter={prodUnitFilter}
                       horasConfig={horasConfig}
-                      sessionToken={sessionToken}
-                      activeTab={prodActiveTab}
-                      onActiveTabChange={setProdActiveTab}
-                      hideInternalTabs
-                      papelGlobal={papelGlobal}
-                      processStartDate={rawProcessData?.Info?.DataAutuacao || processCreationInfo?.dataCriacao}
-                      processEndDate={rawProcessData?.Info?.DataConclusao}
-                      numeroProcesso={numeroProcesso}
                     />
                   </CardContent>
                 </Card>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2, MessageSquare, Send, Trash2, X, Tag, Plus, Lock, Users, Globe, Reply, Eye } from 'lucide-react';
+import { Loader2, MessageSquare, Send, Trash2, X, Tag, Plus, Lock, Users, Globe, Reply, Eye, Info, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { getObservacoes, createObservacao, deleteObservacao, getMencoesNaoLidas, marcarMencaoVista } from '@/lib/api/observacoes-api-client';
 import { getMyTeams, getTeamDetail } from '@/lib/api/teams-api-client';
+import { getTeamGrupos } from '@/lib/api/grupos-api-client';
 import {
   getTags,
   getProcessoTags,
@@ -34,6 +35,12 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { Observacao, ObservacaoEscopo, Team, TeamTag, TeamMember } from '@/types/teams';
+
+const TAG_COLORS = [
+  '#ef4444', '#f97316', '#eab308', '#22c55e',
+  '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899',
+  '#6b7280', '#1e293b',
+];
 
 interface ObservacoesSheetProps {
   isOpen: boolean;
@@ -80,6 +87,7 @@ export function ObservacoesSheet({
   // Tag state
   const [teams, setTeams] = useState<Team[]>([]);
   const [appliedTags, setAppliedTags] = useState<AppliedTag[]>([]);
+  const [allTagsByTeam, setAllTagsByTeam] = useState<Map<string | null, { teamName: string; tags: TeamTag[] }>>(new Map());
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
   const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
@@ -87,6 +95,8 @@ export function ObservacoesSheet({
   const [isLoadingTeamTags, setIsLoadingTeamTags] = useState(false);
   const [tagFilter, setTagFilter] = useState('');
   const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [newTagColor, setNewTagColor] = useState<string>('');
+  const [selectedTeamHasGrupos, setSelectedTeamHasGrupos] = useState<boolean>(true);
 
   // @mencao state
   const [membrosEquipe, setMembrosEquipe] = useState<TeamMember[]>([]);
@@ -149,15 +159,17 @@ export function ObservacoesSheet({
     if (!usuario) return;
     setIsLoadingTeams(true);
     try {
-      const [teamsResult, personalTagsResult] = await Promise.all([
+      const [teamsResult, personalTagsResult, personalAllTagsResult] = await Promise.all([
         getMyTeams(usuario),
-        getProcessoTags(numeroProcesso, usuario), // personal tags (no equipeId)
+        getProcessoTags(numeroProcesso, usuario), // personal applied tags
+        getTags(usuario),                          // all personal tags (for cross-team matching)
       ]);
 
       const fetchedTeams = 'error' in teamsResult ? [] : teamsResult;
       setTeams(fetchedTeams);
 
       const allApplied: AppliedTag[] = [];
+      const allTagsMap = new Map<string | null, { teamName: string; tags: TeamTag[] }>();
 
       // Personal applied tags
       if (!('error' in personalTagsResult)) {
@@ -166,18 +178,31 @@ export function ObservacoesSheet({
         }
       }
 
-      // Team applied tags
+      // All personal tags (for cross-team matching)
+      if (!('error' in personalAllTagsResult)) {
+        allTagsMap.set(null, { teamName: 'Pessoal', tags: personalAllTagsResult });
+      }
+
+      // Team applied tags + all team tags (for cross-team matching)
       await Promise.all(
         fetchedTeams.map(async (team) => {
-          const tagsResult = await getProcessoTags(numeroProcesso, usuario, team.id);
-          if (!('error' in tagsResult)) {
-            for (const tag of tagsResult) {
+          const [appliedResult, allTeamTagsResult] = await Promise.all([
+            getProcessoTags(numeroProcesso, usuario, team.id),
+            getTags(usuario, team.id),
+          ]);
+          if (!('error' in appliedResult)) {
+            for (const tag of appliedResult) {
               allApplied.push({ tag, teamName: team.nome, teamId: team.id });
             }
           }
+          if (!('error' in allTeamTagsResult)) {
+            allTagsMap.set(team.id, { teamName: team.nome, tags: allTeamTagsResult });
+          }
         })
       );
+
       setAppliedTags(allApplied);
+      setAllTagsByTeam(allTagsMap);
     } finally {
       setIsLoadingTeams(false);
     }
@@ -200,6 +225,7 @@ export function ObservacoesSheet({
     setSelectedTeam(null);
     setIsLoadingTeamTags(true);
     setTagFilter('');
+    setNewTagColor('');
     try {
       const result = await getTags(usuario); // no equipeId = personal
       setTeamTagsList('error' in result ? [] : result);
@@ -208,16 +234,22 @@ export function ObservacoesSheet({
     }
   };
 
-  // When a team is selected in the popover, fetch its tags
+  // When a team is selected in the popover, fetch its tags and check if it has grupos with processes
   const handleSelectTeam = async (team: Team) => {
     if (!usuario) return;
     setIsPersonalMode(false);
     setSelectedTeam(team);
     setIsLoadingTeamTags(true);
     setTagFilter('');
+    setNewTagColor('');
     try {
-      const result = await getTags(usuario, team.id);
-      setTeamTagsList('error' in result ? [] : result);
+      const [tagsResult, gruposResult] = await Promise.all([
+        getTags(usuario, team.id),
+        getTeamGrupos(usuario, team.id),
+      ]);
+      setTeamTagsList('error' in tagsResult ? [] : tagsResult);
+      const hasGruposComProcesso = !('error' in gruposResult) && gruposResult.some(g => g.total_processos > 0);
+      setSelectedTeamHasGrupos(hasGruposComProcesso);
     } finally {
       setIsLoadingTeamTags(false);
     }
@@ -257,16 +289,36 @@ export function ObservacoesSheet({
     setIsCreatingTag(true);
     try {
       const equipeId_param = isPersonalMode ? undefined : selectedTeam!.id;
-      const result = await createTag(usuario, tagFilter.trim(), undefined, equipeId_param);
+      const result = await createTag(usuario, tagFilter.trim(), newTagColor || undefined, equipeId_param);
       if ('error' in result) {
-        toast({ title: "Erro ao criar tag", description: result.error, variant: "destructive" });
+        const isDuplicate = result.status === 409;
+        toast({
+          title: isDuplicate ? "Tag duplicada" : "Erro ao criar tag",
+          description: result.error,
+          variant: "destructive",
+        });
         return;
       }
+      setNewTagColor('');
       setTeamTagsList(prev => [...prev, result]);
       await handleAddTag(result);
     } finally {
       setIsCreatingTag(false);
     }
+  };
+
+  const handleApplyCrossTeamTag = async (tag: TeamTag, actualTeamId: string | null, actualTeamName: string) => {
+    if (!usuario) return;
+    const result = await tagProcesso(tag.id, usuario, numeroProcesso);
+    if ('error' in result) {
+      toast({ title: "Erro ao adicionar tag", description: result.error, variant: "destructive" });
+      return;
+    }
+    setAppliedTags(prev => [...prev, { tag, teamName: actualTeamName, teamId: actualTeamId }]);
+    setIsTagPopoverOpen(false);
+    setSelectedTeam(null);
+    setIsPersonalMode(false);
+    setTagFilter('');
   };
 
   // @mention helpers
@@ -455,6 +507,25 @@ export function ObservacoesSheet({
     t => !appliedIdsForSelectedTeam.has(t.id) && t.nome.toLowerCase().includes(tagFilter.toLowerCase())
   );
 
+  // Verifica se há uma tag com o mesmo nome em outro escopo (cross-team match)
+  const crossTeamMatch = (() => {
+    if (!tagFilter.trim() || availableTags.length > 0) return null;
+    const existsInCurrentScope = teamTagsList.some(
+      t => t.nome.toLowerCase() === tagFilter.trim().toLowerCase()
+    );
+    if (existsInCurrentScope) return null; // handled by existing "apply" logic
+    for (const [teamId, { teamName, tags }] of allTagsByTeam.entries()) {
+      if (teamId === currentScopeId) continue; // same scope, skip
+      const match = tags.find(t => t.nome.toLowerCase() === tagFilter.trim().toLowerCase());
+      if (match) {
+        // Só mostrar se a tag ainda não está aplicada neste processo com este escopo
+        const jaAplicada = appliedTags.some(a => a.tag.id === match.id && a.teamId === teamId);
+        if (!jaAplicada) return { tag: match, teamId, teamName };
+      }
+    }
+    return null;
+  })();
+
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange} modal={false}>
       <SheetContent
@@ -489,48 +560,90 @@ export function ObservacoesSheet({
           <Separator />
         </SheetHeader>
 
-        {/* Tags inline row */}
-        <div className="flex-shrink-0 flex flex-wrap items-center gap-1.5 pb-3 border-b">
-          <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-          {appliedTags.map((applied) => (
-            <Badge
-              key={`${applied.teamId}-${applied.tag.id}`}
-              variant="secondary"
-              className="text-xs flex items-center gap-1 pr-1"
-              style={applied.tag.cor ? { backgroundColor: applied.tag.cor, color: '#fff' } : undefined}
-              title={applied.teamName}
-            >
-              {applied.tag.nome}
-              <button
-                className="ml-0.5 hover:opacity-70"
-                onClick={() => handleRemoveTag(applied)}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-          {isLoadingTeams ? (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" />
+        {/* Tags agrupadas por escopo */}
+        <div className="flex-shrink-0 pb-3 border-b space-y-2">
+          {/* Cabeçalho da seção */}
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <Tag className="h-3.5 w-3.5" />
+              Tags
             </span>
-          ) : (
-            <Popover
-              open={isTagPopoverOpen}
-              onOpenChange={(open) => {
-                setIsTagPopoverOpen(open);
-                if (!open) {
-                  setSelectedTeam(null);
-                  setIsPersonalMode(false);
-                  setTagFilter('');
-                  setTeamTagsList([]);
-                }
-              }}
-            >
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-6 text-xs px-2">
-                  <Plus className="h-3 w-3 mr-1" /> Tag
-                </Button>
-              </PopoverTrigger>
+            {isLoadingTeams ? (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+              </span>
+            ) : null}
+          </div>
+
+          {/* Grupos de tags por escopo */}
+          {(() => {
+            // Agrupar tags aplicadas por teamId
+            const grupos = new Map<string | null, AppliedTag[]>();
+            for (const applied of appliedTags) {
+              const key = applied.teamId;
+              if (!grupos.has(key)) grupos.set(key, []);
+              grupos.get(key)!.push(applied);
+            }
+
+            if (grupos.size === 0 && !isLoadingTeams) {
+              return (
+                <p className="text-xs text-muted-foreground pl-0.5">Nenhuma tag aplicada.</p>
+              );
+            }
+
+            return Array.from(grupos.entries()).map(([teamId, tags]) => (
+              <div key={teamId ?? 'pessoal'} className="space-y-1">
+                {/* Rótulo do grupo */}
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  {teamId === null ? (
+                    <><Lock className="h-2.5 w-2.5" /> {tags[0].teamName}</>
+                  ) : (
+                    <><Users className="h-2.5 w-2.5" /> {tags[0].teamName}</>
+                  )}
+                </p>
+                {/* Badges das tags */}
+                <div className="flex flex-wrap gap-1">
+                  {tags.map((applied) => (
+                    <Badge
+                      key={`${applied.teamId}-${applied.tag.id}`}
+                      variant="secondary"
+                      className="text-xs flex items-center gap-1 pr-1"
+                      style={applied.tag.cor ? { backgroundColor: applied.tag.cor, color: '#fff' } : undefined}
+                    >
+                      {applied.tag.nome}
+                      <button
+                        className="ml-0.5 hover:opacity-70"
+                        onClick={() => handleRemoveTag(applied)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ));
+          })()}
+
+          {/* Botão para adicionar tag */}
+          <Popover
+            open={isTagPopoverOpen}
+            onOpenChange={(open) => {
+              setIsTagPopoverOpen(open);
+              if (!open) {
+                setSelectedTeam(null);
+                setIsPersonalMode(false);
+                setTagFilter('');
+                setTeamTagsList([]);
+                setNewTagColor('');
+                setSelectedTeamHasGrupos(true);
+              }
+            }}
+          >
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-6 text-xs px-2" disabled={isLoadingTeams}>
+                <Plus className="h-3 w-3 mr-1" /> Tag
+              </Button>
+            </PopoverTrigger>
               <PopoverContent className="w-56 p-2" align="start">
                 {!selectedTeam && !isPersonalMode ? (
                   /* Step 1: Pick personal or a team */
@@ -561,17 +674,21 @@ export function ObservacoesSheet({
                   <div>
                     <button
                       className="text-xs text-muted-foreground hover:text-foreground mb-1.5 px-1 flex items-center gap-1"
-                      onClick={() => { setSelectedTeam(null); setIsPersonalMode(false); setTagFilter(''); setTeamTagsList([]); }}
+                      onClick={() => { setSelectedTeam(null); setIsPersonalMode(false); setTagFilter(''); setTeamTagsList([]); setNewTagColor(''); setSelectedTeamHasGrupos(true); }}
                     >
                       &larr; {isPersonalMode ? 'Pessoal' : selectedTeam!.nome}
                     </button>
                     <Input
                       placeholder="Filtrar ou criar tag..."
                       value={tagFilter}
-                      onChange={(e) => setTagFilter(e.target.value)}
+                      onChange={(e) => { setTagFilter(e.target.value); setNewTagColor(''); }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && tagFilter.trim() && availableTags.length === 0) {
-                          handleCreateAndAddTag();
+                          const existing = teamTagsList.find(t => t.nome.toLowerCase() === tagFilter.trim().toLowerCase());
+                          if (existing) handleAddTag(existing);
+                          else if (crossTeamMatch) handleApplyCrossTeamTag(crossTeamMatch.tag, crossTeamMatch.teamId, crossTeamMatch.teamName);
+                          else if (!isPersonalMode && !selectedTeamHasGrupos) { /* bloqueado */ }
+                          else handleCreateAndAddTag();
                         }
                       }}
                       className="h-8 text-sm mb-1"
@@ -582,40 +699,147 @@ export function ObservacoesSheet({
                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                       </div>
                     ) : (
-                      <div className="max-h-[120px] overflow-y-auto space-y-0.5">
+                      <div className="max-h-[180px] overflow-y-auto space-y-0.5">
                         {availableTags.map((tag) => (
                           <button
                             key={tag.id}
                             className="w-full text-left px-2 py-1 rounded text-sm hover:bg-accent flex items-center gap-2"
                             onClick={() => handleAddTag(tag)}
                           >
-                            {tag.cor && (
+                            {tag.cor ? (
                               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.cor }} />
+                            ) : (
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted border" />
                             )}
                             {tag.nome}
                           </button>
                         ))}
-                        {tagFilter.trim() && availableTags.length === 0 && (
-                          <button
-                            className="w-full text-left px-2 py-1 rounded text-sm hover:bg-accent text-primary"
-                            onClick={handleCreateAndAddTag}
-                            disabled={isCreatingTag}
-                          >
-                            {isCreatingTag ? (
-                              <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-                            ) : (
-                              <Plus className="h-3 w-3 inline mr-1" />
-                            )}
-                            Criar &quot;{tagFilter.trim()}&quot;
-                          </button>
-                        )}
+                        {tagFilter.trim() && availableTags.length === 0 && (() => {
+                          const existingTag = teamTagsList.find(
+                            t => t.nome.toLowerCase() === tagFilter.trim().toLowerCase()
+                          );
+                          if (existingTag) {
+                            const jaAplicada = appliedIdsForSelectedTeam.has(existingTag.id);
+                            return (
+                              <div className="space-y-1 pt-0.5">
+                                {jaAplicada ? (
+                                  <div className="flex items-center gap-1.5 px-2 py-2 bg-green-50 border border-green-100 rounded text-xs text-green-700">
+                                    <Check className="h-3.5 w-3.5 shrink-0 text-green-600" />
+                                    <span>
+                                      <span className="font-medium">&quot;{existingTag.nome}&quot;</span> já está aplicada a este processo.
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <p className="text-[10px] text-amber-600 px-2 py-1 bg-amber-50 rounded flex items-center gap-1">
+                                      <Info className="h-3 w-3 shrink-0" /> Tag já existe — deseja aplicá-la?
+                                    </p>
+                                    <button
+                                      className="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-accent flex items-center gap-2"
+                                      onClick={() => handleAddTag(existingTag)}
+                                    >
+                                      {existingTag.cor ? (
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: existingTag.cor }} />
+                                      ) : (
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted border" />
+                                      )}
+                                      Aplicar &quot;{existingTag.nome}&quot;
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          }
+                          // Cross-team match: tag with same name exists in another scope
+                          if (crossTeamMatch) {
+                            return (
+                              <div className="space-y-1 pt-0.5">
+                                <div className="flex items-center gap-1.5 px-2 py-2 bg-blue-50 border border-blue-100 rounded text-xs text-blue-700">
+                                  <Info className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                                  <span>
+                                    Tag de <span className="font-medium">{crossTeamMatch.teamName}</span> — deseja usá-la aqui?
+                                  </span>
+                                </div>
+                                <button
+                                  className="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-accent flex items-center gap-2"
+                                  onClick={() => handleApplyCrossTeamTag(crossTeamMatch.tag, crossTeamMatch.teamId, crossTeamMatch.teamName)}
+                                >
+                                  {crossTeamMatch.tag.cor ? (
+                                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: crossTeamMatch.tag.cor }} />
+                                  ) : (
+                                    <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted border" />
+                                  )}
+                                  Usar &quot;{crossTeamMatch.tag.nome}&quot; de &quot;{crossTeamMatch.teamName}&quot;
+                                </button>
+                              </div>
+                            );
+                          }
+                          // Equipe sem coluna com processo — bloquear criação
+                          if (!isPersonalMode && !selectedTeamHasGrupos) {
+                            return (
+                              <div className="flex items-start gap-1.5 px-2 py-2 bg-amber-50 border border-amber-100 rounded text-xs text-amber-700">
+                                <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
+                                <span>
+                                  Esta equipe não possui nenhuma coluna com processo salvo. Adicione pelo menos um processo a uma coluna da equipe antes de criar tags.
+                                </span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="space-y-1.5 pt-1">
+                              <p className="text-[10px] text-muted-foreground px-1">Cor da tag (opcional):</p>
+                              <div className="flex flex-wrap gap-1 px-1">
+                                {TAG_COLORS.map(cor => (
+                                  <button
+                                    key={cor}
+                                    type="button"
+                                    title={cor}
+                                    className={cn(
+                                      'w-5 h-5 rounded-full border-2 transition-transform hover:scale-110',
+                                      newTagColor === cor ? 'border-foreground scale-110' : 'border-transparent'
+                                    )}
+                                    style={{ backgroundColor: cor }}
+                                    onClick={() => setNewTagColor(prev => prev === cor ? '' : cor)}
+                                  />
+                                ))}
+                                <button
+                                  type="button"
+                                  title="Sem cor"
+                                  className={cn(
+                                    'w-5 h-5 rounded-full border-2 bg-muted flex items-center justify-center transition-transform hover:scale-110',
+                                    !newTagColor ? 'border-foreground scale-110' : 'border-transparent'
+                                  )}
+                                  onClick={() => setNewTagColor('')}
+                                >
+                                  <X className="h-2.5 w-2.5 text-muted-foreground" />
+                                </button>
+                              </div>
+                              <button
+                                className="w-full text-left px-2 py-1 rounded text-sm hover:bg-accent text-primary flex items-center gap-1.5"
+                                onClick={handleCreateAndAddTag}
+                                disabled={isCreatingTag}
+                              >
+                                {isCreatingTag ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    {newTagColor && (
+                                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: newTagColor }} />
+                                    )}
+                                    <Plus className="h-3 w-3" />
+                                  </>
+                                )}
+                                Criar &quot;{tagFilter.trim()}&quot;
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
                 )}
               </PopoverContent>
-            </Popover>
-          )}
+          </Popover>
         </div>
 
         {/* Input box */}

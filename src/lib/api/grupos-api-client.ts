@@ -30,6 +30,30 @@ export async function createGrupo(
   }
 }
 
+export async function getTeamGrupos(
+  usuario: string,
+  equipeId: string,
+): Promise<GrupoProcesso[] | ApiError> {
+  try {
+    const params = new URLSearchParams({ usuario, equipe_id: equipeId });
+    const response = await fetch(`${getApiBaseUrl()}/grupos?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const details = await response.json().catch(() => response.statusText);
+      return { error: `Falha ao buscar grupos da equipe: ${response.status}`, details, status: response.status };
+    }
+
+    const data = await response.json();
+    return data.data as GrupoProcesso[];
+  } catch (error) {
+    return { error: 'Erro ao conectar com o serviço', details: error instanceof Error ? error.message : String(error), status: 500 };
+  }
+}
+
 export async function getMyGrupos(
   usuario: string,
 ): Promise<GrupoProcesso[] | ApiError> {
@@ -112,8 +136,9 @@ export async function deleteGrupo(
     });
 
     if (!response.ok) {
-      const details = await response.json().catch(() => response.statusText);
-      return { error: `Falha ao excluir grupo: ${response.status}`, details, status: response.status };
+      const data = await response.json().catch(() => ({}));
+      const friendlyError = data?.detail || `Falha ao excluir grupo: ${response.status}`;
+      return { error: friendlyError, details: data, status: response.status };
     }
 
     return { success: true };

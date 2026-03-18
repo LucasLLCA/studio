@@ -50,8 +50,9 @@ export async function createTag(
     );
 
     if (!response.ok) {
-      const details = await response.json().catch(() => response.statusText);
-      return { error: `Falha ao criar tag: ${response.status}`, details, status: response.status };
+      const data = await response.json().catch(() => ({}));
+      const friendlyError = data?.detail || `Falha ao criar tag: ${response.status}`;
+      return { error: friendlyError, details: data, status: response.status };
     }
 
     const data = await response.json();
@@ -100,8 +101,9 @@ export async function deleteTag(
     );
 
     if (!response.ok) {
-      const details = await response.json().catch(() => response.statusText);
-      return { error: `Falha ao excluir tag: ${response.status}`, details, status: response.status };
+      const data = await response.json().catch(() => ({}));
+      const friendlyError = data?.detail || `Falha ao excluir tag: ${response.status}`;
+      return { error: friendlyError, details: data, status: response.status };
     }
 
     return { success: true };
