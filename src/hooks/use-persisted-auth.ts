@@ -1,0 +1,303 @@
+"use client";
+
+import { useState, useEffect, useCallback } from 'react';
+import type { LoginCredentials, UnidadeFiltro } from '@/types/process-flow';
+import { AUTH_CONFIG } from '@/config/constants';
+
+interface PersistedAuthData {
+  isAuthenticated: boolean;
+  sessionToken: string | null; // Apenas token de sessão, não credenciais
+  idUnidadeAtual: string | null; // ID da unidade atual para requisições
+  orgao: string | null; // Órgão do usuário (ex: "SEAD-PI")
+  usuario: string | null; // Email/username do usuário
+  nomeUsuario: string | null; // Nome do usuário para exibição
+  idUsuario: string | null; // IdUsuario — needed for document signing
+  idLogin: string | null; // IdLogin — needed for document signing
+  cargoAssinatura: string | null; // UltimoCargoAssinatura — needed for document signing
+  papelGlobal: string | null; // Papel global do usuário (admin, beta, user)
+  idPessoa: number | null; // id_pessoa from credential storage
+  unidadesFiltroList: UnidadeFiltro[];
+  selectedUnidadeFiltro: string | undefined;
+  timestamp: number;
+}
+
+const AUTH_STORAGE_KEY = AUTH_CONFIG.STORAGE_KEY;
+const AUTH_EXPIRY_HOURS = AUTH_CONFIG.EXPIRY_HOURS;
+
+function sanitizeDisplayName(name?: string | null): string | null {
+  if (!name) return null;
+
+  // Remove sufixos comuns de matrícula, ex.: " - Matr.0371160-9" ou "Matr.E.03610730"
+  const cleaned = name
+    .replace(/\s*[-–]?\s*Matr\.?\s*[A-Za-z0-9.\-_/]+/gi, '')
+    .trim();
+
+  return cleaned || null;
+}
+
+export function usePersistedAuth() {
+  // Função para carregar dados do localStorage
+  const loadFromStorage = useCallback((): PersistedAuthData | null => {
+    if (typeof window === 'undefined') return null;
+    
+    try {
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!stored) return null;
+      
+      const rawData = JSON.parse(stored);
+      
+      // Migração apenas se necessário
+      if (rawData.loginCredentials && !rawData.sessionToken) {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        return null;
+      }
+      
+      const data: PersistedAuthData = rawData;
+      
+      // Verifica se os dados não expiraram
+      const now = Date.now();
+      const expiryTime = data.timestamp + (AUTH_EXPIRY_HOURS * 60 * 60 * 1000);
+      
+      if (now > expiryTime) {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.warn('Erro ao carregar dados de autenticação salvos:', error);
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+  }, []);
+
+  // Inicializa os estados com dados do localStorage
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    const stored = loadFromStorage();
+    return stored?.isAuthenticated || false;
+  });
+
+  const [sessionToken, setSessionToken] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.sessionToken || null;
+  });
+
+  const [idUnidadeAtual, setIdUnidadeAtual] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.idUnidadeAtual || null;
+  });
+
+  const [orgao, setOrgao] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.orgao || null;
+  });
+
+  const [usuario, setUsuario] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.usuario || null;
+  });
+
+  const [nomeUsuario, setNomeUsuario] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.nomeUsuario || null;
+  });
+
+  const [idUsuario, setIdUsuario] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.idUsuario || null;
+  });
+
+  const [idLogin, setIdLogin] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.idLogin || null;
+  });
+
+  const [cargoAssinatura, setCargoAssinatura] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.cargoAssinatura || null;
+  });
+
+  const [papelGlobal, setPapelGlobal] = useState<string | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.papelGlobal || 'user';
+  });
+
+  const [idPessoa, setIdPessoa] = useState<number | null>(() => {
+    const stored = loadFromStorage();
+    return stored?.idPessoa || null;
+  });
+
+  const [unidadesFiltroList, setUnidadesFiltroList] = useState<UnidadeFiltro[]>(() => {
+    const stored = loadFromStorage();
+    return stored?.unidadesFiltroList || [];
+  });
+
+  const [selectedUnidadeFiltro, setSelectedUnidadeFiltro] = useState<string | undefined>(() => {
+    const stored = loadFromStorage();
+    return stored?.selectedUnidadeFiltro;
+  });
+
+  // Função para salvar no localStorage
+  const saveToStorage = useCallback((data: Partial<PersistedAuthData>) => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const current = loadFromStorage() || {
+        isAuthenticated: false,
+        sessionToken: null,
+        idUnidadeAtual: null,
+        orgao: null,
+        usuario: null,
+        nomeUsuario: null,
+        idUsuario: null,
+        idLogin: null,
+        cargoAssinatura: null,
+        papelGlobal: 'user',
+        idPessoa: null,
+        unidadesFiltroList: [],
+        selectedUnidadeFiltro: undefined,
+        timestamp: Date.now()
+      };
+
+      const updated: PersistedAuthData = {
+        ...current,
+        ...data,
+        timestamp: Date.now(),
+        usuario: data.usuario !== undefined ? data.usuario : (current.usuario || null)
+      };
+
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.warn('Erro ao salvar dados de autenticação no armazenamento local:', error);
+    }
+  }, [loadFromStorage]);
+
+  // Função para fazer login
+  const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string, userEmail?: string, userName?: string, userIdUsuario?: string, userIdLogin?: string, userCargoAssinatura?: string, userPapelGlobal?: string, userIdPessoa?: number) => {
+    // Tentar converter token para string se necessário
+    let validToken: string;
+    if (typeof token === 'string') {
+      validToken = token;
+    } else if (token && typeof token === 'object') {
+      console.warn('Token recebido como objeto - convertendo para string');
+      validToken = JSON.stringify(token);
+    } else {
+      console.error('Login falhou - token invalido');
+      return;
+    }
+
+    setIsAuthenticated(true);
+    setSessionToken(validToken);
+    setIdUnidadeAtual(idUnidadeAtual || null);
+    setOrgao(userOrgao || null);
+    setUsuario(userEmail || null);
+    const cleanUserName = sanitizeDisplayName(userName);
+    setNomeUsuario(cleanUserName);
+    setIdUsuario(userIdUsuario || null);
+    setIdLogin(userIdLogin || null);
+    setCargoAssinatura(userCargoAssinatura || null);
+    setPapelGlobal(userPapelGlobal || 'user');
+    setIdPessoa(userIdPessoa || null);
+    setUnidadesFiltroList(unidades);
+
+    saveToStorage({
+      isAuthenticated: true,
+      sessionToken: validToken,
+      idUnidadeAtual: idUnidadeAtual || null,
+      orgao: userOrgao || null,
+      usuario: userEmail || null,
+      nomeUsuario: cleanUserName,
+      idUsuario: userIdUsuario || null,
+      idLogin: userIdLogin || null,
+      cargoAssinatura: userCargoAssinatura || null,
+      papelGlobal: userPapelGlobal || 'user',
+      idPessoa: userIdPessoa || null,
+      unidadesFiltroList: unidades
+    });
+  }, [saveToStorage]);
+
+  // Função para fazer logout
+  const logout = useCallback(() => {
+    setIsAuthenticated(false);
+    setSessionToken(null);
+    setIdUnidadeAtual(null);
+    setOrgao(null);
+    setUsuario(null);
+    setNomeUsuario(null);
+    setIdUsuario(null);
+    setIdLogin(null);
+    setCargoAssinatura(null);
+    setPapelGlobal(null);
+    setIdPessoa(null);
+    setUnidadesFiltroList([]);
+    setSelectedUnidadeFiltro(undefined);
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+  }, []);
+
+  // Função para atualizar apenas o token de sessão (usado pelo token refresh)
+  const updateSessionToken = useCallback((newToken: string) => {
+    setSessionToken(newToken);
+    saveToStorage({ sessionToken: newToken });
+  }, [saveToStorage]);
+
+  // Função para atualizar unidade selecionada
+  const updateSelectedUnidade = useCallback((unidadeId: string | undefined) => {
+    setSelectedUnidadeFiltro(unidadeId);
+    saveToStorage({ selectedUnidadeFiltro: unidadeId });
+  }, [saveToStorage]);
+
+  // Função para forçar logout e limpeza
+  const forceLogout = useCallback(() => {
+    setIsAuthenticated(false);
+    setSessionToken(null);
+    setIdUnidadeAtual(null);
+    setOrgao(null);
+    setUsuario(null);
+    setNomeUsuario(null);
+    setIdUsuario(null);
+    setIdLogin(null);
+    setCargoAssinatura(null);
+    setPapelGlobal(null);
+    setIdPessoa(null);
+    setUnidadesFiltroList([]);
+    setSelectedUnidadeFiltro(undefined);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+  }, []);
+
+  // Função para limpar dados expirados na inicialização
+  useEffect(() => {
+    loadFromStorage();
+
+    // Verificar se sessionToken contém dados corrompidos (credenciais em JSON)
+    if (sessionToken && typeof sessionToken === 'string' && sessionToken.includes('usuario')) {
+      forceLogout();
+    }
+  }, [loadFromStorage, sessionToken, forceLogout]);
+
+
+  return {
+    isAuthenticated,
+    sessionToken,
+    idUnidadeAtual,
+    orgao,
+    usuario,
+    nomeUsuario,
+    idUsuario,
+    idLogin,
+    cargoAssinatura,
+    papelGlobal,
+    idPessoa,
+    unidadesFiltroList,
+    selectedUnidadeFiltro,
+    login,
+    logout,
+    updateSessionToken,
+    updateSelectedUnidade,
+    forceLogout
+  };
+}

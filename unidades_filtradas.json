@@ -1,0 +1,5 @@
+
+{
+  "__comment__": "This file is no longer used. Unit data is now fetched dynamically after user login via the SEI API.",
+  "Unidades": []
+}

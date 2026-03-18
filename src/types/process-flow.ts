@@ -1,0 +1,252 @@
+
+export interface Unidade {
+  IdUnidade: string;
+  Sigla: string;
+  Descricao: string;
+}
+
+export interface Usuario {
+  IdUsuario: string;
+  Sigla: string;
+  Nome: string;
+}
+
+export interface Atributo {
+  Nome: string;
+  Valor: string;
+  IdOrigem?: string; 
+}
+
+export interface Andamento {
+  IdAndamento: string;
+  Tarefa: string;
+  Descricao: string;
+  DataHora: string;
+  Unidade: Unidade;
+  Usuario: Usuario;
+  Atributos?: Atributo[]; 
+  isSummaryNode?: boolean;
+  groupedTasksCount?: number;
+  originalTaskIds?: string[];
+  daysOpen?: number;
+}
+
+export interface ProcessoInfo {
+  Pagina: number;
+  TotalPaginas: number;
+  QuantidadeItens: number;
+  TotalItens: number;
+  NumeroProcesso?: string;
+  Parcial?: boolean;
+}
+
+export interface DocumentosExtraidos {
+  todos: string[];
+  primeiro: string | null;
+  ultimo: string | null;
+  total: number;
+}
+
+export interface ProcessoData {
+  Info: ProcessoInfo;
+  Andamentos: Andamento[];
+  DocumentosExtraidos?: DocumentosExtraidos;
+}
+
+export interface ProcessedAndamento extends Andamento {
+  parsedDate: Date;
+  summary?: string;
+  globalSequence: number; 
+  originalGlobalSequence?: number; 
+  x: number; 
+  y: number; 
+  color?: string; 
+  nodeRadius: number; 
+}
+
+export interface Connection {
+  sourceTask: ProcessedAndamento;
+  targetTask: ProcessedAndamento;
+}
+
+export interface ProcessedFlowData {
+  tasks: ProcessedAndamento[];
+  connections: Connection[];
+  svgWidth: number;
+  svgHeight: number;
+  laneMap: Map<string, number>; 
+  processNumber?: string;
+}
+
+export interface UnidadeFiltro {
+  Id: string; // Corresponds to IdUnidade from API
+  Sigla: string;
+  Descricao: string;
+}
+
+// This type is no longer used as unidades_filtradas.json is removed
+// export interface UnidadesFiltroData {
+//   Unidades: UnidadeFiltro[];
+// }
+
+export interface UsuarioAtribuicao {
+  IdUsuario?: string;
+  Sigla?: string;
+  Nome?: string;
+}
+
+export interface UnidadeAberta { 
+  Unidade: {
+    IdUnidade: string;
+    Sigla: string;
+    Descricao: string;
+  };
+  UsuarioAtribuicao: UsuarioAtribuicao;
+}
+
+// Response from /procedimentos/consulta
+export interface ConsultaProcessoResponse {
+  IdProcedimento?: string;
+  ProcedimentoFormatado?: string;
+  Especificacao?: string;
+  DataAutuacao?: string;
+  LinkAcesso?: string;
+  TipoProcedimento?: {
+    IdTipoProcedimento: string;
+    Nome: string;
+  };
+  UnidadesProcedimentoAberto?: UnidadeAberta[];
+}
+
+export interface ProcessSummaryResponse {
+  summary: string;
+}
+
+export interface ApiError {
+  error: string;
+  details?: any;
+  status?: number;
+}
+
+// For SEI Login
+export interface LoginCredentials {
+  usuario: string;
+  senha: string;
+  orgao: string;
+}
+
+// Para usar token já obtido (mais seguro)
+export interface SessionTokenAuth {
+  sessionToken: string;
+}
+
+// Expected raw response from SEI /orgaos/usuarios/login
+export interface SEILoginApiResponse {
+  Token: string;
+  IdUnidadeAtual?: string; // ID da unidade atual para requisições (deprecated, use Login.IdUnidadeAtual)
+  Login?: {
+    IdUsuario?: string;
+    IdSistema?: string;
+    IdContexto?: string;
+    IdLogin?: string;
+    IdUltimoCargoAssinatura?: string;
+    UltimoCargoAssinatura?: string;
+    HashAgente?: string;
+    IdUnidadeAtual?: string; // ID da unidade atual do usuário
+    Sigla?: string;
+    Nome?: string;
+  };
+  // This is an assumption based on the requirement to load units from login.
+  // The actual SEI API might have a different structure or require a separate call.
+  UnidadesAcesso?: Array<{
+    IdUnidade: string;
+    Sigla: string;
+    Descricao: string;
+  }>;
+  Unidades?: Array<{
+    Id: string;
+    Sigla: string;
+    Descricao: string;
+  }>;
+  // For error messages directly from SEI API on failed login
+  Message?: string; 
+}
+
+// What the loginToSEI server action returns to the client
+export interface ClientLoginResponse {
+  success: boolean;
+  token?: string;
+  idUnidadeAtual?: string; // ID da unidade atual para requisições
+  nomeUsuario?: string; // Nome do usuário retornado pela API de login
+  usuarioSei?: string; // Email/login SEI (from stored credentials on auto-login/embed-login)
+  orgao?: string; // Orgão from stored credentials
+  unidades?: UnidadeFiltro[]; // Uses UnidadeFiltro for consistency with Select
+  idUsuario?: string; // IdUsuario from Login response — needed for document signing
+  idLogin?: string; // IdLogin from Login response — needed for document signing
+  cargoAssinatura?: string; // UltimoCargoAssinatura from Login response — needed for document signing
+  papelGlobal?: string; // Global role (admin, beta, user)
+  idPessoa?: number; // id_pessoa from credential storage
+  error?: string;
+  status?: number;
+  details?: any; // To pass through any additional error details from SEI API
+}
+
+// Document interfaces
+export interface DocumentoSerie {
+  IdSerie: string;
+  Nome: string;
+  Aplicabilidade?: string;
+}
+
+export interface DocumentoUnidadeElaboradora {
+  IdUnidade: string;
+  Sigla: string;
+  Descricao: string;
+}
+
+export interface DocumentoAssinatura {
+  Nome: string;
+  CargoFuncao: string;
+  DataHora: string;
+  IdUsuario: string;
+  IdOrigem: string;
+  Orgao: string;
+  Sigla: string;
+}
+
+export interface DocumentoAndamentoGeracao {
+  Descricao: string;
+  DataHora: string;
+  Unidade: { IdUnidade: string; Sigla: string; Descricao: string };
+  Usuario: { IdUsuario: string; Sigla: string; Nome: string };
+}
+
+export interface Documento {
+  IdProcedimento: string;
+  ProcedimentoFormatado: string;
+  IdDocumento: string;
+  DocumentoFormatado: string;
+  LinkAcesso: string;
+  Serie: DocumentoSerie;
+  Numero: string;
+  Descricao?: string;
+  Data: string;
+  UnidadeElaboradora: DocumentoUnidadeElaboradora;
+  AndamentoGeracao?: DocumentoAndamentoGeracao;
+  Assinaturas?: DocumentoAssinatura[];
+  Publicacao?: Record<string, any>;
+  Campos?: any[];
+}
+
+export interface DocumentosInfo {
+  Pagina: number;
+  TotalPaginas: number;
+  QuantidadeItens: number;
+  TotalItens: number;
+  Parcial?: boolean;
+}
+
+export interface DocumentosResponse {
+  Info: DocumentosInfo;
+  Documentos: Documento[];
+}
