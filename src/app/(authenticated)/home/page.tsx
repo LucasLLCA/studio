@@ -223,7 +223,7 @@ function HomeContent() {
 
           <div className="min-w-[85%] snap-center md:min-w-0">
             <FeatureCard
-              icon={<FileSignature className="w-8 h-8" />}
+              icon={<FileSignature className="w-8 h-3" />}
               title="Tome ações rapidas"
               subtitle="(Em breve) Assine oficios, compartilhe entendimentos e situações"
             />
