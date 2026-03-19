@@ -356,9 +356,10 @@ export function processAndamentos(
       }
     }
 
-    // Non-activated unit: link via bloco/document reference (dotted arrow)
-    if (!activatedUnits.has(currentTask.Unidade.IdUnidade)) {
-      // Collect ref_ids: from direct description or from original tasks in summary nodes
+    // Cross-unit document/bloco reference: dotted arrow to origin activity.
+    // Works for both activated and non-activated units, but only when
+    // the origin is in a different unit (same-unit refs are already linked by flow).
+    {
       const refIds: string[] = [];
       if (currentTask.originalTaskIds) {
         for (const origId of currentTask.originalTaskIds) {
@@ -376,10 +377,16 @@ export function processAndamentos(
       }
       for (const refId of refIds) {
         const origin = firstByRef.get(refId);
-        if (origin && origin.IdAndamento !== currentTask.IdAndamento) {
+        if (origin &&
+            origin.IdAndamento !== currentTask.IdAndamento &&
+            origin.Unidade.IdUnidade !== currentTask.Unidade.IdUnidade) {
           connections.push({ sourceTask: origin, targetTask: currentTask, style: 'dotted' });
         }
       }
+    }
+
+    // Non-activated unit: skip normal flow connections
+    if (!activatedUnits.has(currentTask.Unidade.IdUnidade)) {
       continue;
     }
 
