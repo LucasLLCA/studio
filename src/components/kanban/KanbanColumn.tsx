@@ -6,18 +6,23 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { KanbanCard } from './KanbanCard';
 import type { KanbanColumn as KanbanColumnType, KanbanProcesso } from '@/types/teams';
+import { useDroppable } from '@dnd-kit/core';
+import { cn } from '@/lib/utils';
 
 interface KanbanColumnProps {
   coluna: KanbanColumnType;
   onProcessoClick: (processo: KanbanProcesso) => void;
   onDeleteColumn?: (tagId: string) => void;
   onDeleteProcesso?: (processo: KanbanProcesso) => void;
+  isDraggable?: boolean;
 }
 
-export function KanbanColumn({ coluna, onProcessoClick, onDeleteColumn, onDeleteProcesso }: KanbanColumnProps) {
+export function KanbanColumn({ coluna, onProcessoClick, onDeleteColumn, onDeleteProcesso, isDraggable = false }: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: coluna.tag_id });
+
   return (
     <div className="flex-shrink-0 w-80 flex flex-col rounded-lg border bg-muted/30">
-      {/* Column header */}
+      {/* Cabeçalho da coluna */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-b">
         {coluna.tag_cor && (
           <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: coluna.tag_cor }} />
@@ -40,20 +45,32 @@ export function KanbanColumn({ coluna, onProcessoClick, onDeleteColumn, onDelete
           </Button>
         )}
       </div>
-      {/* Scrollable cards */}
+
+      {/* Área de cards — droppable */}
       <ScrollArea className="flex-1 px-2 pb-2">
-        <div className="space-y-2 pt-1">
+        <div
+          ref={setNodeRef}
+          className={cn(
+            'space-y-2 pt-1 min-h-[80px] rounded-md transition-colors',
+            isOver && 'bg-primary/10 ring-2 ring-primary/30 ring-inset',
+          )}
+        >
           {coluna.processos.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">
-              Nenhum processo.
+            <p className={cn(
+              'text-xs text-muted-foreground text-center py-4',
+              isOver && 'text-primary font-medium',
+            )}>
+              {isOver ? 'Soltar aqui' : 'Nenhum processo.'}
             </p>
           ) : (
             coluna.processos.map((processo) => (
               <KanbanCard
                 key={processo.id}
                 processo={processo}
+                sourceTagId={coluna.tag_id}
                 onClick={() => onProcessoClick(processo)}
                 onDelete={onDeleteProcesso}
+                isDraggable={isDraggable}
               />
             ))
           )}

@@ -168,7 +168,10 @@ export async function saveProcessoToGrupo(
 
     if (!response.ok) {
       const details = await response.json().catch(() => response.statusText);
-      return { error: `Falha ao salvar processo: ${response.status}`, details, status: response.status };
+      const friendlyError = response.status === 409
+        ? 'Este processo já está neste grupo.'
+        : `Falha ao salvar processo: ${response.status}`;
+      return { error: friendlyError, details, status: response.status };
     }
 
     const data = await response.json();
@@ -198,6 +201,33 @@ export async function removeProcessoFromGrupo(
   } catch (error) {
     return { error: 'Erro ao conectar com o serviço', details: error instanceof Error ? error.message : String(error), status: 500 };
   }
+}
+
+/**
+ * Move um processo de um grupo para outro.
+ * Retorna o novo ProcessoSalvo.id gerado no grupo destino, necessário para
+ * que movimentos futuros (ex.: mover de volta) usem o id correto.
+ */
+export async function moveProcessoEntreGrupos(
+  sourceGrupoId: string,
+  targetGrupoId: string,
+  processoId: string,
+  usuario: string,
+  numeroProcesso: string,
+  numeroProcessoFormatado?: string,
+  nota?: string,
+): Promise<{ success: boolean; newProcessoId: string } | ApiError> {
+  // 1. Adiciona ao grupo destino (recebe novo ProcessoSalvo com novo id)
+  const addResult = await saveProcessoToGrupo(targetGrupoId, usuario, numeroProcesso, numeroProcessoFormatado, nota);
+  if ('error' in addResult) return addResult;
+
+  const newProcessoId = (addResult as SavedProcesso).id;
+
+  // 2. Remove do grupo origem usando o id original
+  const removeResult = await removeProcessoFromGrupo(sourceGrupoId, processoId, usuario);
+  if ('error' in removeResult) return removeResult;
+
+  return { success: true, newProcessoId };
 }
 
 export async function checkProcessoSalvo(

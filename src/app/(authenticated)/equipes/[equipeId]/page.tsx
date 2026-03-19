@@ -29,7 +29,7 @@ import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useParams, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { getKanbanBoard } from '@/lib/api/tags-api-client';
-import { createGrupo, deleteGrupo, removeProcessoFromGrupo } from '@/lib/api/grupos-api-client';
+import { createGrupo, deleteGrupo, removeProcessoFromGrupo, moveProcessoEntreGrupos } from '@/lib/api/grupos-api-client';
 import {
   addTeamMember,
   removeTeamMember,
@@ -200,6 +200,76 @@ export default function EquipeKanbanPage() {
       toast({ title: "Grupo excluído" });
     }
     setDeleteColumnId(null);
+  };
+
+  const handleMoveProcesso = async (
+    processo: import('@/types/teams').KanbanProcesso,
+    sourceTagId: string,
+    targetTagId: string,
+  ) => {
+    if (!usuario || !board) return;
+
+    // Atualização otimista: move o card imediatamente na UI
+    setBoard(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        colunas: prev.colunas.map(col => {
+          if (col.tag_id === sourceTagId) {
+            return { ...col, processos: col.processos.filter(p => p.id !== processo.id) };
+          }
+          if (col.tag_id === targetTagId) {
+            return { ...col, processos: [...col.processos, { ...processo, tag_id: targetTagId }] };
+          }
+          return col;
+        }),
+      };
+    });
+
+    const result = await moveProcessoEntreGrupos(
+      sourceTagId,
+      targetTagId,
+      processo.id,
+      usuario,
+      processo.numero_processo,
+      processo.numero_processo_formatado ?? undefined,
+      processo.nota ?? undefined,
+    );
+
+    if ('error' in result) {
+      const isAlreadyThere = result.status === 409;
+      toast({
+        title: isAlreadyThere ? 'Processo já está neste grupo' : 'Erro ao mover processo',
+        description: isAlreadyThere
+          ? 'O processo já pertence a este grupo. Nenhuma alteração foi feita.'
+          : result.error,
+        variant: isAlreadyThere ? 'default' : 'destructive',
+      });
+      loadBoard();
+      return;
+    }
+
+    // Atualiza o id do processo no estado com o novo id retornado pelo backend.
+    // Isso é necessário para que movimentos futuros (ex.: mover de volta)
+    // usem o id correto do ProcessoSalvo recém-criado.
+    const newProcessoId = result.newProcessoId;
+    setBoard(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        colunas: prev.colunas.map(col => {
+          if (col.tag_id !== targetTagId) return col;
+          return {
+            ...col,
+            processos: col.processos.map(p =>
+              p.numero_processo === processo.numero_processo
+                ? { ...p, id: newProcessoId }
+                : p,
+            ),
+          };
+        }),
+      };
+    });
   };
 
   const handleDeleteProcesso = async () => {
@@ -414,6 +484,7 @@ export default function EquipeKanbanPage() {
             onDeleteColumn={isAdmin ? (id) => setDeleteColumnId(id) : undefined}
             onDeleteProcesso={(processo) => setDeleteProcessoData(processo)}
             onAddGroup={filtroAtivo ? undefined : () => setIsNewGroupOpen(true)}
+            onMoveProcesso={handleMoveProcesso}
           />
         )}
       </div>
