@@ -70,27 +70,34 @@ export function ProcessDetailsSheet({
       >
         {/* Header */}
         <SheetHeader className="flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="text-xl font-medium text-foreground">
-              Processo,
-              <br />
-              <span className="text-2xl font-bold text-primary">
-                {formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso)}
-              </span>
-            </SheetTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              className="h-8 w-8 p-0 flex-shrink-0"
-              aria-label="Fechar detalhes"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <SheetDescription className="sr-only">Detalhes do processo</SheetDescription>
-          <Separator />
-        </SheetHeader>
+  <div className="flex items-start justify-between gap-3">
+    <div className="min-w-0 flex-1 text-left">
+      <p className="text-sm text-muted-foreground">
+        Processo
+      </p>
+
+      <SheetTitle className="text-lg md:text-xl font-semibold text-primary break-words">
+        {formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso)}
+      </SheetTitle>
+    </div>
+
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => onOpenChange(false)}
+      className="h-8 w-8 p-0 flex-shrink-0"
+      aria-label="Fechar detalhes"
+    >
+      <X className="h-4 w-4" />
+    </Button>
+  </div>
+
+  <SheetDescription className="sr-only">
+    Detalhes do processo
+  </SheetDescription>
+
+  <Separator />
+</SheetHeader>
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto mt-4 space-y-6 pr-1">
@@ -105,70 +112,130 @@ export function ProcessDetailsSheet({
             <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
               <Info className="h-5 w-5" /> Metadados
             </h3>
+
             {processCreationInfo && (
-              <div className="space-y-3 text-lg">
-                <div className="flex items-center"><Building className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />Unidade: <span className="font-medium ml-1">{processCreationInfo.creatorUnit}</span></div>
+              <div className="space-y-3 text-sm">
+
+                {/* Unidade */}
+                <div className="flex items-center">
+                  <Building className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  Unidade:
+                  <span className="font-medium ml-1">
+                    {processCreationInfo.creatorUnit}
+                  </span>
+                </div>
+
+                {/* Usuário */}
                 <div className="flex items-start">
-                  <UserCircle className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-medium">{processCreationInfo.creatorUser}</span>
-                    <p className="text-xs text-muted-foreground">{processCreationInfo.creatorSigla}</p>
+                  <UserCircle className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" 
+                  
+                  />
+                  
+                  <div className="flex flex-col">
+                    {/* Nome */}
+                    <span
+                    className="text-sm font-medium text-foreground line-clamp-2"
+                    title={processCreationInfo.creatorUser}
+                  >
+                    {processCreationInfo.creatorUser}
+                  </span>
+
+                    {/* Matrícula / Sigla (igual email) */}
+                    <span className="text-xs text-muted-foreground">
+                      {processCreationInfo.creatorSigla}
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />Data: <span className="font-medium ml-1">{processCreationInfo.creationDate}</span></div>
-                <div className="flex items-center"><CalendarClock className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />Tempo: <span className="font-medium ml-1">{processCreationInfo.timeSinceCreation}</span></div>
+
+                {/* Data */}
+                <div className="flex items-center">
+                  <CalendarDays className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  Data:
+                  <span className="font-medium ml-1">
+                    {processCreationInfo.creationDate}
+                  </span>
+                </div>
+
+                {/* Tempo */}
+                <div className="flex items-center">
+                  <CalendarClock className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  Tempo:
+                  <span className="font-medium ml-1">
+                    {processCreationInfo.timeSinceCreation}
+                  </span>
+                </div>
+
+                {/* Status */}
                 {openUnitsInProcess !== null && (
                   <div className="flex items-center">
                     {openUnitsInProcess.length === 0 ? (
                       <>
                         <CheckCircle className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        Status: <span className="font-medium ml-1">Concluído</span>
+                        Status:
+                        <span className="font-medium ml-1">Concluído</span>
                       </>
                     ) : (
                       <>
                         <Clock className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        Status: <span className="font-medium ml-1">Em andamento ({openUnitsInProcess.length} unidade{openUnitsInProcess.length !== 1 ? 's' : ''} aberta{openUnitsInProcess.length !== 1 ? 's' : ''})</span>
+                        Status:
+                        <span className="font-medium ml-1">
+                          Em andamento ({openUnitsInProcess.length} unidade{openUnitsInProcess.length !== 1 ? 's' : ''} aberta{openUnitsInProcess.length !== 1 ? 's' : ''})
+                        </span>
                       </>
                     )}
                   </div>
                 )}
-                {userOrgao && processCreationInfo && (
-                  <>
-                    <div className="flex items-center">
-                      <ExternalLink className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
-                      Processo externo: <span className={`font-medium ml-1 ${isExternalProcess ? 'text-warning' : 'text-success'}`}>{isExternalProcess ? 'Sim' : 'Não'}</span>
-                    </div>
-                    {isExternalProcess && rawProcessData?.Andamentos && (
-                      (() => {
-                        const userOrgaoNormalized = userOrgao.toUpperCase();
-                        const andamentosInUserOrgao = rawProcessData.Andamentos.filter(a => {
-                          const andamentoOrgao = extractOrgaoFromSigla(a.Unidade.Sigla).toUpperCase();
-                          return andamentoOrgao === userOrgaoNormalized;
-                        });
 
-                        if (andamentosInUserOrgao.length > 0) {
-                          const firstAndamento = andamentosInUserOrgao.sort((a, b) =>
-                            parseCustomDateString(a.DataHora).getTime() - parseCustomDateString(b.DataHora).getTime()
-                          )[0];
-
-                          return (
-                            <div className="flex items-center ml-7">
-                              <Building className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
-                              Chegou em: <span className="font-medium ml-1 text-primary">{firstAndamento.Unidade.Sigla}</span>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()
-                    )}
-                  </>
+                {/* Processo externo */}
+                {userOrgao && (
+                  <div className="flex items-center">
+                    <ExternalLink className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    Processo externo:
+                    <span className={`font-medium ml-1 ${isExternalProcess ? 'text-warning' : 'text-success'}`}>
+                      {isExternalProcess ? 'Sim' : 'Não'}
+                    </span>
+                  </div>
                 )}
+
+                {/* Chegada no órgão */}
+                {userOrgao && isExternalProcess && rawProcessData?.Andamentos && (() => {
+                  const userOrgaoNormalized = userOrgao.toUpperCase();
+
+                  const andamentosInUserOrgao = rawProcessData.Andamentos.filter(a => {
+                    const andamentoOrgao = extractOrgaoFromSigla(a.Unidade.Sigla).toUpperCase();
+                    return andamentoOrgao === userOrgaoNormalized;
+                  });
+
+                  if (andamentosInUserOrgao.length > 0) {
+                    const firstAndamento = andamentosInUserOrgao.sort((a, b) =>
+                      parseCustomDateString(a.DataHora).getTime() - parseCustomDateString(b.DataHora).getTime()
+                    )[0];
+
+                    return (
+                      <div className="flex items-center ml-7">
+                        <Building className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        Chegou em:
+                        <span className="font-medium ml-1 text-primary">
+                          {firstAndamento.Unidade.Sigla}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
+
+                {/* Dias em aberto */}
                 {userOrgao && daysOpenInUserOrgao !== null && (
                   <div className="flex items-center">
                     <Clock className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
-                    Dias em aberto no órgão: <span className="font-medium ml-1 text-destructive">{daysOpenInUserOrgao} {daysOpenInUserOrgao === 1 ? 'dia' : 'dias'}</span>
+                    Dias em aberto no órgão:
+                    <span className="font-medium ml-1 text-destructive">
+                      {daysOpenInUserOrgao} {daysOpenInUserOrgao === 1 ? 'dia' : 'dias'}
+                    </span>
                   </div>
                 )}
+
               </div>
             )}
           </div>
