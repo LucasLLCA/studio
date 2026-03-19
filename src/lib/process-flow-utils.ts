@@ -117,9 +117,12 @@ export function processAndamentos(
       originalGlobalSequence: index + 1, 
     }))
     .sort((a, b) => {
-      const dateDiff = a.parsedDate.getTime() - b.parsedDate.getTime();
-      if (dateDiff !== 0) return dateDiff;
-      // When timestamps match, enforce logical order:
+      // Truncate to minute precision so events within the same minute
+      // are treated as simultaneous (SEI may record seconds out of order).
+      const aMinute = Math.floor(a.parsedDate.getTime() / 60000);
+      const bMinute = Math.floor(b.parsedDate.getTime() / 60000);
+      if (aMinute !== bMinute) return aMinute - bMinute;
+      // Within the same minute, enforce logical order:
       // conclusão (sender closes) → remetido (sender sends) → recebido (receiver gets)
       const priority = (tarefa: string) => {
         switch (tarefa) {
@@ -136,6 +139,9 @@ export function processAndamentos(
       };
       const pDiff = priority(a.Tarefa) - priority(b.Tarefa);
       if (pDiff !== 0) return pDiff;
+      // Final tiebreaker: actual seconds, then ID
+      const secDiff = a.parsedDate.getTime() - b.parsedDate.getTime();
+      if (secDiff !== 0) return secDiff;
       return a.IdAndamento.localeCompare(b.IdAndamento);
     })
     .map((andamento, sortedIndex) => ({
