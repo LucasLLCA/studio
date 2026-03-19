@@ -312,12 +312,30 @@ export function processAndamentos(
     }
   }
 
-  // Index: first task per bloco/document reference (for independent linking)
-  const firstByRef = new Map<string, ProcessedAndamento>();
-  for (const task of processedTasks) {
-    const rawDesc = task.Descricao?.replace(/<[^>]*>/g, '') || '';
+  // Index: first task per bloco/document reference (for independent linking).
+  // Scan original andamentos (pre-summarization) so refs inside summary nodes are found.
+  const refToOriginalId = new Map<string, string>();
+  for (const a of globallySortedAndamentos) {
+    const rawDesc = a.Descricao?.replace(/<[^>]*>/g, '') || '';
     const refId = extractReferenceId(rawDesc);
-    if (refId && !firstByRef.has(refId)) {
+    if (refId && !refToOriginalId.has(refId)) {
+      refToOriginalId.set(refId, a.IdAndamento);
+    }
+  }
+  // Map original andamento IDs → their processedTask (handles summary nodes)
+  const originalIdToTask = new Map<string, ProcessedAndamento>();
+  for (const task of processedTasks) {
+    originalIdToTask.set(task.IdAndamento, task);
+    if (task.originalTaskIds) {
+      for (const origId of task.originalTaskIds) {
+        originalIdToTask.set(origId, task);
+      }
+    }
+  }
+  const firstByRef = new Map<string, ProcessedAndamento>();
+  for (const [refId, origId] of refToOriginalId) {
+    const task = originalIdToTask.get(origId);
+    if (task) {
       firstByRef.set(refId, task);
     }
   }
@@ -340,9 +358,23 @@ export function processAndamentos(
 
     // Non-activated unit: link via bloco/document reference (dotted arrow)
     if (!activatedUnits.has(currentTask.Unidade.IdUnidade)) {
-      const rawDesc = currentTask.Descricao?.replace(/<[^>]*>/g, '') || '';
-      const refId = extractReferenceId(rawDesc);
-      if (refId) {
+      // Collect ref_ids: from direct description or from original tasks in summary nodes
+      const refIds: string[] = [];
+      if (currentTask.originalTaskIds) {
+        for (const origId of currentTask.originalTaskIds) {
+          const orig = globallySortedAndamentos.find(a => a.IdAndamento === origId);
+          if (orig) {
+            const rawDesc = orig.Descricao?.replace(/<[^>]*>/g, '') || '';
+            const refId = extractReferenceId(rawDesc);
+            if (refId && !refIds.includes(refId)) refIds.push(refId);
+          }
+        }
+      } else {
+        const rawDesc = currentTask.Descricao?.replace(/<[^>]*>/g, '') || '';
+        const refId = extractReferenceId(rawDesc);
+        if (refId) refIds.push(refId);
+      }
+      for (const refId of refIds) {
         const origin = firstByRef.get(refId);
         if (origin && origin.IdAndamento !== currentTask.IdAndamento) {
           connections.push({ sourceTask: origin, targetTask: currentTask, style: 'dotted' });
