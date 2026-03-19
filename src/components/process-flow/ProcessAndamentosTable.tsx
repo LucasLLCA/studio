@@ -1,6 +1,7 @@
 "use client";
 
 import type { ProcessedAndamento, UnidadeAberta } from '@/types/process-flow';
+import { parseCustomDateString, formatDisplayDate } from '@/lib/process-flow-utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useMemo, useRef, useCallback } from 'react';
@@ -64,12 +65,9 @@ export function ProcessAndamentosTable({ andamentos, searchQuery = '', openUnits
   const formatDateTime = useCallback((dateString: string) => {
     try {
       if (!dateString || dateString.trim() === '') return '-';
-      const date = new Date(dateString);
+      const date = parseCustomDateString(dateString);
       if (isNaN(date.getTime())) return dateString;
-      return date.toLocaleString('pt-BR', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-      });
+      return formatDisplayDate(date);
     } catch {
       return dateString;
     }
@@ -78,7 +76,7 @@ export function ProcessAndamentosTable({ andamentos, searchQuery = '', openUnits
   const formatRelativeTime = useCallback((dateString: string) => {
     try {
       if (!dateString || dateString.trim() === '') return '';
-      const date = new Date(dateString);
+      const date = parseCustomDateString(dateString);
       if (isNaN(date.getTime())) return '';
       return formatDistanceToNow(date, { addSuffix: true, locale: ptBR });
     } catch {

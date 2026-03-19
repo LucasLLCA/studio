@@ -68,13 +68,17 @@ export function parseCustomDateString(dateString: string): Date {
   return new Date(year, month - 1, day, hours, minutes, seconds);
 }
 
-export function formatDisplayDate(date: Date): string {
+export function formatDisplayDate(date: Date, includeSeconds: boolean = true): string {
   if (!(date instanceof Date) || isNaN(date.getTime())) return 'Data inválida';
   const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0'); 
+  const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
+  if (includeSeconds) {
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+  }
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
@@ -115,7 +119,24 @@ export function processAndamentos(
     .sort((a, b) => {
       const dateDiff = a.parsedDate.getTime() - b.parsedDate.getTime();
       if (dateDiff !== 0) return dateDiff;
-      return a.IdAndamento.localeCompare(b.IdAndamento); 
+      // When timestamps match, enforce logical order:
+      // conclusão (sender closes) → remetido (sender sends) → recebido (receiver gets)
+      const priority = (tarefa: string) => {
+        switch (tarefa) {
+          case 'CONCLUSAO-AUTOMATICA-UNIDADE':
+          case 'CONCLUSAO-PROCESSO-UNIDADE':
+            return 0;
+          case 'PROCESSO-REMETIDO-UNIDADE':
+            return 1;
+          case 'PROCESSO-RECEBIDO-UNIDADE':
+            return 2;
+          default:
+            return 1;
+        }
+      };
+      const pDiff = priority(a.Tarefa) - priority(b.Tarefa);
+      if (pDiff !== 0) return pDiff;
+      return a.IdAndamento.localeCompare(b.IdAndamento);
     })
     .map((andamento, sortedIndex) => ({
       ...andamento,
@@ -238,6 +259,20 @@ export function processAndamentos(
   const connections: Connection[] = [];
   const latestTaskInLane = new Map<string, ProcessedAndamento>();
 
+  // Collect units that formally participated in the flow (created, received, or reopened the processo).
+  // Actions from other units (e.g. "Bloco retornado") are independent and should not have connections.
+  const FLOW_ACTIVATION_TASKS = new Set([
+    'GERACAO-PROCEDIMENTO',
+    'PROCESSO-RECEBIDO-UNIDADE',
+    'REABERTURA-PROCESSO-UNIDADE',
+  ]);
+  const activatedUnits = new Set<string>();
+  for (const task of processedTasks) {
+    if (FLOW_ACTIVATION_TASKS.has(task.Tarefa)) {
+      activatedUnits.add(task.Unidade.IdUnidade);
+    }
+  }
+
   // When showing partial data (first + last pages), find the gap boundary
   // so we don't draw misleading connections across the missing middle pages.
   const partialGap = isPartialData ? detectPartialDataGap(processedTasks) : null;
@@ -254,6 +289,11 @@ export function processAndamentos(
       }
     }
 
+    // Skip connection logic for units that never formally received the processo
+    if (!activatedUnits.has(currentTask.Unidade.IdUnidade)) {
+      continue;
+    }
+
     if (currentTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
       const senderUnitAttribute = currentTask.Atributos?.find(attr => attr.Nome === "UNIDADE");
       const senderUnitId = senderUnitAttribute?.IdOrigem;
@@ -267,9 +307,9 @@ export function processAndamentos(
         }
       }
       latestTaskInLane.set(currentTask.Unidade.IdUnidade, currentTask);
-    } else { 
+    } else {
       const lastActionInCurrentLane = latestTaskInLane.get(currentTask.Unidade.IdUnidade);
-      if (lastActionInCurrentLane) { 
+      if (lastActionInCurrentLane) {
           if(lastActionInCurrentLane.IdAndamento !== currentTask.IdAndamento || lastActionInCurrentLane.globalSequence !== currentTask.globalSequence) {
              // Do not draw a connection if the last action was a conclusion (manual or automatic).
              if (lastActionInCurrentLane.Tarefa !== AUTO_CONCLUSION_TASK_TYPE &&
