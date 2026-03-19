@@ -121,20 +121,16 @@ export function processAndamentos(
     };
   }
   
-  const globallySortedAndamentos: AndamentoInternal[] = [...andamentosInput]
+  const sorted = [...andamentosInput]
     .map((andamento, index) => ({
       ...andamento,
       parsedDate: parseCustomDateString(andamento.DataHora),
-      originalGlobalSequence: index + 1, 
-    }))
+      originalGlobalSequence: index + 1,
+    }) as AndamentoInternal)
     .sort((a, b) => {
-      // Truncate to minute precision so events within the same minute
-      // are treated as simultaneous (SEI may record seconds out of order).
-      const aMinute = Math.floor(a.parsedDate.getTime() / 60000);
-      const bMinute = Math.floor(b.parsedDate.getTime() / 60000);
-      if (aMinute !== bMinute) return aMinute - bMinute;
-      // Within the same minute, enforce logical order:
-      // conclusão (sender closes) → remetido (sender sends) → recebido (receiver gets)
+      const timeDiff = a.parsedDate.getTime() - b.parsedDate.getTime();
+      if (timeDiff !== 0) return timeDiff;
+      // Same exact timestamp: enforce logical order for transfer events
       const priority = (tarefa: string) => {
         switch (tarefa) {
           case 'CONCLUSAO-AUTOMATICA-UNIDADE':
@@ -150,11 +146,37 @@ export function processAndamentos(
       };
       const pDiff = priority(a.Tarefa) - priority(b.Tarefa);
       if (pDiff !== 0) return pDiff;
-      // Final tiebreaker: actual seconds, then ID
-      const secDiff = a.parsedDate.getTime() - b.parsedDate.getTime();
-      if (secDiff !== 0) return secDiff;
       return a.IdAndamento.localeCompare(b.IdAndamento);
-    })
+    });
+
+  // Post-sort fixup: when a RECEBIDO appears before its matching
+  // REMETIDO/CONCLUSÃO within 60s, move the earlier events before it.
+  // This only reorders transfer events; regular events stay in place.
+  const TRANSFER_TYPES = new Set([
+    'CONCLUSAO-AUTOMATICA-UNIDADE',
+    'CONCLUSAO-PROCESSO-UNIDADE',
+    'PROCESSO-REMETIDO-UNIDADE',
+    'PROCESSO-RECEBIDO-UNIDADE',
+  ]);
+  for (let i = 0; i < sorted.length; i++) {
+    if (sorted[i].Tarefa !== 'PROCESSO-RECEBIDO-UNIDADE') continue;
+    const recebidoTime = sorted[i].parsedDate.getTime();
+    // Collect transfer events that follow within 60s and should precede recebido
+    for (let j = i + 1; j < sorted.length; j++) {
+      const candidate = sorted[j];
+      if (candidate.parsedDate.getTime() - recebidoTime > 60000) break;
+      if (candidate.Tarefa === 'PROCESSO-REMETIDO-UNIDADE' ||
+          candidate.Tarefa === 'CONCLUSAO-AUTOMATICA-UNIDADE' ||
+          candidate.Tarefa === 'CONCLUSAO-PROCESSO-UNIDADE') {
+        // Move this event before the recebido
+        sorted.splice(j, 1);
+        sorted.splice(i, 0, candidate);
+        // Don't advance i — re-check from same position since we inserted
+      }
+    }
+  }
+
+  const globallySortedAndamentos: AndamentoInternal[] = sorted
     .map((andamento, sortedIndex) => ({
       ...andamento,
       trueChronologicalOrderIndex: sortedIndex,
