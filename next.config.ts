@@ -9,9 +9,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   images: {
     remotePatterns: [
       {
@@ -20,6 +17,9 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  turbopack: {
+    root: __dirname,
   },
   output: 'standalone', // <-- essa linha habilita a build standalone
 };
