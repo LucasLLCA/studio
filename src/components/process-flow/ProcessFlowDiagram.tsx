@@ -548,6 +548,7 @@ export function ProcessFlowDiagram({
                   strokeWidth="2"
                   fill="none"
                   markerEnd="url(#arrowhead)"
+                  {...(conn.style === 'dotted' ? { strokeDasharray: '4 4', opacity: 0.6 } : {})}
                 />
               ))}
 

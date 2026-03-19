@@ -67,6 +67,7 @@ export interface ProcessedAndamento extends Andamento {
 export interface Connection {
   sourceTask: ProcessedAndamento;
   targetTask: ProcessedAndamento;
+  style?: 'solid' | 'dotted';
 }
 
 export interface ProcessedFlowData {

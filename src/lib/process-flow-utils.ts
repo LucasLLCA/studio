@@ -42,6 +42,17 @@ export const SIGNIFICANT_TASK_TYPES: string[] = [
 
 const AUTO_CONCLUSION_TASK_TYPE = 'CONCLUSAO-AUTOMATICA-UNIDADE';
 
+const BLOCO_REF_RE = /\bbloco\s+(\d+)/i;
+const DOC_REF_RE = /\bdocumento\s+(?:\w+\s+)*?(\d{6,})/i;
+
+function extractReferenceId(descricao: string): string | null {
+  const blocoMatch = descricao.match(BLOCO_REF_RE);
+  if (blocoMatch) return `bloco:${blocoMatch[1]}`;
+  const docMatch = descricao.match(DOC_REF_RE);
+  if (docMatch) return `doc:${docMatch[1]}`;
+  return null;
+}
+
 const getDateHourMinuteKey = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -279,6 +290,16 @@ export function processAndamentos(
     }
   }
 
+  // Index: first task per bloco/document reference (for independent linking)
+  const firstByRef = new Map<string, ProcessedAndamento>();
+  for (const task of processedTasks) {
+    const rawDesc = task.Descricao?.replace(/<[^>]*>/g, '') || '';
+    const refId = extractReferenceId(rawDesc);
+    if (refId && !firstByRef.has(refId)) {
+      firstByRef.set(refId, task);
+    }
+  }
+
   // When showing partial data (first + last pages), find the gap boundary
   // so we don't draw misleading connections across the missing middle pages.
   const partialGap = isPartialData ? detectPartialDataGap(processedTasks) : null;
@@ -295,8 +316,16 @@ export function processAndamentos(
       }
     }
 
-    // Skip connection logic for units that never formally received the processo
+    // Non-activated unit: link via bloco/document reference (dotted arrow)
     if (!activatedUnits.has(currentTask.Unidade.IdUnidade)) {
+      const rawDesc = currentTask.Descricao?.replace(/<[^>]*>/g, '') || '';
+      const refId = extractReferenceId(rawDesc);
+      if (refId) {
+        const origin = firstByRef.get(refId);
+        if (origin && origin.IdAndamento !== currentTask.IdAndamento) {
+          connections.push({ sourceTask: origin, targetTask: currentTask, style: 'dotted' });
+        }
+      }
       continue;
     }
 
