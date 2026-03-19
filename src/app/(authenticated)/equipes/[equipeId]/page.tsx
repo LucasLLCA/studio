@@ -78,15 +78,44 @@ export default function EquipeKanbanPage() {
   // Filtros do board
   const [filterNumero, setFilterNumero] = useState('');
   const [filterTagIds, setFilterTagIds] = useState<Set<string>>(new Set());
+  const [filterTeamTagIds, setFilterTeamTagIds] = useState<Set<string>>(new Set());
+
+  // Tags de observação que estão de fato aplicadas em pelo menos um processo do board
+  const usedTeamTags = useMemo(() => {
+    if (!board) return [];
+    const seen = new Map<string, TeamTag>();
+    for (const col of board.colunas) {
+      for (const p of col.processos) {
+        for (const t of (p.team_tags ?? [])) {
+          if (!seen.has(t.id)) seen.set(t.id, t);
+        }
+      }
+    }
+    return Array.from(seen.values());
+  }, [board]);
 
   const colunasVisiveis = useMemo(() => {
     if (!board) return [];
     let colunas = board.colunas;
 
+    // Filtro por grupo (coluna do kanban)
     if (filterTagIds.size > 0) {
       colunas = colunas.filter(c => filterTagIds.has(c.tag_id));
     }
 
+    // Filtro por tag de observação — mantém processos que tenham ao menos uma das tags selecionadas
+    if (filterTeamTagIds.size > 0) {
+      colunas = colunas
+        .map(c => ({
+          ...c,
+          processos: c.processos.filter(p =>
+            (p.team_tags ?? []).some(t => filterTeamTagIds.has(t.id))
+          ),
+        }))
+        .filter(c => c.processos.length > 0);
+    }
+
+    // Filtro por número de processo
     if (filterNumero.trim()) {
       const termo = filterNumero.trim().toLowerCase();
       colunas = colunas
@@ -101,9 +130,9 @@ export default function EquipeKanbanPage() {
     }
 
     return colunas;
-  }, [board, filterNumero, filterTagIds]);
+  }, [board, filterNumero, filterTagIds, filterTeamTagIds]);
 
-  const filtroAtivo = filterNumero.trim() !== '' || filterTagIds.size > 0;
+  const filtroAtivo = filterNumero.trim() !== '' || filterTagIds.size > 0 || filterTeamTagIds.size > 0;
 
   // New group dialog
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
@@ -429,6 +458,7 @@ export default function EquipeKanbanPage() {
           )}
         </div>
 
+        {/* Filtro por grupo (coluna kanban) */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {board.colunas.map(coluna => (
             <button
@@ -449,16 +479,56 @@ export default function EquipeKanbanPage() {
               {coluna.tag_nome}
             </button>
           ))}
-
-          {filtroAtivo && (
-            <button
-              onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); }}
-              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
-            >
-              Limpar filtros
-            </button>
-          )}
         </div>
+
+        {/* Divisor + filtro por tags de observação */}
+        {usedTeamTags.length > 0 && (
+          <>
+            <div className="h-5 w-px bg-border shrink-0" />
+            <span className="text-xs text-muted-foreground shrink-0">Tags</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {usedTeamTags.map(tag => {
+                const active = filterTeamTagIds.has(tag.id);
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() => setFilterTeamTagIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(tag.id)) next.delete(tag.id);
+                      else next.add(tag.id);
+                      return next;
+                    })}
+                    className={cn(
+                      'text-xs px-2.5 py-0.5 rounded-full border transition-all',
+                      active ? 'opacity-100 ring-2 ring-offset-1' : 'opacity-70 hover:opacity-100'
+                    )}
+                    style={tag.cor
+                      ? {
+                          backgroundColor: active ? tag.cor : 'transparent',
+                          color: active ? '#fff' : tag.cor,
+                          borderColor: tag.cor,
+                          ...(active ? { ringColor: tag.cor } : {}),
+                        }
+                      : undefined
+                    }
+                    title={`Filtrar por tag "${tag.nome}"`}
+                  >
+                    {tag.nome}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {filtroAtivo && (
+          <button
+            onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); setFilterTeamTagIds(new Set()); }}
+            className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
+          >
+            Limpar filtros
+          </button>
+        )}
       </div>
 
       {/* Kanban Board */}
@@ -469,7 +539,7 @@ export default function EquipeKanbanPage() {
               <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">Nenhum processo encontrado para os filtros aplicados.</p>
               <button
-                onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); }}
+                onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); setFilterTeamTagIds(new Set()); }}
                 className="text-xs text-primary hover:underline mt-2 block mx-auto"
               >
                 Limpar filtros
