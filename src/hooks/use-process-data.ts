@@ -10,6 +10,17 @@ import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/react-query/keys';
 import { stripProcessNumber } from '@/lib/utils';
 
+const SSE_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+
+/** Race a promise against a timeout. Rejects with a clear message if timeout fires first. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Timeout: ${label} não respondeu em ${ms / 1000}s`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 /** Retry a fetch on server errors (5xx) or network failures. Skips retry for 4xx client errors. */
 async function fetchWithRetry<T>(
   fn: () => Promise<T>,
@@ -210,11 +221,22 @@ export function useProcessData({
       total: rawProcessData?.Info?.TotalItens || 0,
     });
 
+    // Safety timeout: clear progress if SSE hangs (5 minutes)
+    const PHASE2_TIMEOUT_MS = 5 * 60 * 1000;
+    const timeoutId = setTimeout(() => {
+      if (!abortController.signal.aborted) {
+        console.warn('Phase 2 SSE timed out, clearing progress');
+        abortController.abort();
+        setAndamentosProgress(null);
+      }
+    }, PHASE2_TIMEOUT_MS);
+
     fetchSSEStreamWithRetry(
       getStreamAndamentosProgressUrl(processo, unidade),
       token,
       () => {}, // no chunks for this stream
       (fullResult: any) => {
+        clearTimeout(timeoutId);
         // Ignore results from aborted streams
         if (abortController.signal.aborted) return;
         if (fullResult?.Andamentos && Array.isArray(fullResult.Andamentos)) {
@@ -233,6 +255,7 @@ export function useProcessData({
         setAndamentosProgress(null);
       },
       (error) => {
+        clearTimeout(timeoutId);
         if (abortController.signal.aborted) return;
         console.warn('Phase 2 SSE andamentos fetch failed, partial data remains:', error);
         setAndamentosProgress(null);
@@ -243,7 +266,7 @@ export function useProcessData({
       },
     );
 
-    return () => abortController.abort();
+    return () => { abortController.abort(); clearTimeout(timeoutId); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPartialData, token, processo, unidade]);
 
@@ -258,7 +281,7 @@ export function useProcessData({
   const resumoQuery = useQuery<string, Error>({
     queryKey: queryKeys.processSummary.detail(processo, unidade),
 
-    queryFn: ({ signal }) => new Promise<string>((resolve, reject) => {
+    queryFn: ({ signal }) => withTimeout(new Promise<string>((resolve, reject) => {
       setResumoStreamText("");
 
       // Handle query cancellation (unmount, invalidation)
@@ -281,7 +304,7 @@ export function useProcessData({
         (error) => reject(new Error(error)),
         { signal },
       );
-    }),
+    }), SSE_TIMEOUT_MS, 'resumo'),
 
     enabled: !!rawProcessData && !unitAccessDenied && !!token && !!unidade,
     staleTime: 10 * 60 * 1000, // 10 minutes
@@ -306,7 +329,7 @@ export function useProcessData({
   const situacaoQuery = useQuery<string, Error>({
     queryKey: queryKeys.situacaoAtual.detail(processo, unidade),
 
-    queryFn: ({ signal }) => new Promise<string>((resolve, reject) => {
+    queryFn: ({ signal }) => withTimeout(new Promise<string>((resolve, reject) => {
       setSituacaoStreamText("");
 
       if (signal) {
@@ -328,7 +351,7 @@ export function useProcessData({
         (error) => reject(new Error(error)),
         { signal },
       );
-    }),
+    }), SSE_TIMEOUT_MS, 'situação atual'),
 
     enabled: resumoQuery.isSuccess && !unitAccessDenied && !!token && !!unidade,
     staleTime: 10 * 60 * 1000,

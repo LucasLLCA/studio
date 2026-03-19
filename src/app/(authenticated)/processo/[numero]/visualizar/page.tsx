@@ -147,10 +147,7 @@ function VisualizarProcessoContent() {
   const openUnitsInProcess = openUnitsData?.unidades || null;
   const processLinkAcesso = openUnitsData?.linkAcesso || null;
 
-  const unitAccessDenied = noDocAccessParam || (isOpenUnitsError && !!openUnitsError && (
-    openUnitsError.message.includes('422') ||
-    openUnitsError.message.toLowerCase().includes('acesso')
-  ));
+  const unitAccessDenied = noDocAccessParam || (isOpenUnitsError && !!openUnitsError);
 
   // Data fetching hook
   const {

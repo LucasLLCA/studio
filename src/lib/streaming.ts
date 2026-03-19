@@ -23,6 +23,7 @@ async function processSSEResponse(
   const decoder = new TextDecoder();
   let buffer = "";
 
+  try {
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -56,6 +57,11 @@ async function processSSEResponse(
         }
       }
     }
+  }
+  } catch (err: any) {
+    // Network disconnect or reader error during streaming
+    try { reader.cancel(); } catch { /* ignore */ }
+    onError(err?.message || "Conexão perdida durante o streaming");
   }
 }
 
