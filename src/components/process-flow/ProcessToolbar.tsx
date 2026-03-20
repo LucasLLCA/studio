@@ -25,7 +25,6 @@ interface ProcessToolbarProps {
   initialIsSaved: boolean;
   onSavedStatusChange: (saved: boolean) => void;
   dataCarga?: string | null;
-  isD1Only?: boolean;
 }
 
 export function ProcessToolbar({
@@ -42,7 +41,6 @@ export function ProcessToolbar({
   initialIsSaved,
   onSavedStatusChange,
   dataCarga,
-  isD1Only,
 }: ProcessToolbarProps) {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isObservacoesOpen, setIsObservacoesOpen] = useState(false);
@@ -65,7 +63,7 @@ export function ProcessToolbar({
             </span>
           </>
         )}
-        {dataCarga && isD1Only && (
+        {dataCarga && (
           <>
             <span className="text-muted-foreground/40">|</span>
             <span className="text-xs text-amber-600">

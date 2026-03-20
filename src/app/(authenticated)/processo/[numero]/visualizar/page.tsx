@@ -2,14 +2,12 @@
 
 import { ProcessFlowDiagram } from '@/components/process-flow/ProcessFlowDiagram';
 import type { ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
-import { Loader2, GanttChartSquare, BookText, Info, ChevronsLeft, ChevronsRight, HelpCircle, AlertTriangle, RefreshCw, Search, Table2, Database, Trash2, Download, ChevronDown, FlaskConical } from 'lucide-react';
+import { GanttChartSquare, BookText, Info, ChevronsLeft, ChevronsRight, HelpCircle, AlertTriangle, RefreshCw, Search, Table2, Trash2, Download, ChevronDown, FlaskConical } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
@@ -151,16 +149,11 @@ function VisualizarProcessoContent() {
     hasBackgroundLoading,
     loadingTasks,
     refresh,
-    isPartialData,
     andamentosFailed,
-    andamentosProgress,
     resumoFailed,
     resumoError,
     retryResumo,
     dataCarga,
-    isD1Only,
-    debugDataSource,
-    setDebugDataSource,
     refreshNoCache,
   } = useProcessData({
     numeroProcesso,
@@ -186,8 +179,8 @@ function VisualizarProcessoContent() {
     const andamentos = rawProcessData?.Andamentos;
     if (!rawProcessData || !andamentos) return null;
     const processNumber = rawProcessData.Info?.NumeroProcesso || numeroProcesso;
-    return processAndamentos(andamentos, openUnitsInProcess, processNumber, isSummarizedView, isPartialData);
-  }, [rawProcessData, openUnitsInProcess, numeroProcesso, isSummarizedView, isPartialData]);
+    return processAndamentos(andamentos, openUnitsInProcess, processNumber, isSummarizedView);
+  }, [rawProcessData, openUnitsInProcess, numeroProcesso, isSummarizedView]);
 
   const { isExternalProcess, daysOpenInUserOrgao } = useOrgaoMetrics({
     userOrgao,
@@ -395,7 +388,6 @@ function VisualizarProcessoContent() {
             initialIsSaved={isSaved}
             onSavedStatusChange={setIsSaved}
             dataCarga={dataCarga}
-            isD1Only={isD1Only}
           />
         )}
 
@@ -441,7 +433,6 @@ function VisualizarProcessoContent() {
                 unitAccessDenied={unitAccessDenied}
                 processedFlowData={processedFlowData}
                 onTaskCardClick={handleTaskCardClick}
-                isPartialData={isPartialData}
               />
 
               {/* Andamentos (Timeline or Table) */}
@@ -477,25 +468,20 @@ function VisualizarProcessoContent() {
 
                     {/* RIGHT: filters + actions */}
                     <div className="flex items-center gap-2 flex-wrap justify-end">
-                      {/* Experimental submenu */}
+                      {/* Cache controls */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="outline" size="sm" className="h-8 text-xs border-amber-500/50 text-amber-700">
                             <FlaskConical className="mr-1 h-3 w-3" />
                             Experimental
-                            {debugDataSource !== 'merged' && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-amber-500" />}
                             <ChevronDown className="ml-1 h-3 w-3" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Fonte de dados</DropdownMenuLabel>
-                          <DropdownMenuRadioGroup value={debugDataSource} onValueChange={(v) => setDebugDataSource(v as 'merged' | 'sei-only')}>
-                            <DropdownMenuRadioItem value="merged"><Database className="mr-2 h-3 w-3" /> D-1 + SEI</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="sei-only">SEI only</DropdownMenuRadioItem>
-                          </DropdownMenuRadioGroup>
+                          <DropdownMenuLabel>Cache</DropdownMenuLabel>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={refreshNoCache} disabled={isRefreshing || hasBackgroundLoading}>
-                            <Trash2 className="mr-2 h-3 w-3" /> Sem cache
+                            <Trash2 className="mr-2 h-3 w-3" /> Limpar cache
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -528,15 +514,6 @@ function VisualizarProcessoContent() {
                         <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading} />
                         <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
                       </div>
-
-                      {isPartialData && rawProcessData?.Info && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          <span>
-                            {andamentosProgress?.loaded ?? rawProcessData.Andamentos?.length ?? 0} de {andamentosProgress?.total ?? rawProcessData.Info.TotalItens} andamentos carregados
-                          </span>
-                        </div>
-                      )}
 
                       {/* Timeline-only controls */}
                       {andamentosView === 'timeline' && (
@@ -651,7 +628,6 @@ function VisualizarProcessoContent() {
                           taskToScrollTo={taskToScrollTo}
                           taskToSelect={taskToSelect}
                           filteredLaneUnits={selectedLaneUnits}
-                          isPartialData={isPartialData}
                         />
                       </div>
                     ) : (

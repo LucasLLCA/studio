@@ -107,7 +107,6 @@ export function processAndamentos(
   openUnitsInProcess: UnidadeAberta[] | null,
   numeroProcesso?: string,
   isSummarized: boolean = false,
-  isPartialData: boolean = false
 ): ProcessedFlowData {
 
   if (!andamentosInput || andamentosInput.length === 0) {
@@ -343,10 +342,6 @@ export function processAndamentos(
     }
   }
 
-  // When showing partial data (first + last pages), find the gap boundary
-  // so we don't draw misleading connections across the missing middle pages.
-  const partialGap = isPartialData ? detectPartialDataGap(processedTasks) : null;
-
   // Track lanes that have been concluded. Orphan activities after a conclusão
   // (e.g., DOCUMENTO-RETIRADO-DO-BLOCO) should not create lane continuity.
   // Only tramitação events (REMETIDO, RECEBIDO, REABERTURA) reactivate a concluded lane.
@@ -362,16 +357,6 @@ export function processAndamentos(
   for (let i = 0; i < processedTasks.length; i++) {
     const currentTask = processedTasks[i];
     const currentUnitId = currentTask.Unidade.IdUnidade;
-
-    // If we just crossed the partial-data gap, reset lane tracking
-    // so no connections bridge the first-page and last-page halves.
-    if (partialGap && i > 0) {
-      const prevTask = processedTasks[i - 1];
-      if (prevTask.x <= partialGap.leftX && currentTask.x >= partialGap.rightX) {
-        latestTaskInLane.clear();
-        concludedLanes.clear();
-      }
-    }
 
     // Cross-unit document/bloco reference: dotted arrow to origin activity.
     // Also draws dotted lines for same-unit orphan nodes (in concluded lanes)

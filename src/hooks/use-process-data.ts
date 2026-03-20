@@ -3,13 +3,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef, startTransition } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ProcessoData } from '@/types/process-flow';
-import { fetchProcessData, invalidateProcessCache } from '@/lib/sei-api-client';
-import { fetchSSEStreamWithRetry, getStreamProcessSummaryUrl, getStreamSituacaoAtualUrl, getStreamAndamentosProgressUrl } from '@/lib/streaming';
+import { fetchAndamentosDelta, fetchAndamentosCount, invalidateProcessCache } from '@/lib/sei-api-client';
+import { fetchSSEStreamWithRetry, getStreamProcessSummaryUrl, getStreamSituacaoAtualUrl } from '@/lib/streaming';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/react-query/keys';
 import { stripProcessNumber } from '@/lib/utils';
-import { isD1Available, fetchD1Andamentos, transformD1ToProcessoData, mergeD1WithSEI, type D1Response } from '@/lib/api/d1-api';
+import { fetchD1Andamentos, transformD1ToProcessoData, mergeD1WithSEI, type D1Response } from '@/lib/api/d1-api';
 
 const SSE_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
@@ -109,23 +109,13 @@ export function useProcessData({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Debug: data source override ('merged' = d1+sei, 'sei-only' = sei only)
-  const [debugDataSource, setDebugDataSource] = useState<'merged' | 'sei-only'>('merged');
-
   // Streaming state (progressive display, not cached)
   const [resumoStreamText, setResumoStreamText] = useState<string>("");
   const [situacaoStreamText, setSituacaoStreamText] = useState<string>("");
-  const [andamentosProgress, setAndamentosProgress] = useState<{ loaded: number; total: number } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Track Phase 2 SSE to prevent re-triggering
-  const phase2StartedRef = useRef(false);
 
   // Track which primeiroDocFormatado value we already retried resumo with
   const resumoRetriedForDocRef = useRef<string | null>(null);
-
-  // AbortControllers for all SSE streams — enables clean cancellation on refresh/unmount
-  const phase2AbortRef = useRef<AbortController | null>(null);
 
   // D-1 data_carga timestamp
   const d1DataCargaRef = useRef<string | null>(null);
@@ -136,15 +126,82 @@ export function useProcessData({
   const token = sessionToken || '';
 
   // ──────────────────────────────────────────────────────────────────────
-  // Query 1: Andamentos (Phase 1 — partial fetch)
+  // Phase 0: D-1 fast load (primary data source, no auth needed)
   // ──────────────────────────────────────────────────────────────────────
-  const andamentosQuery = useQuery<ProcessoData, ProcessDataError>({
-    queryKey: queryKeys.processData.detail(processo, unidade),
+  const d1Query = useQuery<ProcessoData | null>({
+    queryKey: queryKeys.d1Andamentos.byProcess(processo),
+
+    queryFn: async () => {
+      const d1Response = await fetchD1Andamentos(processo);
+      if (!d1Response) return null;
+      d1DataCargaRef.current = d1Response.data_carga ?? null;
+      return transformD1ToProcessoData(d1Response);
+    },
+
+    enabled: !!processo,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000,
+    retry: false, // fail fast
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // Extract document IDs from D-1 data
+  const d1Docs = useMemo(() => {
+    const andamentos = d1Query.data?.Andamentos;
+    if (!andamentos || andamentos.length === 0) return { primeiro: null, ultimo: null };
+    return extractDocsFromAndamentos(andamentos);
+  }, [d1Query.data]);
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Phase 1: Count check (lightweight, validates auth + gets SEI total)
+  // ──────────────────────────────────────────────────────────────────────
+  const countQuery = useQuery<{ total_itens: number }, ProcessDataError>({
+    queryKey: queryKeys.andamentosCount.byProcess(processo),
 
     queryFn: async () => {
       const result = await fetchWithRetry(
-        () => fetchProcessData(token, processo, unidade, true, true),
-        'andamentos',
+        () => fetchAndamentosCount(token, processo, unidade),
+        'andamentos-count',
+      );
+
+      if ('error' in result && typeof (result as any).error === 'string') {
+        throw new ProcessDataError(result as { error: string; status?: number });
+      }
+
+      return result as { total_itens: number };
+    },
+
+    enabled: isAuthenticated && !!token && !!unidade && !!processo,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: (failureCount, error) => {
+      if (error.status < 500) return false;
+      return failureCount < 2;
+    },
+    retryDelay: (attempt) => 2000 * (attempt + 1),
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    networkMode: 'online',
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Phase 2: Delta fetch (only new andamentos since D-1 snapshot)
+  // ──────────────────────────────────────────────────────────────────────
+  const d1Total = d1Query.data?.Info?.TotalItens ?? 0;
+  const seiTotal = countQuery.data?.total_itens ?? 0;
+  const delta = seiTotal > d1Total ? seiTotal - d1Total : 0;
+
+  const deltaQuery = useQuery<ProcessoData | null, ProcessDataError>({
+    queryKey: queryKeys.processData.detail(processo, unidade),
+
+    queryFn: async () => {
+      if (delta === 0) return null;
+
+      const result = await fetchWithRetry(
+        () => fetchAndamentosDelta(token, processo, unidade, delta, 1),
+        'andamentos-delta',
       );
 
       if ('error' in result && typeof (result as any).error === 'string') {
@@ -159,77 +216,57 @@ export function useProcessData({
       return data;
     },
 
-    enabled: isAuthenticated && !!token && !!unidade && !!processo,
-    staleTime: 2 * 60 * 1000, // 2 minutes — backend validates with TotalItens anyway
-    gcTime: 30 * 60 * 1000, // 30 minutes
-
+    enabled: isAuthenticated && !!token && !!unidade && !!processo && countQuery.isSuccess && !!d1Query.data,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     retry: (failureCount, error) => {
       if (error.status < 500) return false;
       return failureCount < 2;
     },
     retryDelay: (attempt) => 2000 * (attempt + 1),
-
     refetchOnMount: true,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     networkMode: 'online',
   });
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Phase 0: D-1 fast load (no auth needed, instant)
-  // ──────────────────────────────────────────────────────────────────────
-  const d1Enabled = isD1Available();
-
-  const d1Query = useQuery<ProcessoData | null>({
-    queryKey: queryKeys.d1Andamentos.byProcess(processo),
-
-    queryFn: async () => {
-      const d1Response = await fetchD1Andamentos(processo);
-      if (!d1Response) return null;
-      d1DataCargaRef.current = d1Response.data_carga ?? null;
-      return transformD1ToProcessoData(d1Response);
-    },
-
-    enabled: d1Enabled && !!processo,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000,
-    retry: false, // fail fast
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
-
-  // Merge D-1 + SEI data (respects debug override)
+  // Merge D-1 + delta SEI data
   const rawProcessData = useMemo(() => {
-    const seiData = andamentosQuery.data ?? null;
     const d1Data = d1Query.data ?? null;
+    const deltaData = deltaQuery.data ?? null;
 
-    // Debug: force SEI-only mode
-    if (debugDataSource === 'sei-only') {
-      return seiData;
+    if (d1Data && deltaData && deltaData.Andamentos.length > 0) {
+      return mergeD1WithSEI(d1Data, deltaData.Andamentos, seiTotal);
     }
-
-    if (seiData && d1Data) {
-      return mergeD1WithSEI(d1Data, seiData.Andamentos, seiData.Info.TotalItens);
+    if (d1Data) {
+      // D-1 data with SEI total (update TotalItens if count is available)
+      if (seiTotal > 0) {
+        return {
+          ...d1Data,
+          Info: { ...d1Data.Info, TotalItens: seiTotal },
+        };
+      }
+      return d1Data;
     }
-    if (seiData) return seiData;
-    if (d1Data) return d1Data; // D-1 only while SEI loads
     return null;
-  }, [andamentosQuery.data, d1Query.data, debugDataSource]);
+  }, [d1Query.data, deltaQuery.data, seiTotal]);
 
-  const isD1Only = debugDataSource === 'merged' && !!d1Query.data && !andamentosQuery.data;
+  // Extract document IDs — prefer delta data (has fresh SEI IDs), fallback to D-1
+  const deltaDocs = useMemo(() => {
+    const andamentos = deltaQuery.data?.Andamentos;
+    if (!andamentos || andamentos.length === 0) return { primeiro: null, ultimo: null };
+    return extractDocsFromAndamentos(andamentos);
+  }, [deltaQuery.data]);
 
-  const isPartialData = (andamentosQuery.data ?? null)?.Info?.Parcial === true;
-
-  // Extract document IDs from response
-  const primeiroDocFormatado = (andamentosQuery.data ?? null)?.DocumentosExtraidos?.primeiro ?? null;
-  const ultimoDocFormatado = (andamentosQuery.data ?? null)?.DocumentosExtraidos?.ultimo ?? null;
+  const primeiroDocFormatado = deltaDocs.primeiro || d1Docs.primeiro;
+  const ultimoDocFormatado = deltaDocs.ultimo || d1Docs.ultimo;
 
   // ──────────────────────────────────────────────────────────────────────
-  // Error handling for andamentos
+  // Error handling for count/delta queries
   // ──────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!andamentosQuery.error) return;
-    const error = andamentosQuery.error;
+    const error = countQuery.error || deltaQuery.error;
+    if (!error) return;
     const status = error.status;
 
     let title = "Erro ao buscar dados do processo";
@@ -252,80 +289,10 @@ export function useProcessData({
 
     toast({ title, description, variant: "destructive", duration: 9000 });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [andamentosQuery.error]);
+  }, [countQuery.error, deltaQuery.error]);
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Phase 2: Full andamentos via SSE (when Phase 1 returns partial)
-  // ──────────────────────────────────────────────────────────────────────
+  // Reset retry ref when the query key changes (new process/unit)
   useEffect(() => {
-    if (!isPartialData || !token || !unidade) return;
-
-    // Prevent re-triggering when setQueryData updates the data
-    if (phase2StartedRef.current) return;
-    phase2StartedRef.current = true;
-
-    // Abort any previous Phase 2 stream before starting a new one
-    phase2AbortRef.current?.abort();
-    const abortController = new AbortController();
-    phase2AbortRef.current = abortController;
-
-    setAndamentosProgress({
-      loaded: rawProcessData?.Andamentos?.length || 0,
-      total: rawProcessData?.Info?.TotalItens || 0,
-    });
-
-    // Safety timeout: clear progress if SSE hangs (5 minutes)
-    const PHASE2_TIMEOUT_MS = 5 * 60 * 1000;
-    const timeoutId = setTimeout(() => {
-      if (!abortController.signal.aborted) {
-        console.warn('Phase 2 SSE timed out, clearing progress');
-        abortController.abort();
-        setAndamentosProgress(null);
-      }
-    }, PHASE2_TIMEOUT_MS);
-
-    fetchSSEStreamWithRetry(
-      getStreamAndamentosProgressUrl(processo, unidade),
-      token,
-      () => {}, // no chunks for this stream
-      (fullResult: any) => {
-        clearTimeout(timeoutId);
-        // Ignore results from aborted streams
-        if (abortController.signal.aborted) return;
-        if (fullResult?.Andamentos && Array.isArray(fullResult.Andamentos)) {
-          // Client-side doc extraction for full data
-          const fullDocs = extractDocsFromAndamentos(fullResult.Andamentos);
-          const qk = queryKeys.processData.detail(processo, unidade);
-
-          queryClient.setQueryData(qk, (old: ProcessoData | undefined) => ({
-            ...fullResult,
-            DocumentosExtraidos: {
-              primeiro: old?.DocumentosExtraidos?.primeiro || fullDocs.primeiro,
-              ultimo: fullDocs.ultimo || old?.DocumentosExtraidos?.ultimo,
-            },
-          }));
-        }
-        setAndamentosProgress(null);
-      },
-      (error) => {
-        clearTimeout(timeoutId);
-        if (abortController.signal.aborted) return;
-        console.warn('Phase 2 SSE andamentos fetch failed, partial data remains:', error);
-        setAndamentosProgress(null);
-      },
-      {
-        signal: abortController.signal,
-        onProgress: (progress) => startTransition(() => setAndamentosProgress(progress)),
-      },
-    );
-
-    return () => { abortController.abort(); clearTimeout(timeoutId); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPartialData, token, processo, unidade]);
-
-  // Reset Phase 2 ref when the query key changes (new process/unit)
-  useEffect(() => {
-    phase2StartedRef.current = false;
     resumoRetriedForDocRef.current = null;
   }, [processo, unidade]);
 
@@ -430,7 +397,7 @@ export function useProcessData({
   const situacaoAtual = situacaoQuery.data ?? (situacaoQuery.isFetching && situacaoStreamText ? situacaoStreamText : null);
 
   const backgroundLoading = {
-    andamentos: andamentosQuery.isFetching || !!andamentosProgress,
+    andamentos: countQuery.isFetching || deltaQuery.isFetching,
     resumo: resumoQuery.isFetching,
     situacao: situacaoQuery.isFetching,
   };
@@ -438,16 +405,12 @@ export function useProcessData({
 
   const loadingTasks = useMemo(() => {
     const tasks: string[] = [];
-    if (andamentosQuery.isFetching || andamentosProgress) {
-      if (andamentosProgress) {
-        tasks.push(`Buscando andamentos do processo (${andamentosProgress.loaded}/${andamentosProgress.total})`);
-      } else {
-        tasks.push("Buscando andamentos do processo");
-      }
+    if (countQuery.isFetching || deltaQuery.isFetching) {
+      tasks.push("Sincronizando andamentos com SEI");
     }
     if (resumoQuery.isFetching) tasks.push("Gerando resumo com IA");
     return tasks;
-  }, [andamentosQuery.isFetching, resumoQuery.isFetching, andamentosProgress]);
+  }, [countQuery.isFetching, deltaQuery.isFetching, resumoQuery.isFetching]);
 
   // ──────────────────────────────────────────────────────────────────────
   // Refresh (invalidates backend cache then React Query cache)
@@ -456,15 +419,7 @@ export function useProcessData({
     if (isRefreshing || hasBackgroundLoading) return;
     setIsRefreshing(true);
     try {
-      // Abort all in-flight SSE streams before invalidating queries.
-      // Phase 3 (resumo) and Phase 4 (situação) are managed by React Query's
-      // built-in AbortSignal — invalidateQueries will cancel and re-trigger them.
-      // Phase 2 uses a manual AbortController since it's outside React Query.
-      phase2AbortRef.current?.abort();
-      phase2AbortRef.current = null;
-
       await invalidateProcessCache(processo);
-      phase2StartedRef.current = false;
       resumoRetriedForDocRef.current = null;
       setResumoStreamText("");
       setSituacaoStreamText("");
@@ -488,7 +443,7 @@ export function useProcessData({
     onOnline: () => {
       setTimeout(() => {
         if (!rawProcessData) {
-          andamentosQuery.refetch();
+          d1Query.refetch();
         }
       }, 1500);
     },
@@ -505,13 +460,9 @@ export function useProcessData({
     if (isRefreshing || hasBackgroundLoading) return;
     setIsRefreshing(true);
     try {
-      phase2AbortRef.current?.abort();
-      phase2AbortRef.current = null;
-
       // Clear backend Redis cache for this processo
       await invalidateProcessCache(processo);
 
-      phase2StartedRef.current = false;
       resumoRetriedForDocRef.current = null;
       setResumoStreamText("");
       setSituacaoStreamText("");
@@ -525,7 +476,7 @@ export function useProcessData({
 
       // Re-trigger fetches
       queryClient.invalidateQueries({ queryKey: queryKeys.d1Andamentos.byProcess(processo) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.processData.detail(processo, unidade) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.andamentosCount.byProcess(processo) });
     } catch {
       toast({ title: "Erro ao atualizar", description: "Não foi possível limpar o cache.", variant: "destructive" });
     } finally {
@@ -533,10 +484,10 @@ export function useProcessData({
     }
   }, [isRefreshing, hasBackgroundLoading, processo, unidade, resumoUnidade, queryClient, toast]);
 
-  // Loading: true only when NEITHER source has data yet
-  const isLoading = d1Enabled
-    ? !d1Query.data && andamentosQuery.isLoading
-    : andamentosQuery.isLoading;
+  // Loading: true only when D-1 hasn't returned data yet
+  const isLoading = !d1Query.data && d1Query.isLoading;
+
+  const andamentosFailed = countQuery.isError || deltaQuery.isError;
 
   return {
     rawProcessData,
@@ -544,21 +495,16 @@ export function useProcessData({
     situacaoAtual,
     isLoading,
     isRefreshing,
-    lastFetchedAt: andamentosQuery.dataUpdatedAt ? new Date(andamentosQuery.dataUpdatedAt) : null,
+    lastFetchedAt: d1Query.dataUpdatedAt ? new Date(d1Query.dataUpdatedAt) : null,
     backgroundLoading,
     hasBackgroundLoading,
     loadingTasks,
     refresh,
-    isPartialData,
-    andamentosFailed: andamentosQuery.isError,
-    andamentosProgress,
+    andamentosFailed,
     resumoFailed: resumoQuery.isError,
     resumoError: resumoQuery.error?.message ?? null,
     retryResumo,
     dataCarga: d1DataCargaRef.current,
-    isD1Only,
-    debugDataSource,
-    setDebugDataSource,
     refreshNoCache,
   };
 }

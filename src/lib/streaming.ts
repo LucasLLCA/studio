@@ -166,14 +166,6 @@ export function getStreamSituacaoAtualUrl(
   return url;
 }
 
-export function getStreamAndamentosProgressUrl(
-  processNumber: string,
-  unidadeId: string,
-): string {
-  const cleaned = stripProcessNumber(processNumber);
-  return `${BASE_PATH}/api/stream/andamentos-progress/${encodeURIComponent(cleaned)}?id_unidade=${encodeURIComponent(unidadeId)}`;
-}
-
 export function getStreamDocumentSummaryUrl(
   documentoFormatado: string,
   unidadeId: string,
