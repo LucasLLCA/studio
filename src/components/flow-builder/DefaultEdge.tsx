@@ -1,9 +1,14 @@
 'use client';
 
 import React from 'react';
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps } from '@xyflow/react';
+import {
+  BaseEdge,
+  EdgeLabelRenderer,
+  getBezierPath,
+  type EdgeProps,
+} from '@xyflow/react';
 
-export default function LoopEdge({
+export default function DefaultEdge({
   id,
   sourceX,
   sourceY,
@@ -30,9 +35,8 @@ export default function LoopEdge({
         path={edgePath}
         markerEnd={markerEnd}
         style={{
-          stroke: selected ? '#6366f1' : '#a5b4fc',
-          strokeWidth: 2,
-          strokeDasharray: '6 3',
+          stroke: selected ? '#6366f1' : '#94a3b8',
+          strokeWidth: selected ? 2.5 : 2,
         }}
       />
       {selected && (

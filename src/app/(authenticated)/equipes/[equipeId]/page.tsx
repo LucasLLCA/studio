@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ArrowLeft, Loader2, Settings, Users, Trash2, Plus, LogOut, Search, X as XIcon } from 'lucide-react';
+import { ArrowLeft, Loader2, Settings, Users, Trash2, Plus, LogOut, Search, X as XIcon, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +44,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { KanbanBoard } from '@/components/kanban/KanbanBoard';
 import { ProcessoKanbanSheet } from '@/components/kanban/ProcessoKanbanSheet';
 import type { KanbanBoard as KanbanBoardType, KanbanProcesso, TeamMember, TeamTag } from '@/types/teams';
@@ -460,6 +461,20 @@ export default function EquipeKanbanPage() {
 
         {/* Filtro por grupo (coluna kanban) */}
         <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1 shrink-0">
+            <span className="text-xs text-muted-foreground">Grupos</span>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs text-xs">
+                  Clique em um grupo para filtrar os processos daquele grupo no quadro.
+                  Vários grupos podem ser selecionados ao mesmo tempo.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           {board.colunas.map(coluna => (
             <button
               key={coluna.tag_id}
@@ -485,7 +500,20 @@ export default function EquipeKanbanPage() {
         {usedTeamTags.length > 0 && (
           <>
             <div className="h-5 w-px bg-border shrink-0" />
-            <span className="text-xs text-muted-foreground shrink-0">Tags</span>
+            <div className="flex items-center gap-1 shrink-0">
+              <span className="text-xs text-muted-foreground">Tags</span>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs text-xs">
+                    Filtra processos que possuem esta tag aplicada nas observações.
+                    Apenas tags usadas em algum processo desta equipe aparecem aqui.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               {usedTeamTags.map(tag => {
                 const active = filterTeamTagIds.has(tag.id);

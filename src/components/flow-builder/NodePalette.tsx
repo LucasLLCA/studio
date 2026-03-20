@@ -40,11 +40,25 @@ function DraggableItem({ item }: { item: PaletteItem }) {
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  const onClick = () => {
+    const addNode = (window as unknown as Record<string, unknown>).__flowEditorAddNode as
+      | ((tipo: string, nome: string, key?: string) => void)
+      | undefined;
+    if (addNode) {
+      const seiKey = item.tipo === 'sei_task'
+        ? item.label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        : undefined;
+      addNode(item.tipo, item.label, seiKey);
+    }
+  };
+
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-card cursor-grab hover:bg-accent transition-colors text-sm"
+      className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-card cursor-grab hover:bg-accent transition-colors text-sm select-none"
       draggable
       onDragStart={onDragStart}
+      onClick={onClick}
+      title={`Clique ou arraste para adicionar "${item.label}"`}
     >
       {item.icon}
       <span>{item.label}</span>
@@ -55,16 +69,6 @@ function DraggableItem({ item }: { item: PaletteItem }) {
 export default function NodePalette() {
   return (
     <div className="w-56 border-r border-border bg-card overflow-y-auto p-3 space-y-4 flex-shrink-0">
-      <div>
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-          Tarefas SEI
-        </h3>
-        <div className="space-y-1">
-          {SEI_TASKS.map((item, i) => (
-            <DraggableItem key={`sei-${i}`} item={item} />
-          ))}
-        </div>
-      </div>
       <div>
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
           Controle de Fluxo
