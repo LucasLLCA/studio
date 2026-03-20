@@ -9,6 +9,7 @@ import { useNetworkStatus } from '@/hooks/use-network-status';
 import { useToast } from '@/hooks/use-toast';
 import { queryKeys } from '@/lib/react-query/keys';
 import { stripProcessNumber } from '@/lib/utils';
+import { isD1Available, fetchD1Andamentos, transformD1ToProcessoData, mergeD1WithSEI, type D1Response } from '@/lib/api/d1-api';
 
 const SSE_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
@@ -90,23 +91,26 @@ interface UseProcessDataOptions {
   numeroProcesso: string;
   sessionToken: string | null;
   selectedUnidadeFiltro: string | undefined;
+  resumoUnidadeOverride?: string;
   isAuthenticated: boolean;
   unitAccessDenied: boolean;
   onSessionExpired: () => void;
-  refetchOpenUnits: () => void;
 }
 
 export function useProcessData({
   numeroProcesso,
   sessionToken,
   selectedUnidadeFiltro,
+  resumoUnidadeOverride,
   isAuthenticated,
   unitAccessDenied,
   onSessionExpired,
-  refetchOpenUnits,
 }: UseProcessDataOptions) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Debug: data source override ('merged' = d1+sei, 'sei-only' = sei only)
+  const [debugDataSource, setDebugDataSource] = useState<'merged' | 'sei-only'>('merged');
 
   // Streaming state (progressive display, not cached)
   const [resumoStreamText, setResumoStreamText] = useState<string>("");
@@ -117,11 +121,18 @@ export function useProcessData({
   // Track Phase 2 SSE to prevent re-triggering
   const phase2StartedRef = useRef(false);
 
+  // Track which primeiroDocFormatado value we already retried resumo with
+  const resumoRetriedForDocRef = useRef<string | null>(null);
+
   // AbortControllers for all SSE streams — enables clean cancellation on refresh/unmount
   const phase2AbortRef = useRef<AbortController | null>(null);
 
+  // D-1 data_carga timestamp
+  const d1DataCargaRef = useRef<string | null>(null);
+
   const processo = numeroProcesso;
   const unidade = selectedUnidadeFiltro || '';
+  const resumoUnidade = resumoUnidadeOverride || unidade;
   const token = sessionToken || '';
 
   // ──────────────────────────────────────────────────────────────────────
@@ -164,12 +175,54 @@ export function useProcessData({
     networkMode: 'online',
   });
 
-  const rawProcessData = andamentosQuery.data ?? null;
-  const isPartialData = rawProcessData?.Info?.Parcial === true;
+  // ──────────────────────────────────────────────────────────────────────
+  // Phase 0: D-1 fast load (no auth needed, instant)
+  // ──────────────────────────────────────────────────────────────────────
+  const d1Enabled = isD1Available();
+
+  const d1Query = useQuery<ProcessoData | null>({
+    queryKey: queryKeys.d1Andamentos.byProcess(processo),
+
+    queryFn: async () => {
+      const d1Response = await fetchD1Andamentos(processo);
+      if (!d1Response) return null;
+      d1DataCargaRef.current = d1Response.data_carga ?? null;
+      return transformD1ToProcessoData(d1Response);
+    },
+
+    enabled: d1Enabled && !!processo,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000,
+    retry: false, // fail fast
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // Merge D-1 + SEI data (respects debug override)
+  const rawProcessData = useMemo(() => {
+    const seiData = andamentosQuery.data ?? null;
+    const d1Data = d1Query.data ?? null;
+
+    // Debug: force SEI-only mode
+    if (debugDataSource === 'sei-only') {
+      return seiData;
+    }
+
+    if (seiData && d1Data) {
+      return mergeD1WithSEI(d1Data, seiData.Andamentos, seiData.Info.TotalItens);
+    }
+    if (seiData) return seiData;
+    if (d1Data) return d1Data; // D-1 only while SEI loads
+    return null;
+  }, [andamentosQuery.data, d1Query.data, debugDataSource]);
+
+  const isD1Only = debugDataSource === 'merged' && !!d1Query.data && !andamentosQuery.data;
+
+  const isPartialData = (andamentosQuery.data ?? null)?.Info?.Parcial === true;
 
   // Extract document IDs from response
-  const primeiroDocFormatado = rawProcessData?.DocumentosExtraidos?.primeiro ?? null;
-  const ultimoDocFormatado = rawProcessData?.DocumentosExtraidos?.ultimo ?? null;
+  const primeiroDocFormatado = (andamentosQuery.data ?? null)?.DocumentosExtraidos?.primeiro ?? null;
+  const ultimoDocFormatado = (andamentosQuery.data ?? null)?.DocumentosExtraidos?.ultimo ?? null;
 
   // ──────────────────────────────────────────────────────────────────────
   // Error handling for andamentos
@@ -273,13 +326,14 @@ export function useProcessData({
   // Reset Phase 2 ref when the query key changes (new process/unit)
   useEffect(() => {
     phase2StartedRef.current = false;
+    resumoRetriedForDocRef.current = null;
   }, [processo, unidade]);
 
   // ──────────────────────────────────────────────────────────────────────
   // Query 2: Resumo (SSE-based, wrapped in React Query)
   // ──────────────────────────────────────────────────────────────────────
   const resumoQuery = useQuery<string, Error>({
-    queryKey: queryKeys.processSummary.detail(processo, unidade),
+    queryKey: queryKeys.processSummary.detail(processo, resumoUnidade),
 
     queryFn: ({ signal }) => withTimeout(new Promise<string>((resolve, reject) => {
       setResumoStreamText("");
@@ -292,7 +346,7 @@ export function useProcessData({
       }
 
       fetchSSEStreamWithRetry(
-        getStreamProcessSummaryUrl(processo, unidade, primeiroDocFormatado || undefined),
+        getStreamProcessSummaryUrl(processo, resumoUnidade, primeiroDocFormatado || undefined),
         token,
         (chunk) => startTransition(() => setResumoStreamText(prev => prev + chunk)),
         (fullResult) => {
@@ -306,7 +360,7 @@ export function useProcessData({
       );
     }), SSE_TIMEOUT_MS, 'resumo'),
 
-    enabled: !!rawProcessData && !unitAccessDenied && !!token && !!unidade,
+    enabled: !!rawProcessData && !unitAccessDenied && !!token && !!resumoUnidade,
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     retry: false, // SSE has its own retry logic
@@ -315,9 +369,14 @@ export function useProcessData({
     networkMode: 'online',
   });
 
-  // Retry resumo when primeiroDocFormatado becomes available after initial failure
+  // Retry resumo once when primeiroDocFormatado first becomes available after a failure
   useEffect(() => {
-    if (primeiroDocFormatado && resumoQuery.isError) {
+    if (
+      primeiroDocFormatado &&
+      resumoQuery.isError &&
+      resumoRetriedForDocRef.current !== primeiroDocFormatado
+    ) {
+      resumoRetriedForDocRef.current = primeiroDocFormatado;
       resumoQuery.refetch();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -327,7 +386,7 @@ export function useProcessData({
   // Query 3: Situação Atual (SSE-based, waits for resumo)
   // ──────────────────────────────────────────────────────────────────────
   const situacaoQuery = useQuery<string, Error>({
-    queryKey: queryKeys.situacaoAtual.detail(processo, unidade),
+    queryKey: queryKeys.situacaoAtual.detail(processo, resumoUnidade),
 
     queryFn: ({ signal }) => withTimeout(new Promise<string>((resolve, reject) => {
       setSituacaoStreamText("");
@@ -339,7 +398,7 @@ export function useProcessData({
       }
 
       fetchSSEStreamWithRetry(
-        getStreamSituacaoAtualUrl(processo, unidade, ultimoDocFormatado || undefined),
+        getStreamSituacaoAtualUrl(processo, resumoUnidade, ultimoDocFormatado || undefined),
         token,
         (chunk) => startTransition(() => setSituacaoStreamText(prev => prev + chunk)),
         (fullResult) => {
@@ -353,7 +412,7 @@ export function useProcessData({
       );
     }), SSE_TIMEOUT_MS, 'situação atual'),
 
-    enabled: resumoQuery.isSuccess && !unitAccessDenied && !!token && !!unidade,
+    enabled: resumoQuery.isSuccess && !unitAccessDenied && !!token && !!resumoUnidade,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     retry: false,
@@ -406,20 +465,21 @@ export function useProcessData({
 
       await invalidateProcessCache(processo);
       phase2StartedRef.current = false;
+      resumoRetriedForDocRef.current = null;
       setResumoStreamText("");
       setSituacaoStreamText("");
 
-      refetchOpenUnits();
+      queryClient.invalidateQueries({ queryKey: queryKeys.d1Andamentos.byProcess(processo) });
       queryClient.invalidateQueries({ queryKey: queryKeys.andamentosCount.byProcess(processo) });
       queryClient.invalidateQueries({ queryKey: queryKeys.processData.detail(processo, unidade) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.processSummary.detail(processo, unidade) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.situacaoAtual.detail(processo, unidade) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.processSummary.detail(processo, resumoUnidade) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.situacaoAtual.detail(processo, resumoUnidade) });
     } catch {
       toast({ title: "Erro ao atualizar", description: "Não foi possível invalidar o cache.", variant: "destructive" });
     } finally {
       setIsRefreshing(false);
     }
-  }, [isRefreshing, hasBackgroundLoading, processo, unidade, refetchOpenUnits, queryClient, toast]);
+  }, [isRefreshing, hasBackgroundLoading, processo, unidade, resumoUnidade, queryClient, toast]);
 
   // ──────────────────────────────────────────────────────────────────────
   // Network recovery
@@ -434,11 +494,55 @@ export function useProcessData({
     },
   });
 
+  const retryResumo = useCallback(() => {
+    resumoRetriedForDocRef.current = null;
+    queryClient.invalidateQueries({ queryKey: queryKeys.processSummary.detail(processo, resumoUnidade) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.situacaoAtual.detail(processo, resumoUnidade) });
+  }, [processo, resumoUnidade, queryClient]);
+
+  // Refresh without cache — clears backend cache first, then does a full refresh
+  const refreshNoCache = useCallback(async () => {
+    if (isRefreshing || hasBackgroundLoading) return;
+    setIsRefreshing(true);
+    try {
+      phase2AbortRef.current?.abort();
+      phase2AbortRef.current = null;
+
+      // Clear backend Redis cache for this processo
+      await invalidateProcessCache(processo);
+
+      phase2StartedRef.current = false;
+      resumoRetriedForDocRef.current = null;
+      setResumoStreamText("");
+      setSituacaoStreamText("");
+
+      // Remove React Query cached data so queries refetch from scratch
+      queryClient.removeQueries({ queryKey: queryKeys.d1Andamentos.byProcess(processo) });
+      queryClient.removeQueries({ queryKey: queryKeys.andamentosCount.byProcess(processo) });
+      queryClient.removeQueries({ queryKey: queryKeys.processData.detail(processo, unidade) });
+      queryClient.removeQueries({ queryKey: queryKeys.processSummary.detail(processo, resumoUnidade) });
+      queryClient.removeQueries({ queryKey: queryKeys.situacaoAtual.detail(processo, resumoUnidade) });
+
+      // Re-trigger fetches
+      queryClient.invalidateQueries({ queryKey: queryKeys.d1Andamentos.byProcess(processo) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.processData.detail(processo, unidade) });
+    } catch {
+      toast({ title: "Erro ao atualizar", description: "Não foi possível limpar o cache.", variant: "destructive" });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing, hasBackgroundLoading, processo, unidade, resumoUnidade, queryClient, toast]);
+
+  // Loading: true only when NEITHER source has data yet
+  const isLoading = d1Enabled
+    ? !d1Query.data && andamentosQuery.isLoading
+    : andamentosQuery.isLoading;
+
   return {
     rawProcessData,
     processSummary,
     situacaoAtual,
-    isLoading: andamentosQuery.isLoading,
+    isLoading,
     isRefreshing,
     lastFetchedAt: andamentosQuery.dataUpdatedAt ? new Date(andamentosQuery.dataUpdatedAt) : null,
     backgroundLoading,
@@ -448,5 +552,13 @@ export function useProcessData({
     isPartialData,
     andamentosFailed: andamentosQuery.isError,
     andamentosProgress,
+    resumoFailed: resumoQuery.isError,
+    resumoError: resumoQuery.error?.message ?? null,
+    retryResumo,
+    dataCarga: d1DataCargaRef.current,
+    isD1Only,
+    debugDataSource,
+    setDebugDataSource,
+    refreshNoCache,
   };
 }

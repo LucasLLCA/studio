@@ -79,6 +79,12 @@ export const queryKeys = {
     byUser: (usuario: string) => ['searchHistory', usuario] as const,
   },
 
+  // D-1 andamentos (pre-loaded, no auth needed)
+  d1Andamentos: {
+    all: ['d1Andamentos'] as const,
+    byProcess: (processo: string) => ['d1Andamentos', stripProcessNumber(processo)] as const,
+  },
+
   // Contagem de andamentos (lightweight metadata)
   andamentosCount: {
     all: ['andamentosCount'] as const,

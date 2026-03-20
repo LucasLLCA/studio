@@ -9,7 +9,6 @@ import { findOpenTaskForUnit } from '@/lib/process-flow-utils';
 
 interface OpenUnitsCardProps {
   openUnitsInProcess: UnidadeAberta[] | null;
-  isLoadingOpenUnits: boolean;
   unitAccessDenied: boolean;
   processedFlowData: ProcessedFlowData | null;
   onTaskCardClick: (task: ProcessedAndamento) => void;
@@ -18,7 +17,6 @@ interface OpenUnitsCardProps {
 
 export function OpenUnitsCard({
   openUnitsInProcess,
-  isLoadingOpenUnits,
   unitAccessDenied,
   processedFlowData,
   onTaskCardClick,
@@ -40,11 +38,6 @@ export function OpenUnitsCard({
           <div className="flex items-center gap-2 text-sm text-warning-foreground">
             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
             <span>Não foi possível consultar unidades em aberto</span>
-          </div>
-        ) : isLoadingOpenUnits ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Verificando unidades abertas...</span>
           </div>
         ) : openUnitsInProcess && openUnitsInProcess.length > 0 ? (
           <SortedOpenUnits
