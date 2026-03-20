@@ -5,11 +5,11 @@ import { getApiBaseUrl } from '@/lib/api/fetch-utils';
 import type { UnidadeFiltro } from '@/types/process-flow';
 
 async function fetchUnidadesSei(busca: string): Promise<UnidadeFiltro[]> {
-  const url = `${getApiBaseUrl()}/unidades?busca=${encodeURIComponent(busca)}`;
+  const url = `${getApiBaseUrl()}/unidades-sei?search=${encodeURIComponent(busca)}&page_size=50`;
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Erro ao buscar unidades: ${res.status}`);
   const json = await res.json();
-  return (json.data || []).map((u: { id_unidade: string; sigla: string; descricao: string }) => ({
+  return (json.items || []).map((u: { id_unidade: string; sigla: string; descricao: string }) => ({
     Id: String(u.id_unidade),
     Sigla: u.sigla,
     Descricao: u.descricao || '',
