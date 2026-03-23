@@ -1,10 +1,25 @@
 "use client";
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { ProcessoData, UnidadeAberta } from '@/types/process-flow';
 import { LinkedText } from '@/lib/linked-text';
 import type { ProcessCreationInfo } from '@/hooks/use-process-creation-info';
-import { Loader2, BookText, Info, CalendarDays, UserCircle, Building, CalendarClock, CheckCircle, Clock, ExternalLink, AlertTriangle, X, Share2, Copy } from 'lucide-react';
+import {
+  Loader2,
+  BookText,
+  Info,
+  CalendarDays,
+  UserCircle,
+  Building,
+  CalendarClock,
+  CheckCircle,
+  Clock,
+  ExternalLink,
+  AlertTriangle,
+  X,
+  Share2,
+  Copy,
+} from 'lucide-react';
 import { AlertBox } from '@/components/ui/alert-box';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -58,7 +73,8 @@ export function ProcessDetailsSheet({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>('entendimento');
 
-  const activeTabContent = activeTab === 'entendimento' ? processSummary : situacaoAtual;
+  const activeTabContent =
+    activeTab === 'entendimento' ? processSummary : situacaoAtual;
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange} modal={false}>
@@ -69,35 +85,35 @@ export function ProcessDetailsSheet({
         className="w-full sm:w-[720px] sm:max-w-[720px] flex flex-col overflow-hidden"
       >
         {/* Header */}
-        <SheetHeader className="flex-shrink-0">
-  <div className="flex items-start justify-between gap-3">
-    <div className="min-w-0 flex-1 text-left">
-      <p className="text-sm text-muted-foreground">
-        Processo
-      </p>
+        <SheetHeader className="flex-shrink-0 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 text-left">
+              <p className="text-sm text-muted-foreground">
+                Processo
+              </p>
 
-      <SheetTitle className="text-lg md:text-xl font-semibold text-primary break-words">
-        {formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso)}
-      </SheetTitle>
-    </div>
+              <SheetTitle className="text-lg md:text-xl font-semibold text-primary break-words">
+                {formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso)}
+              </SheetTitle>
+            </div>
 
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => onOpenChange(false)}
-      className="h-8 w-8 p-0 flex-shrink-0"
-      aria-label="Fechar detalhes"
-    >
-      <X className="h-4 w-4" />
-    </Button>
-  </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="h-8 w-8 p-0 flex-shrink-0"
+              aria-label="Fechar detalhes"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
 
-  <SheetDescription className="sr-only">
-    Detalhes do processo
-  </SheetDescription>
+          <SheetDescription className="sr-only">
+            Detalhes do processo
+          </SheetDescription>
 
-  <Separator />
-</SheetHeader>
+          <Separator />
+        </SheetHeader>
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto mt-4 space-y-6 pr-1">
@@ -115,7 +131,6 @@ export function ProcessDetailsSheet({
 
             {processCreationInfo && (
               <div className="space-y-3 text-sm">
-
                 {/* Unidade */}
                 <div className="flex items-center">
                   <Building className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -126,26 +141,49 @@ export function ProcessDetailsSheet({
                 </div>
 
                 {/* Usuário */}
-                <div className="flex items-start">
-                  <UserCircle className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" 
-                  
-                  />
-                  
-                  <div className="flex flex-col">
-                    {/* Nome */}
-                    <span
-                    className="text-sm font-medium text-foreground line-clamp-2"
-                    title={processCreationInfo.creatorUser}
-                  >
-                    {processCreationInfo.creatorUser}
-                  </span>
+              <div className="flex items-start">
+                <UserCircle className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
 
-                    {/* Matrícula / Sigla (igual email) */}
-                    <span className="text-xs text-muted-foreground">
-                      {processCreationInfo.creatorSigla}
-                    </span>
-                  </div>
-                </div>
+                {(() => {
+                  const rawUser = processCreationInfo?.creatorUser ?? "";
+
+                  const match = rawUser.match(/^(.*?)(?:\s*-\s*Matr\.?\s*(.*))?$/i);
+                  const nome = match?.[1]?.trim() ?? rawUser;
+                  const matricula = match?.[2]?.trim() ?? "";
+
+                  const possibleEmail =
+                    processCreationInfo?.email ||
+                    (processCreationInfo?.creatorSigla?.includes("@")
+                      ? processCreationInfo.creatorSigla
+                      : "");
+
+                  return (
+                    <div className="flex flex-col min-w-0">
+                      {/* Nome */}
+                      <span
+                        className="text-sm font-medium text-foreground leading-5 line-clamp-2"
+                        title={nome}
+                      >
+                        {nome}
+                      </span>
+
+                      {/* Matrícula */}
+                      {matricula && (
+                        <span className="text-[11px] text-muted-foreground">
+                          Matr. {matricula}
+                        </span>
+                      )}
+
+                      {/* Email */}
+                      {possibleEmail && (
+                        <span className="text-xs text-muted-foreground break-all">
+                          {possibleEmail}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
 
                 {/* Data */}
                 <div className="flex items-center">
@@ -201,7 +239,7 @@ export function ProcessDetailsSheet({
                 {userOrgao && isExternalProcess && rawProcessData?.Andamentos && (() => {
                   const userOrgaoNormalized = userOrgao.toUpperCase();
 
-                  const andamentosInUserOrgao = rawProcessData.Andamentos.filter(a => {
+                  const andamentosInUserOrgao = rawProcessData.Andamentos.filter((a) => {
                     const andamentoOrgao = extractOrgaoFromSigla(a.Unidade.Sigla).toUpperCase();
                     return andamentoOrgao === userOrgaoNormalized;
                   });
@@ -235,7 +273,6 @@ export function ProcessDetailsSheet({
                     </span>
                   </div>
                 )}
-
               </div>
             )}
           </div>
@@ -246,6 +283,7 @@ export function ProcessDetailsSheet({
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <BookText className="h-5 w-5" /> Resumo (IA)
               </h3>
+
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
@@ -254,15 +292,21 @@ export function ProcessDetailsSheet({
                   disabled={!activeTabContent}
                   onClick={() => {
                     if (activeTabContent) {
-                      const processNum = formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso);
+                      const processNum = formatProcessNumber(
+                        rawProcessData?.Info?.NumeroProcesso || numeroProcesso
+                      );
                       const message = `*Processo ${processNum}*\n\n${activeTabContent}`;
-                      window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
+                      window.open(
+                        `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`,
+                        '_blank'
+                      );
                     }
                   }}
                 >
                   <Share2 className="mr-1 h-3 w-3" />
                   WhatsApp
                 </Button>
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -271,7 +315,10 @@ export function ProcessDetailsSheet({
                   onClick={() => {
                     if (activeTabContent) {
                       navigator.clipboard.writeText(activeTabContent);
-                      toast({ title: "Copiado", description: "Texto copiado para a área de transferência." });
+                      toast({
+                        title: "Copiado",
+                        description: "Texto copiado para a área de transferência.",
+                      });
                     }
                   }}
                 >
@@ -280,10 +327,15 @@ export function ProcessDetailsSheet({
                 </Button>
               </div>
             </div>
+
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="w-full">
-                <TabsTrigger value="entendimento" className="flex-1">Entendimento</TabsTrigger>
-                <TabsTrigger value="situacao" className="flex-1">Situação Atual</TabsTrigger>
+                <TabsTrigger value="entendimento" className="flex-1">
+                  Entendimento
+                </TabsTrigger>
+                <TabsTrigger value="situacao" className="flex-1">
+                  Situação Atual
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="entendimento">
@@ -302,6 +354,7 @@ export function ProcessDetailsSheet({
                         onNavigate={onNodeNavigate}
                       />
                     </pre>
+
                     {backgroundLoading.resumo && (
                       <span className="inline-block w-2 h-5 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
                     )}
@@ -335,6 +388,7 @@ export function ProcessDetailsSheet({
                         onNavigate={onNodeNavigate}
                       />
                     </pre>
+
                     {backgroundLoading.situacao && (
                       <span className="inline-block w-2 h-5 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
                     )}

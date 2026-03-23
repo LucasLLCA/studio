@@ -207,7 +207,7 @@ function mapSEIResponseToClient(data: SEILoginApiResponse): ClientLoginResponse 
   }));
 
   // Extract email/orgao injected by auto-login/embed-login endpoints
-  const extended = data as Record<string, unknown>;
+  const extended = data as unknown as Record<string, unknown>;
 
   return {
     success: true,
