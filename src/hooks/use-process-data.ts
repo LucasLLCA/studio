@@ -128,7 +128,7 @@ export function useProcessData({
   // ──────────────────────────────────────────────────────────────────────
   // Phase 0: D-1 fast load (primary data source, no auth needed)
   // ──────────────────────────────────────────────────────────────────────
-  const d1Query = useQuery<ProcessoData | null>({
+  const d1Query = useQuery<ProcessoData | null, Error>({
     queryKey: queryKeys.d1Andamentos.byProcess(processo),
 
     queryFn: async () => {
@@ -141,7 +141,8 @@ export function useProcessData({
     enabled: !!processo,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000,
-    retry: false, // fail fast
+    retry: 1,
+    retryDelay: 2000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
@@ -191,7 +192,9 @@ export function useProcessData({
   // ──────────────────────────────────────────────────────────────────────
   const d1Total = d1Query.data?.Info?.TotalItens ?? 0;
   const seiTotal = countQuery.data?.total_itens ?? 0;
-  const delta = seiTotal > d1Total ? seiTotal - d1Total : 0;
+  // When D-1 has data, fetch only the delta; when D-1 returned null (not found), fetch all from SEI
+  const d1NotFound = d1Query.isSuccess && !d1Query.data;
+  const delta = d1NotFound ? seiTotal : (seiTotal > d1Total ? seiTotal - d1Total : 0);
 
   const deltaQuery = useQuery<ProcessoData | null, ProcessDataError>({
     queryKey: queryKeys.processData.detail(processo, unidade),
@@ -216,7 +219,7 @@ export function useProcessData({
       return data;
     },
 
-    enabled: isAuthenticated && !!token && !!unidade && !!processo && countQuery.isSuccess && !!d1Query.data,
+    enabled: isAuthenticated && !!token && !!unidade && !!processo && countQuery.isSuccess && d1Query.isSuccess,
     staleTime: 2 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     retry: (failureCount, error) => {
@@ -247,6 +250,10 @@ export function useProcessData({
         };
       }
       return d1Data;
+    }
+    // D-1 not found (process < 24h old) — use SEI data directly
+    if (deltaData) {
+      return deltaData;
     }
     return null;
   }, [d1Query.data, deltaQuery.data, seiTotal]);
@@ -397,7 +404,7 @@ export function useProcessData({
   const situacaoAtual = situacaoQuery.data ?? (situacaoQuery.isFetching && situacaoStreamText ? situacaoStreamText : null);
 
   const backgroundLoading = {
-    andamentos: countQuery.isFetching || deltaQuery.isFetching,
+    andamentos: d1Query.isLoading || countQuery.isFetching || deltaQuery.isFetching,
     resumo: resumoQuery.isFetching,
     situacao: situacaoQuery.isFetching,
   };
@@ -405,12 +412,13 @@ export function useProcessData({
 
   const loadingTasks = useMemo(() => {
     const tasks: string[] = [];
+    if (d1Query.isLoading) tasks.push("Carregando dados pré-armazenados");
     if (countQuery.isFetching || deltaQuery.isFetching) {
       tasks.push("Sincronizando andamentos com SEI");
     }
     if (resumoQuery.isFetching) tasks.push("Gerando resumo com IA");
     return tasks;
-  }, [countQuery.isFetching, deltaQuery.isFetching, resumoQuery.isFetching]);
+  }, [d1Query.isLoading, countQuery.isFetching, deltaQuery.isFetching, resumoQuery.isFetching]);
 
   // ──────────────────────────────────────────────────────────────────────
   // Refresh (invalidates backend cache then React Query cache)
@@ -484,10 +492,11 @@ export function useProcessData({
     }
   }, [isRefreshing, hasBackgroundLoading, processo, unidade, resumoUnidade, queryClient, toast]);
 
-  // Loading: true only when D-1 hasn't returned data yet
-  const isLoading = !d1Query.data && d1Query.isLoading;
+  // Loading: true when we have no data yet and something is still fetching
+  const isLoading = !rawProcessData && (d1Query.isLoading || countQuery.isFetching || deltaQuery.isFetching);
 
-  const andamentosFailed = countQuery.isError || deltaQuery.isError;
+  const d1Failed = d1Query.isError;
+  const andamentosFailed = d1Failed || countQuery.isError || deltaQuery.isError;
 
   return {
     rawProcessData,
@@ -501,6 +510,8 @@ export function useProcessData({
     loadingTasks,
     refresh,
     andamentosFailed,
+    d1Failed,
+    d1Error: d1Query.error?.message ?? null,
     resumoFailed: resumoQuery.isError,
     resumoError: resumoQuery.error?.message ?? null,
     retryResumo,

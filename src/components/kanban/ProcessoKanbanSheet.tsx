@@ -20,6 +20,7 @@ import {
   Reply,
   AtSign,
   Eye,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +46,8 @@ import {
   getTags,
   getProcessoTags,
   createTag,
+  updateTag,
+  deleteTag,
   tagProcesso,
   untagProcessoPorNumero,
   salvarProcessoNoKanban,
@@ -71,11 +74,8 @@ import {
 
 
 
-const TAG_COLORS = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e',
-  '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899',
-  '#6b7280', '#1e293b',
-];
+import { TAG_COLORS } from '@/lib/constants';
+import { EditableTagBadge } from '@/components/ui/editable-tag-badge';
 
 interface ProcessoKanbanSheetProps {
   isOpen: boolean;
@@ -131,6 +131,9 @@ export function ProcessoKanbanSheet({
   const [isCreatingTag, setIsCreatingTag] = useState(false);
   const [isLoadingTeamTags, setIsLoadingTeamTags] = useState(false);
   const [newTagColor, setNewTagColor] = useState<string>('');
+  const [editingTag, setEditingTag] = useState<TeamTag | null>(null);
+  const [editTagName, setEditTagName] = useState('');
+  const [editTagColor, setEditTagColor] = useState('');
 
   // Kanban columns state (groups from tags table — for the "Adicionar a outros grupos" feature)
   const [kanbanColunas, setKanbanColunas] = useState<any[]>([]);
@@ -378,6 +381,37 @@ export function ProcessoKanbanSheet({
     } finally {
       setIsCreatingTag(false);
     }
+  };
+
+  const handleEditTag = async () => {
+    if (!usuario || !editingTag) return;
+    const updates: { nome?: string; cor?: string } = {};
+    if (editTagName.trim() && editTagName !== editingTag.nome) updates.nome = editTagName.trim();
+    if (editTagColor !== (editingTag.cor ?? '')) updates.cor = editTagColor;
+    if (Object.keys(updates).length === 0) { setEditingTag(null); return; }
+
+    const result = await updateTag(editingTag.id, usuario, updates);
+    if ('error' in result) {
+      toast({ title: "Erro ao editar tag", description: result.error, variant: "destructive" });
+      return;
+    }
+    setTeamTagsList(prev => prev.map(t => t.id === editingTag.id ? { ...t, ...updates } : t));
+    setProcessoTags(prev => prev.map(t => t.id === editingTag.id ? { ...t, ...updates } : t));
+    setEditingTag(null);
+    onTagsChanged();
+  };
+
+  const handleDeleteTag = async (tag: TeamTag) => {
+    if (!usuario) return;
+    const result = await deleteTag(tag.id, usuario);
+    if ('error' in result) {
+      toast({ title: "Erro ao excluir tag", description: result.error, variant: "destructive" });
+      return;
+    }
+    setTeamTagsList(prev => prev.filter(t => t.id !== tag.id));
+    setProcessoTags(prev => prev.filter(t => t.id !== tag.id));
+    onTagsChanged();
+    toast({ title: "Tag excluída" });
   };
 
   // @mention helpers
@@ -743,20 +777,27 @@ export function ProcessoKanbanSheet({
         <div className="flex-shrink-0 flex flex-wrap items-center gap-1.5 py-3 border-b">
           <Tag className="h-3.5 w-3.5 text-muted-foreground" />
           {processoTags.map((tag) => (
-            <Badge
+            <EditableTagBadge
               key={tag.id}
-              variant="secondary"
-              className="text-xs flex items-center gap-1 pr-1"
-              style={tag.cor ? { backgroundColor: tag.cor, color: '#fff' } : undefined}
-            >
-              {tag.nome}
-              <button
-                className="ml-0.5 hover:opacity-70"
-                onClick={() => handleRemoveTag(tag)}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
+              tag={tag}
+              usuario={usuario || ''}
+              size="sm"
+              onUpdated={(updated) => {
+                setProcessoTags(prev => prev.map(t => t.id === updated.id ? updated : t));
+                setTeamTagsList(prev => prev.map(t => t.id === updated.id ? updated : t));
+                onTagsChanged();
+              }}
+              onDeleted={(id) => {
+                setProcessoTags(prev => prev.filter(t => t.id !== id));
+                setTeamTagsList(prev => prev.filter(t => t.id !== id));
+                onTagsChanged();
+              }}
+              suffix={
+                <button className="ml-0.5 hover:opacity-70" onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag); }}>
+                  <X className="h-3 w-3" />
+                </button>
+              }
+            />
           ))}
           <Popover
             open={isTagPopoverOpen}
@@ -795,18 +836,33 @@ export function ProcessoKanbanSheet({
               ) : (
                 <div className="max-h-[180px] overflow-y-auto space-y-0.5">
                   {availableTags.map((tag) => (
-                    <button
-                      key={tag.id}
-                      className="w-full text-left px-2 py-1 rounded text-sm hover:bg-accent flex items-center gap-2"
-                      onClick={() => handleAddTag(tag)}
-                    >
-                      {tag.cor ? (
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.cor }} />
-                      ) : (
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted border" />
-                      )}
-                      {tag.nome}
-                    </button>
+                    <div key={tag.id} className="group flex items-center gap-1 rounded hover:bg-accent">
+                      <button
+                        className="flex-1 text-left px-2 py-1 text-sm flex items-center gap-2"
+                        onClick={() => handleAddTag(tag)}
+                      >
+                        {tag.cor ? (
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.cor }} />
+                        ) : (
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted border" />
+                        )}
+                        {tag.nome}
+                      </button>
+                      <button
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:text-primary transition-opacity"
+                        title="Editar tag"
+                        onClick={(e) => { e.stopPropagation(); setEditingTag(tag); setEditTagName(tag.nome); setEditTagColor(tag.cor ?? ''); }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-opacity"
+                        title="Excluir tag"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteTag(tag); }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
                   ))}
                   {tagFilter.trim() && availableTags.length === 0 && (() => {
                     const existingTag = teamTagsList.find(
@@ -897,6 +953,56 @@ export function ProcessoKanbanSheet({
               )}
             </PopoverContent>
           </Popover>
+
+          {/* Edit tag dialog */}
+          <Dialog open={!!editingTag} onOpenChange={(open) => { if (!open) setEditingTag(null); }}>
+            <DialogContent className="sm:max-w-xs">
+              <DialogHeader>
+                <DialogTitle className="text-base">Editar tag</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Input
+                  value={editTagName}
+                  onChange={(e) => setEditTagName(e.target.value)}
+                  placeholder="Nome da tag"
+                  className="h-8 text-sm"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleEditTag(); }}
+                />
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">Cor:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {TAG_COLORS.map(cor => (
+                      <button
+                        key={cor}
+                        type="button"
+                        className={cn(
+                          'w-5 h-5 rounded-full border-2 transition-transform hover:scale-110',
+                          editTagColor === cor ? 'border-foreground scale-110' : 'border-transparent'
+                        )}
+                        style={{ backgroundColor: cor }}
+                        onClick={() => setEditTagColor(prev => prev === cor ? '' : cor)}
+                      />
+                    ))}
+                    <button
+                      type="button"
+                      title="Sem cor"
+                      className={cn(
+                        'w-5 h-5 rounded-full border-2 bg-muted flex items-center justify-center transition-transform hover:scale-110',
+                        !editTagColor ? 'border-foreground scale-110' : 'border-transparent'
+                      )}
+                      onClick={() => setEditTagColor('')}
+                    >
+                      <X className="h-2.5 w-2.5 text-muted-foreground" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild><Button variant="outline" size="sm">Cancelar</Button></DialogClose>
+                <Button size="sm" onClick={handleEditTag}>Salvar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <Separator className="my-3" />

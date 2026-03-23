@@ -5,14 +5,21 @@ import {
   LogOut,
   Newspaper,
   HelpCircle,
-  Search,
+  Home,
   Users,
   Sparkles,
   CheckCircle2,
   FileText,
   Shield,
+  BarChart3,
   GitBranch,
   Menu,
+  Settings,
+  ChevronDown,
+  User,
+  FlaskConical,
+  Compass,
+  X,
 } from "lucide-react";
 import { AlertBox } from "@/components/ui/alert-box";
 import { Button } from "@/components/ui/button";
@@ -20,7 +27,7 @@ import { usePersistedAuth } from "@/hooks/use-persisted-auth";
 import { useRouter, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useLastViewedProcess } from "@/contexts/last-viewed-process-context";
-import { formatProcessNumber } from "@/lib/utils";
+import { formatProcessNumber, cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -30,31 +37,40 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import ApiHealthCheck from "@/components/ApiHealthCheck";
 import { hasAuthTokenCookie, clearAuthTokenCookie } from "@/app/sei-actions";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 export default function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
   const { isAuthenticated, papelGlobal, logout: persistLogout } = usePersistedAuth();
-  const { lastViewedProcess, clearLastViewedProcess } = useLastViewedProcess();
+  const { lastViewedProcess, clearLastViewedProcess, recentProcesses, removeRecentProcess } = useLastViewedProcess();
 
   const isOnHome = pathname === "/home";
-  const isOnProcesso = pathname.includes("/visualizar");
   const isOnEquipes = pathname.startsWith("/equipes");
   const isOnAdmin = pathname.startsWith("/admin");
   const isOnFluxos = pathname.startsWith("/fluxos");
 
+  // Extract current processo number from URL if on a visualizar page
+  const processoMatch = pathname.match(/\/processo\/([^/]+)\/visualizar/);
+  const currentProcesso = processoMatch ? decodeURIComponent(processoMatch[1]) : null;
+
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isApiStatusModalOpen, setIsApiStatusModalOpen] = useState(false);
 
   const [mounted, setMounted] = useState(false);
   const [isEmbedMode, setIsEmbedMode] = useState(false);
@@ -73,13 +89,6 @@ export default function AppHeader() {
     setIsMobileMenuOpen(false);
   };
 
-  const goToLastProcess = () => {
-    if (lastViewedProcess) {
-      router.push(`/processo/${encodeURIComponent(lastViewedProcess)}/visualizar`);
-      setIsMobileMenuOpen(false);
-    }
-  };
-
   const goToHome = () => {
     router.push("/home");
     setIsMobileMenuOpen(false);
@@ -90,16 +99,24 @@ export default function AppHeader() {
     setIsMobileMenuOpen(false);
   };
 
-  const openUpdatesModal = () => {
-    setIsInfoModalOpen(true);
+  const goToProcess = (numero: string) => {
+    router.push(`/processo/${encodeURIComponent(numero)}/visualizar`);
     setIsMobileMenuOpen(false);
   };
 
+  const tabClass = (active: boolean) =>
+    `bg-transparent border-0 rounded-b-none ${active ? "border-b-2 border-primary text-primary" : ""}`;
+
+  const showSubheader = mounted && isAuthenticated && recentProcesses.length > 0;
+
   return (
     <>
-      <div className="sticky top-0 z-40 border-b border-border bg-card p-3 shadow-sm">
-        <div className="container mx-auto flex max-w-full items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 items-center">
+      {/* ── Main header ─────────────────────────────────────── */}
+      <div className="sticky top-0 z-40 border-b border-border bg-card shadow-sm">
+        <div className="container mx-auto flex max-w-full items-center justify-between gap-2 p-3">
+
+          {/* LEFT: Title */}
+          <div className="flex min-w-0 items-center">
             {mounted && isAuthenticated && (
               <Button
                 variant="ghost"
@@ -113,62 +130,52 @@ export default function AppHeader() {
             )}
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Menu desktop */}
-            <div className="hidden md:flex items-center gap-2">
+          {/* RIGHT: Nav items */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Desktop nav */}
+            <div className="hidden md:flex items-center gap-1">
+
+              {/* Início */}
               <Button
-                className={`bg-transparent border-0 rounded-b-none ${
-                  isOnHome ? "border-b-2 border-primary text-primary" : ""
-                }`}
+                className={tabClass(isOnHome)}
                 variant="outline"
                 size="sm"
                 onClick={goToHome}
                 title="Página Inicial"
               >
-                <Search className="h-4 w-4 lg:mr-2" />
-                <span className="hidden lg:inline">Procurar Novo Processo</span>
+                <Home className="h-4 w-4 lg:mr-2" />
+                <span className="hidden lg:inline">Início</span>
               </Button>
 
-              <Button
-                className={`bg-transparent border-0 rounded-b-none ${
-                  isOnProcesso ? "border-b-2 border-primary text-primary" : ""
-                }`}
-                variant="outline"
-                size="sm"
-                disabled={!lastViewedProcess}
-                onClick={goToLastProcess}
-                title={
-                  lastViewedProcess
-                    ? `Processo ${formatProcessNumber(lastViewedProcess)}`
-                    : "Nenhum processo visualizado"
-                }
-              >
-                <FileText className="h-4 w-4 lg:mr-2" />
-                <span className="hidden lg:inline">
-                  {lastViewedProcess
-                    ? formatProcessNumber(lastViewedProcess)
-                    : "Processo"}
-                </span>
-              </Button>
+              {/* Espaços dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    className={tabClass(isOnEquipes)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Users className="h-4 w-4 lg:mr-1.5" />
+                    <span className="hidden lg:inline">Espaços</span>
+                    <ChevronDown className="h-3 w-3 ml-1 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={goToEquipes}>
+                    <Users className="h-4 w-4 mr-2" />
+                    Equipes
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled>
+                    <User className="h-4 w-4 mr-2" />
+                    Pessoal
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              <Button
-                className={`bg-transparent border-0 rounded-b-none ${
-                  isOnEquipes ? "border-b-2 border-primary text-primary" : ""
-                }`}
-                variant="outline"
-                size="sm"
-                onClick={goToEquipes}
-                title="Equipes"
-              >
-                <Users className="h-4 w-4 lg:mr-2" />
-                <span className="hidden lg:inline">Equipes</span>
-              </Button>
-
+              {/* Fluxos — admin/beta only */}
               {mounted && (papelGlobal === 'admin' || papelGlobal === 'beta') && (
                 <Button
-                  className={`bg-transparent border-0 rounded-b-none ${
-                    isOnFluxos ? "border-b-2 border-primary text-primary" : ""
-                  }`}
+                  className={tabClass(isOnFluxos)}
                   variant="outline"
                   size="sm"
                   onClick={() => router.push('/fluxos')}
@@ -179,46 +186,74 @@ export default function AppHeader() {
                 </Button>
               )}
 
-              {mounted && papelGlobal === 'admin' && (
-                <Button
-                  className={`bg-transparent border-0 rounded-b-none ${
-                    isOnAdmin ? "border-b-2 border-primary text-primary" : ""
-                  }`}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push('/admin')}
-                  title="Administração"
-                >
-                  <Shield className="h-4 w-4 lg:mr-2" />
-                  <span className="hidden lg:inline">Admin</span>
-                </Button>
-              )}
-
+              {/* BI's — disabled */}
               <Button
                 className="bg-transparent border-0"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsInfoModalOpen(true)}
-                title="Informações do Sistema"
+                disabled
+                title="Em breve"
               >
-                <Newspaper className="h-4 w-4" />
-                <span className="ml-2 hidden lg:inline">Atualizações</span>
+                <BarChart3 className="h-4 w-4 lg:mr-2" />
+                <span className="hidden lg:inline">BI&apos;s</span>
               </Button>
 
-              {mounted && isAuthenticated && !isEmbedMode && (
-                <Button
-                  className="bg-transparent border-0"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-4 w-4 lg:mr-2" />
-                  <span className="hidden lg:inline">Sair</span>
-                </Button>
-              )}
+              {/* Experimental dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    className="bg-transparent border-0"
+                    variant="outline"
+                    size="sm"
+                  >
+                    <FlaskConical className="h-4 w-4 lg:mr-1.5" />
+                    <span className="hidden lg:inline">Experimental</span>
+                    <ChevronDown className="h-3 w-3 ml-1 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem disabled>
+                    <Compass className="h-4 w-4 mr-2" />
+                    Explorador
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Configurações dropdown (icon only) */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    className={tabClass(isOnAdmin)}
+                    variant="outline"
+                    size="icon"
+                    title="Configurações"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {mounted && papelGlobal === 'admin' && (
+                    <DropdownMenuItem onClick={() => router.push('/admin')}>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Admin
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => setIsInfoModalOpen(true)}>
+                    <Newspaper className="h-4 w-4 mr-2" />
+                    Atualizações
+                  </DropdownMenuItem>
+                  {mounted && papelGlobal === 'admin' && <DropdownMenuSeparator />}
+                  {mounted && isAuthenticated && !isEmbedMode && (
+                    <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sair
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
-            {/* Menu mobile */}
+            {/* Mobile menu */}
             <div className="md:hidden">
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild>
@@ -227,91 +262,127 @@ export default function AppHeader() {
                   </Button>
                 </SheetTrigger>
 
-               <SheetContent side="right" className="w-[280px] sm:w-[320px]">
-  <SheetHeader>
-    <SheetTitle>Menu</SheetTitle>
-  </SheetHeader>
+                <SheetContent side="right" className="w-[280px] sm:w-[320px]">
+                  <SheetHeader>
+                    <SheetTitle>Menu</SheetTitle>
+                  </SheetHeader>
 
-  <div className="mt-6 flex flex-col justify-between h-[calc(100vh-120px)]">
+                  <div className="mt-6 flex flex-col justify-between h-[calc(100vh-120px)]">
+                    <div className="flex flex-col gap-2">
+                      <Button variant="ghost" className="justify-start" onClick={goToHome}>
+                        <Home className="mr-2 h-4 w-4" />
+                        Início
+                      </Button>
 
-    {/* MENU SUPERIOR */}
-    <div className="flex flex-col gap-2">
+                      <div className="pl-1 pt-2 pb-1">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Espaços</span>
+                      </div>
 
-      <Button variant="ghost" className="justify-start" onClick={goToHome}>
-        <Search className="mr-2 h-4 w-4" />
-        Procurar Novo Processo
-      </Button>
+                      <Button variant="ghost" className="justify-start" onClick={goToEquipes}>
+                        <Users className="mr-2 h-4 w-4" />
+                        Equipes
+                      </Button>
 
-      <Button
-        variant="ghost"
-        className="justify-start"
-        disabled={!lastViewedProcess}
-        onClick={goToLastProcess}
-      >
-        <FileText className="mr-2 h-4 w-4" />
-        {lastViewedProcess
-          ? formatProcessNumber(lastViewedProcess)
-          : "Processo"}
-      </Button>
+                      <Button variant="ghost" className="justify-start" disabled>
+                        <User className="mr-2 h-4 w-4" />
+                        Pessoal
+                      </Button>
 
-      <Button variant="ghost" className="justify-start" onClick={goToEquipes}>
-        <Users className="mr-2 h-4 w-4" />
-        Equipes
-      </Button>
+                      {mounted && (papelGlobal === 'admin' || papelGlobal === 'beta') && (
+                        <Button variant="ghost" className="justify-start" onClick={() => { router.push('/fluxos'); setIsMobileMenuOpen(false); }}>
+                          <GitBranch className="mr-2 h-4 w-4" />
+                          Fluxos
+                        </Button>
+                      )}
 
-      {mounted && (papelGlobal === 'admin' || papelGlobal === 'beta') && (
-        <Button variant="ghost" className="justify-start" onClick={() => { router.push('/fluxos'); setIsMobileMenuOpen(false); }}>
-          <GitBranch className="mr-2 h-4 w-4" />
-          Fluxos
-        </Button>
-      )}
+                      <Button variant="ghost" className="justify-start" disabled>
+                        <BarChart3 className="mr-2 h-4 w-4" />
+                        BI&apos;s
+                      </Button>
 
-      {mounted && papelGlobal === 'admin' && (
-        <Button variant="ghost" className="justify-start" onClick={() => { router.push('/admin'); setIsMobileMenuOpen(false); }}>
-          <Shield className="mr-2 h-4 w-4" />
-          Admin
-        </Button>
-      )}
+                      <div className="pl-1 pt-2 pb-1">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Experimental</span>
+                      </div>
 
-      <Button variant="ghost" className="justify-start" onClick={openUpdatesModal}>
-        <Newspaper className="mr-2 h-4 w-4" />
-        Atualizações
-      </Button>
+                      <Button variant="ghost" className="justify-start" disabled>
+                        <Compass className="mr-2 h-4 w-4" />
+                        Explorador
+                      </Button>
 
-    </div>
+                      <div className="border-t my-2" />
 
-    {/* BOTÃO SAIR NO RODAPÉ */}
-    {mounted && isAuthenticated && !isEmbedMode && (
-      <div className="border-t pt-4 mt-4">
-        <Button
-          variant="ghost"
-          className="justify-start text-red-600 hover:text-red-700 w-full"
-          onClick={handleLogout}
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          Sair
-        </Button>
-      </div>
-    )}
+                      {mounted && papelGlobal === 'admin' && (
+                        <Button variant="ghost" className="justify-start" onClick={() => { router.push('/admin'); setIsMobileMenuOpen(false); }}>
+                          <Shield className="mr-2 h-4 w-4" />
+                          Admin
+                        </Button>
+                      )}
 
-  </div>
-</SheetContent>
+                      <Button variant="ghost" className="justify-start" onClick={() => { setIsInfoModalOpen(true); setIsMobileMenuOpen(false); }}>
+                        <Newspaper className="mr-2 h-4 w-4" />
+                        Atualizações
+                      </Button>
+                    </div>
+
+                    {mounted && isAuthenticated && !isEmbedMode && (
+                      <div className="border-t pt-4 mt-4">
+                        <Button
+                          variant="ghost"
+                          className="justify-start text-red-600 hover:text-red-700 w-full"
+                          onClick={handleLogout}
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />
+                          Sair
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </SheetContent>
               </Sheet>
             </div>
           </div>
         </div>
+
+        {/* ── Subheader: Recent process tabs ───────────────────── */}
+        {showSubheader && (
+          <div className="border-t border-border/50 bg-muted/30 px-3">
+            <ScrollArea className="w-full">
+              <div className="flex items-center gap-0.5 py-1">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mr-1" />
+                {recentProcesses.map(numero => {
+                  const isActive = currentProcesso === numero;
+                  return (
+                    <div
+                      key={numero}
+                      className={cn(
+                        'group flex items-center gap-1 px-2.5 py-1 rounded-t text-xs transition-colors shrink-0 cursor-pointer border-b-2',
+                        isActive
+                          ? 'bg-card text-primary border-primary font-medium shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-card/50 border-transparent',
+                      )}
+                      onClick={() => goToProcess(numero)}
+                      title={formatProcessNumber(numero)}
+                    >
+                      <span className="max-w-[160px] truncate">{formatProcessNumber(numero)}</span>
+                      <button
+                        className={cn(
+                          'rounded-sm p-0.5 transition-opacity',
+                          isActive ? 'opacity-60 hover:opacity-100' : 'opacity-0 group-hover:opacity-60 hover:!opacity-100',
+                        )}
+                        onClick={(e) => { e.stopPropagation(); removeRecentProcess(numero); }}
+                        title="Fechar aba"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          </div>
+        )}
       </div>
-
-      <ApiHealthCheck />
-
-      <Dialog open={isApiStatusModalOpen} onOpenChange={setIsApiStatusModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="sr-only">Status da API</DialogTitle>
-          </DialogHeader>
-          <ApiHealthCheck showDetails={true} className="border-0 bg-transparent p-0 shadow-none" />
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={isInfoModalOpen} onOpenChange={setIsInfoModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden">

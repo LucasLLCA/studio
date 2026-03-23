@@ -98,11 +98,6 @@ export const queryKeys = {
       ['situacaoAtual', stripProcessNumber(processo), unidade] as const,
   },
 
-  // Health checks
-  health: {
-    seiApi: ['health', 'sei-api'] as const,
-    summaryApi: ['health', 'summary-api'] as const,
-  },
 
   // Fluxos de Processos
   fluxos: {

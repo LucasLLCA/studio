@@ -1,9 +1,14 @@
 /**
  * D-1 API client — fetches pre-loaded andamentos from PostgreSQL (up to 1 day old).
  * Used as a fast primary data source; SEI API reconciles in background.
+ *
+ * Requests are proxied through the backend (FastAPI /d1/...) to avoid
+ * mixed-content issues when the app runs on HTTPS but D-1 is HTTP-only.
+ * Flow: Browser → Next.js /api/proxy → FastAPI /d1/... → D-1 API
  */
 
 import type { ProcessoData, Andamento, ProcessoInfo } from '@/types/process-flow';
+import { getApiBaseUrl } from './fetch-utils';
 
 // ─── D-1 Response Types ───────────────────────────────────────────────────
 
@@ -43,12 +48,6 @@ export interface D1Response {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-const D1_BASE_URL = process.env.NEXT_PUBLIC_D1_API_BASE_URL;
-
-export function isD1Available(): boolean {
-  return !!D1_BASE_URL;
-}
-
 /**
  * Convert ISO datetime "2025-03-15T14:30:00" → "15/03/2025 14:30:00"
  * (format expected by parseCustomDateString in the frontend)
@@ -68,20 +67,32 @@ function isoToCustomDate(iso: string): string {
 // ─── Fetch ────────────────────────────────────────────────────────────────
 
 export async function fetchD1Andamentos(processo: string): Promise<D1Response | null> {
-  if (!D1_BASE_URL) return null;
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}/d1/processo/${encodeURIComponent(processo)}/andamentos`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const url = `${D1_BASE_URL}/api/v1/processo/${encodeURIComponent(processo)}/andamentos`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store',
+    });
     clearTimeout(timeoutId);
 
-    if (!res.ok) return null;
+    // 404 = process not in D-1 yet (e.g. created < 24h ago) — not an error, just missing
+    if (res.status === 404) return null;
+
+    if (!res.ok) {
+      throw new Error(`D-1 API retornou status ${res.status}`);
+    }
     return await res.json();
-  } catch {
-    return null;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('D-1 API não respondeu em 10 segundos');
+    }
+    throw err;
   }
 }
 
