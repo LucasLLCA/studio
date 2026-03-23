@@ -20,6 +20,7 @@ import {
   Reply,
   AtSign,
   Eye,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +38,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useRouter } from 'next/navigation';
@@ -52,6 +54,7 @@ import {
 import {
   getObservacoes,
   createObservacao,
+  updateObservacao,
   deleteObservacao,
   getMencoesNaoLidas,
   marcarMencaoVista,
@@ -166,7 +169,6 @@ export function ProcessoKanbanSheet({
   const [obsEscopo, setObsEscopo] = useState<ObservacaoEscopo>('equipe');
   const [filterEscopo, setFilterEscopo] = useState<'todos' | ObservacaoEscopo>('todos');
   const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // @mencao state
   const [membrosEquipe, setMembrosEquipe] = useState<TeamMember[]>([]);
@@ -182,6 +184,11 @@ export function ProcessoKanbanSheet({
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [replyMencaoAtiva, setReplyMencaoAtiva] = useState<string | null>(null);
   const [showReplyMencaoDropdown, setShowReplyMencaoDropdown] = useState(false);
+
+  // Edição de observações
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editConteudo, setEditConteudo] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -387,26 +394,11 @@ export function ProcessoKanbanSheet({
     return match ? match[1] : null;
   };
 
-  const handleObsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const texto = e.target.value;
-    setObsConteudo(texto);
-    const cursor = e.target.selectionStart ?? 0;
-    const mencao = detectMencao(texto, cursor);
-    setMencaoAtiva(mencao);
-    setShowMencaoDropdown(mencao !== null);
-  };
-
   const handleSelectMencao = (membro: TeamMember) => {
-    const cursor = textareaRef.current?.selectionStart ?? obsConteudo.length;
-    const textoAteCursor = obsConteudo.slice(0, cursor);
-    const match = textoAteCursor.match(/@([\w.]*)$/);
-    if (!match) return;
-    const inicio = cursor - match[0].length;
-    const novo = obsConteudo.slice(0, inicio) + `@${membro.usuario} ` + obsConteudo.slice(cursor);
+    const novo = obsConteudo.slice(0, obsConteudo.length) + `@${membro.usuario} `;
     setObsConteudo(novo);
     setShowMencaoDropdown(false);
     setMencaoAtiva(null);
-    textareaRef.current?.focus();
   };
 
   const handleReplyChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -490,6 +482,24 @@ export function ProcessoKanbanSheet({
     }
   };
 
+  const handleUpdate = async () => {
+    if (!usuario || !editConteudo.trim() || !editingId || isUpdating) return;
+    setIsUpdating(true);
+    try {
+      const result = await updateObservacao(processo.numero_processo, editingId, usuario, editConteudo);
+      if ('error' in result) {
+        toast({ title: "Erro ao atualizar", description: result.error, variant: "destructive" });
+        return;
+      }
+      setObservacoes(prev => prev.map(o => o.id === editingId ? result : o));
+      setEditingId(null);
+      setEditConteudo('');
+      toast({ title: "Observação atualizada", duration: 2000 });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleDeleteObs = async (observacaoId: string, parentId?: string) => {
     if (!usuario) return;
     const result = await deleteObservacao(processo.numero_processo, observacaoId, usuario);
@@ -510,31 +520,15 @@ export function ProcessoKanbanSheet({
     }
   };
 
-  const handleObsKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showMencaoDropdown && (e.key === 'Escape')) {
-      setShowMencaoDropdown(false);
-      return;
-    }
-    if (e.key === 'Enter' && !e.shiftKey && !showMencaoDropdown) {
-      e.preventDefault();
-      handleSendObs();
-    }
-  };
 
   // Renderiza conteudo com @mencoes destacadas
-  const renderizarConteudo = (conteudo: string) => {
-    const partes = conteudo.split(/(@[\w.]+(?:@[\w.]+)*)/g);
-    return partes.map((parte, i) => {
-      if (parte.startsWith('@')) {
-        const isMe = usuario && parte.slice(1) === usuario;
-        return (
-          <span key={i} className={cn('font-semibold', isMe ? 'text-primary' : 'text-blue-600')}>
-            {parte}
-          </span>
-        );
-      }
-      return <span key={i}>{parte}</span>;
-    });
+  const renderizarConteudo = (html: string) => {
+    return (
+      <div
+        className="text-sm text-foreground/90 whitespace-pre-wrap break-words max-w-none [&>p]:m-0 [&>ul]:my-2 [&>ol]:my-2 [&>strong]:font-bold [&>em]:italic"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
   };
 
   // Config visual de escopo
@@ -936,14 +930,11 @@ export function ProcessoKanbanSheet({
 
           <div className="relative flex gap-2 items-end">
             <div className="flex-1 relative">
-              <textarea
-                ref={textareaRef}
+              <RichTextEditor
                 value={obsConteudo}
-                onChange={handleObsChange}
-                onKeyDown={handleObsKeyDown}
-                placeholder="Escreva uma observacao... use @ para mencionar"
-                rows={2}
-                className="w-full resize-none rounded-md border border-input bg-white dark:bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                onChange={setObsConteudo}
+                onSubmit={handleSendObs}
+                placeholder="Escreva uma observação... use @ para mencionar"
               />
               {/* Dropdown @mencao */}
               {showMencaoDropdown && membrosFiltradosMencao(mencaoAtiva ?? '').length > 0 && (
@@ -1056,22 +1047,69 @@ export function ProcessoKanbanSheet({
                           <Reply className="h-3 w-3 text-muted-foreground" />
                         </Button>
                         {usuario === obs.usuario && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                            onClick={() => handleDeleteObs(obs.id)}
-                          >
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                              onClick={() => {
+                                setEditingId(editingId === obs.id ? null : obs.id);
+                                setEditConteudo(obs.conteudo);
+                              }}
+                              title="Editar"
+                            >
+                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                              onClick={() => handleDeleteObs(obs.id)}
+                            >
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>
 
-                    {/* Conteudo com @mencoes destacadas */}
-                    <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words mt-0.5">
-                      {renderizarConteudo(obs.conteudo)}
-                    </p>
+                    {/* Edição inline ou conteúdo */}
+                    {editingId === obs.id ? (
+                      <div className="mt-2 space-y-2 p-2 border border-primary/30 rounded bg-primary/5">
+                        <RichTextEditor
+                          value={editConteudo}
+                          onChange={setEditConteudo}
+                          placeholder="Editar observação..."
+                          editorClassName="min-h-[80px]"
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => {
+                              setEditingId(null);
+                              setEditConteudo('');
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="text-xs"
+                            onClick={handleUpdate}
+                            disabled={!editConteudo.trim() || isUpdating}
+                          >
+                            {isUpdating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                            Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-foreground/90 whitespace-pre-wrap break-words mt-0.5">
+                        {renderizarConteudo(obs.conteudo)}
+                      </div>
+                    )}
 
                     {/* Tag "Visto por X" */}
                     {vistosPor.length > 0 && (
