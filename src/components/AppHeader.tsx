@@ -205,7 +205,7 @@ export default function AppHeader() {
                 <span className="ml-2 hidden lg:inline">Atualizações</span>
               </Button>
 
-              {mounted && isAuthenticated && !isEmbedMode && (
+              {mounted && isAuthenticated&& (
                 <Button
                   className="bg-transparent border-0"
                   variant="outline"
@@ -281,7 +281,7 @@ export default function AppHeader() {
     </div>
 
     {/* BOTÃO SAIR NO RODAPÉ */}
-    {mounted && isAuthenticated && !isEmbedMode && (
+    {mounted && isAuthenticated && (
       <div className="border-t pt-4 mt-4">
         <Button
           variant="ghost"
