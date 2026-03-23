@@ -11,8 +11,6 @@ export async function fetchProcessData(
   token: string,
   protocoloProcedimento: string,
   unidadeId: string,
-  parcial: boolean = false,
-  extrairDocumentos: boolean = false,
 ): Promise<ProcessoData | ApiError> {
   if (!protocoloProcedimento || !unidadeId) {
     return { error: "Número do processo e unidade são obrigatórios para buscar andamentos.", status: 400 };
@@ -21,9 +19,7 @@ export async function fetchProcessData(
   const tokenError = validateToken(token);
   if (tokenError) return tokenError;
 
-  const parcialParam = parcial ? '&parcial=true' : '';
-  const extrairDocsParam = extrairDocumentos ? '&extrair_documentos=true' : '';
-  const url = `${getApiBaseUrl()}/sei/andamentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}${parcialParam}${extrairDocsParam}`;
+  const url = `${getApiBaseUrl()}/sei/andamentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}`;
 
   return fetchWithErrorHandling<ProcessoData>(
     url,
@@ -35,6 +31,39 @@ export async function fetchProcessData(
       },
     },
     'Falha ao buscar andamentos do processo'
+  );
+}
+
+/**
+ * Fetch only the delta (new andamentos since D-1 snapshot).
+ * Uses quantidade/pagina params for a single efficient request.
+ */
+export async function fetchAndamentosDelta(
+  token: string,
+  protocoloProcedimento: string,
+  unidadeId: string,
+  quantidade: number,
+  pagina: number = 1,
+): Promise<ProcessoData | ApiError> {
+  if (!protocoloProcedimento || !unidadeId) {
+    return { error: "Número do processo e unidade são obrigatórios.", status: 400 };
+  }
+
+  const tokenError = validateToken(token);
+  if (tokenError) return tokenError;
+
+  const url = `${getApiBaseUrl()}/sei/andamentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}&quantidade=${quantidade}&pagina=${pagina}`;
+
+  return fetchWithErrorHandling<ProcessoData>(
+    url,
+    {
+      method: 'GET',
+      headers: {
+        'X-SEI-Token': token,
+        'accept': 'application/json',
+      },
+    },
+    'Falha ao buscar novos andamentos'
   );
 }
 
@@ -157,7 +186,6 @@ export async function fetchDocuments(
   token: string,
   protocoloProcedimento: string,
   unidadeId: string,
-  parcial: boolean = false
 ): Promise<DocumentosResponse | ApiError> {
   if (!protocoloProcedimento || !unidadeId) {
     return { error: "Número do processo e unidade são obrigatórios para buscar documentos.", status: 400 };
@@ -166,8 +194,7 @@ export async function fetchDocuments(
   const tokenError = validateToken(token);
   if (tokenError) return tokenError;
 
-  const parcialParam = parcial ? '&parcial=true' : '';
-  const url = `${getApiBaseUrl()}/sei/documentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}${parcialParam}`;
+  const url = `${getApiBaseUrl()}/sei/documentos/${encodeURIComponent(stripProcessNumber(protocoloProcedimento))}?id_unidade=${encodeURIComponent(unidadeId)}`;
 
   return fetchWithErrorHandling<DocumentosResponse>(
     url,

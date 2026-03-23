@@ -7,13 +7,16 @@ import {
   Controls,
   MiniMap,
   addEdge,
+  reconnectEdge,
   applyNodeChanges,
   applyEdgeChanges,
+  useReactFlow,
   type Node,
   type Edge,
   type OnNodesChange,
   type OnEdgesChange,
   type OnConnect,
+  type OnReconnect,
   type NodeTypes,
   type EdgeTypes,
   BackgroundVariant,
@@ -27,6 +30,7 @@ import InicioFimNode from './InicioFimNode';
 import ForkJoinNode from './ForkJoinNode';
 import ConditionalEdge from './ConditionalEdge';
 import LoopEdge from './LoopEdge';
+import DefaultEdge from './DefaultEdge';
 
 import type { FluxoDetalhe, FluxoSaveCanvasPayload } from '@/types/fluxos';
 
@@ -41,6 +45,7 @@ const nodeTypes: NodeTypes = {
 };
 
 const edgeTypes: EdgeTypes = {
+  padrao: DefaultEdge,
   condicional: ConditionalEdge,
   loop: LoopEdge,
 };
@@ -74,7 +79,7 @@ function dbToEdges(fluxo: FluxoDetalhe): Edge[] {
     id: e.edge_id,
     source: e.source_node_id,
     target: e.target_node_id,
-    type: e.tipo === 'padrao' ? undefined : e.tipo,
+    type: e.tipo === 'padrao' ? 'padrao' : e.tipo,
     label: e.label || undefined,
     animated: e.animated,
     data: {
@@ -118,7 +123,7 @@ function buildPayload(
       edge_id: e.id,
       source_node_id: e.source,
       target_node_id: e.target,
-      tipo: e.type || 'padrao',
+      tipo: (!e.type || e.type === 'default') ? 'padrao' : e.type,
       label: (e.label as string) || null,
       condicao: ((e.data as Record<string, unknown>)?.condicao as Record<string, unknown>) || null,
       ordem: ((e.data as Record<string, unknown>)?.ordem as number) || null,
@@ -159,6 +164,8 @@ export default function FlowEditor({
     setEdges(dbToEdges(fluxo));
   }, [fluxo]);
 
+  const { screenToFlowPosition } = useReactFlow();
+
   const markDirty = useCallback(() => {
     if (!readOnly && onDirty) onDirty();
   }, [readOnly, onDirty]);
@@ -181,7 +188,23 @@ export default function FlowEditor({
 
   const onConnect: OnConnect = useCallback(
     (connection) => {
-      setEdges((eds) => addEdge({ ...connection, type: 'default' }, eds));
+      setEdges((eds) => addEdge({ ...connection, type: 'padrao' }, eds));
+      markDirty();
+    },
+    [markDirty],
+  );
+
+  const onReconnect: OnReconnect = useCallback(
+    (oldEdge, newConnection) => {
+      setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds));
+      markDirty();
+    },
+    [markDirty],
+  );
+
+  const onEdgeDoubleClick = useCallback(
+    (_: React.MouseEvent, edge: Edge) => {
+      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
       markDirty();
     },
     [markDirty],
@@ -251,17 +274,58 @@ export default function FlowEditor({
     markDirty();
   }, [markDirty]);
 
+  // Adicionar nó ao clicar num item da palette (posiciona no centro visível do canvas)
+  const addNodeFromPalette = useCallback((tipo: string, nome: string, seiTaskKey?: string) => {
+    if (readOnly) return;
+    // Pega o centro da tela e converte para coordenadas do flow
+    const canvasEl = document.querySelector('.react-flow') as HTMLElement | null;
+    const rect = canvasEl?.getBoundingClientRect();
+    const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+    const cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+    // Pequena variação para não sobrepor nós existentes
+    const offset = nodes.length * 20;
+    const position = screenToFlowPosition({ x: cx + offset, y: cy + offset });
+
+    const newNode: Node = {
+      id: `node_${Date.now()}`,
+      type: tipo,
+      position,
+      data: {
+        nome,
+        tipo,
+        sei_task_key: seiTaskKey || null,
+        descricao: null,
+        responsavel: null,
+        duracao_estimada_horas: null,
+        prioridade: null,
+        documentos_necessarios: null,
+        checklist: null,
+        regras_prazo: null,
+        metadata_extra: null,
+      },
+    };
+    setNodes((nds) => [...nds, newNode]);
+    markDirty();
+  }, [readOnly, nodes.length, screenToFlowPosition, markDirty]);
+
   // Expose methods via ref-like pattern using a context or callback
-  // For simplicity, we'll expose the save payload builder and updateNodeData
   React.useEffect(() => {
-    // Attach to window for parent access (pragmatic approach)
     (window as unknown as Record<string, unknown>).__flowEditorNodes = nodes;
     (window as unknown as Record<string, unknown>).__flowEditorEdges = edges;
     (window as unknown as Record<string, unknown>).__flowEditorViewport = viewportRef.current;
     (window as unknown as Record<string, unknown>).__flowEditorUpdateNodeData = updateNodeData;
+    (window as unknown as Record<string, unknown>).__flowEditorAddNode = addNodeFromPalette;
+    (window as unknown as Record<string, unknown>).__flowEditorDeleteNode = (nodeId: string) => {
+      setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+      setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+    };
+    (window as unknown as Record<string, unknown>).__flowEditorDeleteEdge = (edgeId: string) => {
+      setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+      if (onDirty) onDirty();
+    };
     (window as unknown as Record<string, unknown>).__flowEditorBuildPayload = () =>
       buildPayload(nodes, edges, viewportRef.current, fluxo.versao);
-  }, [nodes, edges, fluxo.versao, updateNodeData]);
+  }, [nodes, edges, fluxo.versao, updateNodeData, addNodeFromPalette]);
 
   return (
     <div className="flex-1 h-full">
@@ -271,6 +335,8 @@ export default function FlowEditor({
         onNodesChange={readOnly ? undefined : onNodesChange}
         onEdgesChange={readOnly ? undefined : onEdgesChange}
         onConnect={readOnly ? undefined : onConnect}
+        onReconnect={readOnly ? undefined : onReconnect}
+        onEdgeDoubleClick={readOnly ? undefined : onEdgeDoubleClick}
         onDragOver={readOnly ? undefined : onDragOver}
         onDrop={readOnly ? undefined : onDrop}
         onNodeClick={onNodeClick}

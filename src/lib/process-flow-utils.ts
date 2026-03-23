@@ -107,7 +107,6 @@ export function processAndamentos(
   openUnitsInProcess: UnidadeAberta[] | null,
   numeroProcesso?: string,
   isSummarized: boolean = false,
-  isPartialData: boolean = false
 ): ProcessedFlowData {
 
   if (!andamentosInput || andamentosInput.length === 0) {
@@ -130,15 +129,16 @@ export function processAndamentos(
     .sort((a, b) => {
       const timeDiff = a.parsedDate.getTime() - b.parsedDate.getTime();
       if (timeDiff !== 0) return timeDiff;
-      // Same exact timestamp: enforce logical order for transfer events
+      // Same exact timestamp: enforce logical order for transfer events.
+      // SEI internal order (by IdAndamento creation): REMETIDO → RECEBIDO → CONCLUSAO
       const priority = (tarefa: string) => {
         switch (tarefa) {
+          case 'PROCESSO-REMETIDO-UNIDADE':
+            return 0;
+          case 'PROCESSO-RECEBIDO-UNIDADE':
+            return 1;
           case 'CONCLUSAO-AUTOMATICA-UNIDADE':
           case 'CONCLUSAO-PROCESSO-UNIDADE':
-            return 0;
-          case 'PROCESSO-REMETIDO-UNIDADE':
-            return 1;
-          case 'PROCESSO-RECEBIDO-UNIDADE':
             return 2;
           default:
             return 1;
@@ -149,30 +149,30 @@ export function processAndamentos(
       return a.IdAndamento.localeCompare(b.IdAndamento);
     });
 
-  // Post-sort fixup: when a RECEBIDO appears before its matching
-  // REMETIDO/CONCLUSÃO within 60s, move the earlier events before it.
-  // This only reorders transfer events; regular events stay in place.
-  const TRANSFER_TYPES = new Set([
-    'CONCLUSAO-AUTOMATICA-UNIDADE',
-    'CONCLUSAO-PROCESSO-UNIDADE',
-    'PROCESSO-REMETIDO-UNIDADE',
-    'PROCESSO-RECEBIDO-UNIDADE',
-  ]);
+  // Post-sort fixup: when a CONCLUSAO appears before its matching
+  // REMETIDO/RECEBIDO within 60s, move it after them.
+  // Correct chronological order: REMETIDO → RECEBIDO → CONCLUSAO
   for (let i = 0; i < sorted.length; i++) {
-    if (sorted[i].Tarefa !== 'PROCESSO-RECEBIDO-UNIDADE') continue;
-    const recebidoTime = sorted[i].parsedDate.getTime();
-    // Collect transfer events that follow within 60s and should precede recebido
+    const tarefa = sorted[i].Tarefa;
+    if (tarefa !== 'CONCLUSAO-AUTOMATICA-UNIDADE' && tarefa !== 'CONCLUSAO-PROCESSO-UNIDADE') continue;
+    const conclusaoTime = sorted[i].parsedDate.getTime();
+    // Look backwards for REMETIDO/RECEBIDO within 60s that should come before this CONCLUSAO
+    // If a REMETIDO at a later timestamp exists, the CONCLUSAO should follow it
+    let lastTransferAfter = i;
     for (let j = i + 1; j < sorted.length; j++) {
       const candidate = sorted[j];
-      if (candidate.parsedDate.getTime() - recebidoTime > 60000) break;
+      if (candidate.parsedDate.getTime() - conclusaoTime > 60000) break;
       if (candidate.Tarefa === 'PROCESSO-REMETIDO-UNIDADE' ||
-          candidate.Tarefa === 'CONCLUSAO-AUTOMATICA-UNIDADE' ||
-          candidate.Tarefa === 'CONCLUSAO-PROCESSO-UNIDADE') {
-        // Move this event before the recebido
-        sorted.splice(j, 1);
-        sorted.splice(i, 0, candidate);
-        // Don't advance i — re-check from same position since we inserted
+          candidate.Tarefa === 'PROCESSO-RECEBIDO-UNIDADE') {
+        lastTransferAfter = j;
       }
+    }
+    if (lastTransferAfter > i) {
+      // Move CONCLUSAO after the last transfer event
+      const [conclusao] = sorted.splice(i, 1);
+      sorted.splice(lastTransferAfter, 0, conclusao);
+      // Re-check from same position since we removed an element
+      i--;
     }
   }
 
@@ -298,11 +298,13 @@ export function processAndamentos(
   const connections: Connection[] = [];
   const latestTaskInLane = new Map<string, ProcessedAndamento>();
 
-  // Collect units that formally participated in the flow (created, received, or reopened the processo).
-  // Actions from other units (e.g. "Bloco retornado") are independent and should not have connections.
+  // Collect units that formally participated in the flow.
+  // REMETIDO also activates because a unit that receives a remetimento is part of the flow
+  // even if RECEBIDO hasn't arrived yet (e.g., last event in the timeline).
   const FLOW_ACTIVATION_TASKS = new Set([
     'GERACAO-PROCEDIMENTO',
     'PROCESSO-RECEBIDO-UNIDADE',
+    'PROCESSO-REMETIDO-UNIDADE',
     'REABERTURA-PROCESSO-UNIDADE',
   ]);
   const activatedUnits = new Set<string>();
@@ -340,25 +342,26 @@ export function processAndamentos(
     }
   }
 
-  // When showing partial data (first + last pages), find the gap boundary
-  // so we don't draw misleading connections across the missing middle pages.
-  const partialGap = isPartialData ? detectPartialDataGap(processedTasks) : null;
+  // Track lanes that have been concluded. Orphan activities after a conclusão
+  // (e.g., DOCUMENTO-RETIRADO-DO-BLOCO) should not create lane continuity.
+  // Only tramitação events (REMETIDO, RECEBIDO, REABERTURA) reactivate a concluded lane.
+  const concludedLanes = new Set<string>();
+
+  const LANE_REACTIVATION_TASKS = new Set([
+    'PROCESSO-REMETIDO-UNIDADE',
+    'PROCESSO-RECEBIDO-UNIDADE',
+    'REABERTURA-PROCESSO-UNIDADE',
+    'GERACAO-PROCEDIMENTO',
+  ]);
 
   for (let i = 0; i < processedTasks.length; i++) {
     const currentTask = processedTasks[i];
-
-    // If we just crossed the partial-data gap, reset lane tracking
-    // so no connections bridge the first-page and last-page halves.
-    if (partialGap && i > 0) {
-      const prevTask = processedTasks[i - 1];
-      if (prevTask.x <= partialGap.leftX && currentTask.x >= partialGap.rightX) {
-        latestTaskInLane.clear();
-      }
-    }
+    const currentUnitId = currentTask.Unidade.IdUnidade;
 
     // Cross-unit document/bloco reference: dotted arrow to origin activity.
-    // Works for both activated and non-activated units, but only when
-    // the origin is in a different unit (same-unit refs are already linked by flow).
+    // Also draws dotted lines for same-unit orphan nodes (in concluded lanes)
+    // since they have no intra-lane connections.
+    const isOrphanInConcludedLane = concludedLanes.has(currentUnitId);
     {
       const refIds: string[] = [];
       if (currentTask.originalTaskIds) {
@@ -379,17 +382,16 @@ export function processAndamentos(
         const origin = firstByRef.get(refId);
         if (origin &&
             origin.IdAndamento !== currentTask.IdAndamento &&
-            origin.Unidade.IdUnidade !== currentTask.Unidade.IdUnidade) {
+            (origin.Unidade.IdUnidade !== currentUnitId || isOrphanInConcludedLane)) {
           connections.push({ sourceTask: origin, targetTask: currentTask, style: 'dotted' });
         }
       }
     }
 
-    // Non-activated unit: skip normal flow connections
-    if (!activatedUnits.has(currentTask.Unidade.IdUnidade)) {
-      continue;
-    }
-
+    // REMETIDO sender cross-lane connection runs BEFORE activation check.
+    // The sender lane connection is about the sender, not the destination unit,
+    // so it must work even when the destination unit hasn't been activated yet
+    // (e.g., first REMETIDO to a new unit like ACERVO).
     if (currentTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
       const senderUnitAttribute = currentTask.Atributos?.find(attr => attr.Nome === "UNIDADE");
       const senderUnitId = senderUnitAttribute?.IdOrigem;
@@ -402,9 +404,43 @@ export function processAndamentos(
           }
         }
       }
-      latestTaskInLane.set(currentTask.Unidade.IdUnidade, currentTask);
+    }
+
+    // Non-activated unit: skip intra-lane flow connections
+    if (!activatedUnits.has(currentUnitId)) {
+      // Still track REMETIDO in the lane so future events can find it
+      if (currentTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
+        latestTaskInLane.set(currentUnitId, currentTask);
+      }
+      continue;
+    }
+
+    // Reactivate concluded lane on tramitação events
+    if (LANE_REACTIVATION_TASKS.has(currentTask.Tarefa)) {
+      concludedLanes.delete(currentUnitId);
+    }
+
+    // If this lane is concluded, orphan activities don't participate in flow connections.
+    // They are still rendered as nodes but have no intra-lane edges.
+    if (concludedLanes.has(currentUnitId)) {
+      // Don't update latestTaskInLane — keep the lane "dead"
+      continue;
+    }
+
+    if (currentTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
+      // Also connect from the receiving unit's own previous node if it wasn't concluded.
+      // When a unit never had a conclusão, the process stayed open there — maintain lane continuity.
+      const lastActionInOwnLane = latestTaskInLane.get(currentUnitId);
+      if (lastActionInOwnLane &&
+          lastActionInOwnLane.IdAndamento !== currentTask.IdAndamento &&
+          lastActionInOwnLane.Tarefa !== AUTO_CONCLUSION_TASK_TYPE &&
+          lastActionInOwnLane.Tarefa !== 'CONCLUSAO-PROCESSO-UNIDADE') {
+        connections.push({ sourceTask: lastActionInOwnLane, targetTask: currentTask });
+      }
+
+      latestTaskInLane.set(currentUnitId, currentTask);
     } else {
-      const lastActionInCurrentLane = latestTaskInLane.get(currentTask.Unidade.IdUnidade);
+      const lastActionInCurrentLane = latestTaskInLane.get(currentUnitId);
       if (lastActionInCurrentLane) {
           if(lastActionInCurrentLane.IdAndamento !== currentTask.IdAndamento || lastActionInCurrentLane.globalSequence !== currentTask.globalSequence) {
              // Do not draw a connection if the last action was a conclusion (manual or automatic).
@@ -414,7 +450,13 @@ export function processAndamentos(
              }
           }
       }
-      latestTaskInLane.set(currentTask.Unidade.IdUnidade, currentTask);
+      latestTaskInLane.set(currentUnitId, currentTask);
+
+      // Mark lane as concluded after processing the conclusão node
+      if (currentTask.Tarefa === AUTO_CONCLUSION_TASK_TYPE ||
+          currentTask.Tarefa === 'CONCLUSAO-PROCESSO-UNIDADE') {
+        concludedLanes.add(currentUnitId);
+      }
     }
   }
 
@@ -521,4 +563,91 @@ export function findOpenTaskForUnit(
   return tasks
     .filter(task => task.Unidade.IdUnidade === unitId && typeof task.daysOpen === 'number' && task.daysOpen >= 0)
     .sort((a, b) => b.globalSequence - a.globalSequence)[0];
+}
+
+/**
+ * Derives open units from the andamentos timeline without needing the
+ * /sei/unidades-abertas endpoint.
+ *
+ * A unit is considered "em aberto" when:
+ *   1. It was activated in the flow (GERACAO, RECEBIDO, or REABERTURA)
+ *   2. Its last significant flow activity is NOT a conclusion (manual or automatic)
+ *
+ * The UsuarioAtribuicao is approximated using the user from the last activity
+ * in each open unit.
+ */
+export function deriveOpenUnitsFromAndamentos(
+  andamentos: Andamento[]
+): UnidadeAberta[] {
+  if (!andamentos || andamentos.length === 0) return [];
+
+  const sorted = [...andamentos]
+    .map(a => ({ ...a, parsedDate: parseCustomDateString(a.DataHora) }))
+    .sort((a, b) => {
+      const timeDiff = a.parsedDate.getTime() - b.parsedDate.getTime();
+      if (timeDiff !== 0) return timeDiff;
+      // SEI internal order (by IdAndamento creation): REMETIDO → RECEBIDO → CONCLUSAO
+      const priority = (tarefa: string) => {
+        switch (tarefa) {
+          case 'PROCESSO-REMETIDO-UNIDADE':
+            return 0;
+          case 'PROCESSO-RECEBIDO-UNIDADE':
+            return 1;
+          case 'CONCLUSAO-AUTOMATICA-UNIDADE':
+          case 'CONCLUSAO-PROCESSO-UNIDADE':
+            return 2;
+          default:
+            return 1;
+        }
+      };
+      return priority(a.Tarefa) - priority(b.Tarefa);
+    });
+
+  const FLOW_ACTIVATION_TASKS = new Set([
+    'GERACAO-PROCEDIMENTO',
+    'PROCESSO-RECEBIDO-UNIDADE',
+    'PROCESSO-REMETIDO-UNIDADE',
+    'REABERTURA-PROCESSO-UNIDADE',
+  ]);
+  const CONCLUSION_TYPES = new Set([
+    'CONCLUSAO-PROCESSO-UNIDADE',
+    'CONCLUSAO-AUTOMATICA-UNIDADE',
+  ]);
+
+  const activatedUnits = new Set<string>();
+  const lastSignificantByUnit = new Map<string, (typeof sorted)[number]>();
+  const lastActivityByUnit = new Map<string, (typeof sorted)[number]>();
+
+  for (const a of sorted) {
+    if (FLOW_ACTIVATION_TASKS.has(a.Tarefa)) {
+      activatedUnits.add(a.Unidade.IdUnidade);
+    }
+    if (activatedUnits.has(a.Unidade.IdUnidade)) {
+      lastActivityByUnit.set(a.Unidade.IdUnidade, a);
+      if (SIGNIFICANT_TASK_TYPES.includes(a.Tarefa)) {
+        lastSignificantByUnit.set(a.Unidade.IdUnidade, a);
+      }
+    }
+  }
+
+  const openUnits: UnidadeAberta[] = [];
+  for (const [unitId, lastSignificant] of lastSignificantByUnit) {
+    if (!CONCLUSION_TYPES.has(lastSignificant.Tarefa)) {
+      const lastAny = lastActivityByUnit.get(unitId) || lastSignificant;
+      openUnits.push({
+        Unidade: {
+          IdUnidade: lastSignificant.Unidade.IdUnidade,
+          Sigla: lastSignificant.Unidade.Sigla,
+          Descricao: lastSignificant.Unidade.Descricao,
+        },
+        UsuarioAtribuicao: {
+          IdUsuario: lastAny.Usuario.IdUsuario,
+          Sigla: lastAny.Usuario.Sigla,
+          Nome: lastAny.Usuario.Nome,
+        },
+      });
+    }
+  }
+
+  return openUnits;
 }

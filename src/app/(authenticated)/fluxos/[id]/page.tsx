@@ -18,11 +18,23 @@ import FlowEditor from '@/components/flow-builder/FlowEditor';
 import FlowToolbar from '@/components/flow-builder/FlowToolbar';
 import NodePalette from '@/components/flow-builder/NodePalette';
 import NodePropertiesPanel from '@/components/flow-builder/NodePropertiesPanel';
+import ValidationPanel from '@/components/flow-builder/ValidationPanel';
 import ProcessAssignmentDialog from '@/components/flow-builder/ProcessAssignmentDialog';
 import FlowProcessesList from '@/components/flow-builder/FlowProcessesList';
 import { Loader2 } from 'lucide-react';
-import type { Node } from '@xyflow/react';
+import type { Node, Edge } from '@xyflow/react';
 import type { FluxoSaveCanvasPayload } from '@/types/fluxos';
+import { useFlowValidation } from '@/hooks/useFlowValidation';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function FluxoEditorPage() {
   return (
@@ -44,6 +56,9 @@ function FluxoEditorContent() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [hasUnsaved, setHasUnsaved] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
+  const [warningDialogOpen, setWarningDialogOpen] = useState(false);
+  const { errors, warnings, validate, clear } = useFlowValidation();
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -60,13 +75,43 @@ function FluxoEditorContent() {
   const assignMutation = useAssignProcesso(fluxoId, usuario || '');
   const removeMutation = useRemoveFluxoProcesso(fluxoId, usuario || '');
 
-  const handleSave = useCallback(() => {
+  const doSave = useCallback(() => {
     const buildPayload = (window as unknown as Record<string, unknown>).__flowEditorBuildPayload as (() => FluxoSaveCanvasPayload) | undefined;
     if (buildPayload) {
       canvasMutation.saveNow(buildPayload());
       setHasUnsaved(false);
     }
   }, [canvasMutation]);
+
+  const handleSave = useCallback(() => {
+    const nodes = ((window as unknown as Record<string, unknown>).__flowEditorNodes as Node[]) || [];
+    const edges = ((window as unknown as Record<string, unknown>).__flowEditorEdges as Edge[]) || [];
+
+    const result = validate(nodes, edges);
+
+    if (!result.isValid) {
+      // Erros bloqueantes — mostra painel e não salva
+      setShowValidation(true);
+      toast({
+        title: 'Corrija os erros antes de salvar',
+        description: `${result.errors.length} erro(s) encontrado(s) no fluxo.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (result.warnings.length > 0) {
+      // Apenas avisos — pergunta se quer continuar
+      setShowValidation(true);
+      setWarningDialogOpen(true);
+      return;
+    }
+
+    // Tudo OK
+    clear();
+    setShowValidation(false);
+    doSave();
+  }, [validate, clear, doSave, toast]);
 
   const handleDirty = useCallback(() => {
     setHasUnsaved(true);
@@ -176,20 +221,38 @@ function FluxoEditorContent() {
         onAssignProcess={() => setAssignDialogOpen(true)}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         <NodePalette />
 
-        <FlowEditor
-          fluxo={fluxo}
-          onNodeSelect={setSelectedNode}
-          onDirty={handleDirty}
-        />
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          <FlowEditor
+            fluxo={fluxo}
+            onNodeSelect={setSelectedNode}
+            onDirty={handleDirty}
+          />
+          {showValidation && (
+            <ValidationPanel
+              errors={errors}
+              warnings={warnings}
+              onClose={() => { setShowValidation(false); clear(); }}
+            />
+          )}
+        </div>
 
         {selectedNode ? (
           <NodePropertiesPanel
             node={selectedNode}
             onUpdate={handleNodeUpdate}
             onClose={() => setSelectedNode(null)}
+
+            onDelete={(nodeId) => {
+              const fn = (window as unknown as Record<string, unknown>).__flowEditorDeleteNode as
+                | ((id: string) => void)
+                | undefined;
+              if (fn) fn(nodeId);
+              setSelectedNode(null);
+              setHasUnsaved(true);
+            }}
           />
         ) : (
           <div className="w-72 border-l border-border bg-card overflow-y-auto flex-shrink-0">
@@ -204,6 +267,32 @@ function FluxoEditorContent() {
           </div>
         )}
       </div>
+
+      {/* Confirmação de salvar com avisos */}
+      <AlertDialog open={warningDialogOpen} onOpenChange={setWarningDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Salvar com avisos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O fluxo possui {warnings.length} aviso(s) que não bloqueiam o salvamento, mas podem indicar problemas.
+              Deseja salvar mesmo assim?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Revisar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setWarningDialogOpen(false);
+                clear();
+                setShowValidation(false);
+                doSave();
+              }}
+            >
+              Salvar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ProcessAssignmentDialog
         open={assignDialogOpen}

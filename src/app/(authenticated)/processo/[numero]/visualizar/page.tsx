@@ -2,7 +2,15 @@
 
 import { ProcessFlowDiagram } from '@/components/process-flow/ProcessFlowDiagram';
 import type { ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
-import { Loader2, GanttChartSquare, BookText, Info, ChevronsLeft, ChevronsRight, HelpCircle, AlertTriangle, RefreshCw, Search, Table2 } from 'lucide-react';
+import { GanttChartSquare, BookText, Info, ChevronsLeft, ChevronsRight, HelpCircle, AlertTriangle, RefreshCw, Search, Table2, Trash2, Download, ChevronDown, FlaskConical } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { LoadingFeedback } from '@/components/home/LoadingFeedback';
 import React, { Suspense, useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -18,10 +26,8 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { processAndamentos } from '@/lib/process-flow-utils';
+import { processAndamentos, deriveOpenUnitsFromAndamentos } from '@/lib/process-flow-utils';
 import { formatProcessNumber } from '@/lib/utils';
-import { useOpenUnits } from '@/lib/react-query/queries/useOpenUnits';
-import { useAndamentosCount } from '@/lib/react-query/queries/useAndamentosCount';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -84,11 +90,19 @@ function VisualizarProcessoContent() {
     isAuthenticated,
     sessionToken,
     selectedUnidadeFiltro,
+    idUnidadeAtual,
     orgao: userOrgao,
     usuario,
     papelGlobal,
+    unidadesFiltroList,
     logout: persistLogout,
   } = usePersistedAuth();
+
+  // Use selected unit or fall back to user's default unit
+  const unidadeParaConsulta = selectedUnidadeFiltro || idUnidadeAtual || '';
+
+  // Override unidade for resumo/situacao requests (when document access fails)
+  const [resumoUnidadeOverride, setResumoUnidadeOverride] = useState<string | undefined>(undefined);
 
   // UI-level state
   const [taskToScrollTo, setTaskToScrollTo] = useState<ProcessedAndamento | null>(null);
@@ -121,33 +135,7 @@ function VisualizarProcessoContent() {
     if (processoSalvoData) setIsSaved(processoSalvoData.salvo);
   }, [processoSalvoData]);
 
-  // Lightweight count query — reused from selecionar unidade if cached
-  const { data: countData } = useAndamentosCount({
-    processo: numeroProcesso,
-    unidade: selectedUnidadeFiltro || '',
-    token: sessionToken || '',
-    enabled: isAuthenticated && !!sessionToken && !!selectedUnidadeFiltro,
-  });
-
-  // Open units via React Query — skips refetch when TotalItens unchanged
-  const {
-    data: openUnitsData,
-    isLoading: isLoadingOpenUnits,
-    isError: isOpenUnitsError,
-    error: openUnitsError,
-    refetch: refetchOpenUnits,
-  } = useOpenUnits({
-    processo: numeroProcesso,
-    unidadeOrigem: selectedUnidadeFiltro || '',
-    token: sessionToken || '',
-    enabled: isAuthenticated && !!sessionToken && !!selectedUnidadeFiltro,
-    currentTotalItens: countData?.total_itens,
-  });
-
-  const openUnitsInProcess = openUnitsData?.unidades || null;
-  const processLinkAcesso = openUnitsData?.linkAcesso || null;
-
-  const unitAccessDenied = noDocAccessParam || (isOpenUnitsError && !!openUnitsError);
+  const unitAccessDenied = noDocAccessParam;
 
   // Data fetching hook
   const {
@@ -161,18 +149,28 @@ function VisualizarProcessoContent() {
     hasBackgroundLoading,
     loadingTasks,
     refresh,
-    isPartialData,
     andamentosFailed,
-    andamentosProgress,
+    resumoFailed,
+    resumoError,
+    retryResumo,
+    dataCarga,
+    refreshNoCache,
   } = useProcessData({
     numeroProcesso,
     sessionToken,
-    selectedUnidadeFiltro,
+    selectedUnidadeFiltro: unidadeParaConsulta,
+    resumoUnidadeOverride,
     isAuthenticated,
     unitAccessDenied,
     onSessionExpired: () => { persistLogout(); clearLastViewedProcess(); router.push('/'); },
-    refetchOpenUnits,
   });
+
+  // Derive open units from the andamentos timeline (no endpoint needed)
+  const openUnitsInProcess = useMemo(() => {
+    const andamentos = rawProcessData?.Andamentos;
+    if (!andamentos || andamentos.length === 0) return null;
+    return deriveOpenUnitsFromAndamentos(andamentos);
+  }, [rawProcessData?.Andamentos]);
 
   // Derived state hooks
   const processCreationInfo = useProcessCreationInfo(rawProcessData);
@@ -181,8 +179,8 @@ function VisualizarProcessoContent() {
     const andamentos = rawProcessData?.Andamentos;
     if (!rawProcessData || !andamentos) return null;
     const processNumber = rawProcessData.Info?.NumeroProcesso || numeroProcesso;
-    return processAndamentos(andamentos, openUnitsInProcess, processNumber, isSummarizedView, isPartialData);
-  }, [rawProcessData, openUnitsInProcess, numeroProcesso, isSummarizedView, isPartialData]);
+    return processAndamentos(andamentos, openUnitsInProcess, processNumber, isSummarizedView);
+  }, [rawProcessData, openUnitsInProcess, numeroProcesso, isSummarizedView]);
 
   const { isExternalProcess, daysOpenInUserOrgao } = useOrgaoMetrics({
     userOrgao,
@@ -199,17 +197,6 @@ function VisualizarProcessoContent() {
     }
   }, [isAuthenticated, sessionToken, router]);
 
-  useEffect(() => {
-    if (!selectedUnidadeFiltro && isAuthenticated) {
-      toast({
-        title: "Selecione uma unidade",
-        description: "É necessário selecionar uma unidade antes de visualizar o processo.",
-        variant: "destructive"
-      });
-      router.push(`/processo/${encodeURIComponent(numeroProcesso)}`);
-    }
-  }, [selectedUnidadeFiltro, isAuthenticated, numeroProcesso, router, toast]);
-
   // Open sheet when data loads
   useEffect(() => {
     if (rawProcessData) {
@@ -221,6 +208,114 @@ function VisualizarProcessoContent() {
   const handleTaskCardClick = (task: ProcessedAndamento) => setTaskToScrollTo(task);
   const handleScrollToFirstTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[0]); };
   const handleScrollToLastTask = () => { if (processedFlowData?.tasks.length) setTaskToScrollTo(processedFlowData.tasks[processedFlowData.tasks.length - 1]); };
+
+  const handleExportTimelineText = useCallback(() => {
+    if (!processedFlowData || !rawProcessData) return;
+
+    const processNum = formatProcessNumber(rawProcessData.Info?.NumeroProcesso || numeroProcesso);
+    const tasks = processedFlowData.tasks;
+    const connections = processedFlowData.connections;
+    const lanes = Array.from(processedFlowData.laneMap.keys());
+
+    const lines: string[] = [];
+    lines.push(`# Timeline: Processo ${processNum}`);
+    lines.push(`# Exported: ${new Date().toISOString()}`);
+    lines.push(`# Total andamentos: ${tasks.length}`);
+    lines.push(`# Lanes (units): ${lanes.length}`);
+    lines.push(`# Connections: ${connections.length}`);
+    lines.push('');
+
+    // Lanes
+    lines.push('## Lanes (swim lanes)');
+    lanes.forEach((lane, i) => lines.push(`  ${i + 1}. ${lane}`));
+    lines.push('');
+
+    // Open units
+    if (openUnitsInProcess && openUnitsInProcess.length > 0) {
+      lines.push('## Open units (processo em aberto)');
+      openUnitsInProcess.forEach(u => {
+        const user = u.UsuarioAtribuicao?.Nome || u.UsuarioAtribuicao?.Sigla || '-';
+        lines.push(`  - ${u.Unidade.Sigla} (user: ${user})`);
+      });
+      lines.push('');
+    }
+
+    // Nodes (chronological, oldest first)
+    lines.push('## Nodes (chronological order, oldest first)');
+    lines.push('');
+    const sorted = [...tasks].sort((a, b) => a.globalSequence - b.globalSequence);
+    sorted.forEach(t => {
+      const grouped = t.isSummaryNode ? ` [grouped: ${t.groupedTasksCount} actions]` : '';
+      const days = t.daysOpen !== undefined ? ` [OPEN: ${t.daysOpen}d]` : '';
+      const attrs = t.Atributos?.length
+        ? ` attrs=[${t.Atributos.map(a => `${a.Nome}:${a.Valor}`).join(', ')}]`
+        : '';
+      lines.push(`  [${t.globalSequence}] ${t.DataHora} | ${t.Tarefa} | ${t.Unidade.Sigla} | ${t.Usuario.Nome || t.Usuario.Sigla || '-'}${grouped}${days}${attrs}`);
+      if (t.Descricao && !t.isSummaryNode) {
+        const clean = t.Descricao.replace(/<[^>]*>/g, '').substring(0, 120);
+        lines.push(`       desc: ${clean}`);
+      }
+    });
+    lines.push('');
+
+    // Connections
+    lines.push('## Connections (edges)');
+    lines.push('');
+    connections.forEach(c => {
+      const style = c.style === 'dotted' ? ' (dotted/reference)' : '';
+      lines.push(`  [${c.sourceTask.globalSequence}] ${c.sourceTask.Unidade.Sigla} → [${c.targetTask.globalSequence}] ${c.targetTask.Unidade.Sigla}${style}`);
+    });
+    lines.push('');
+
+    // Summary stats
+    lines.push('## Summary');
+    const taskCounts: Record<string, number> = {};
+    tasks.forEach(t => { taskCounts[t.Tarefa] = (taskCounts[t.Tarefa] || 0) + 1; });
+    Object.entries(taskCounts)
+      .sort(([, a], [, b]) => b - a)
+      .forEach(([tipo, count]) => lines.push(`  ${tipo}: ${count}`));
+
+    const text = lines.join('\n');
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `timeline-${processNum.replace(/[\/\s.]/g, '_')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [processedFlowData, rawProcessData, numeroProcesso, openUnitsInProcess]);
+
+  const handleExportTimeline = useCallback(() => {
+    const card = document.querySelector('[data-diagram-card]');
+    if (!card) return;
+    const svgEl = card.querySelector('svg');
+    if (!svgEl) return;
+
+    // Clone SVG and inline computed styles for standalone rendering
+    const clone = svgEl.cloneNode(true) as SVGSVGElement;
+    // Add white background
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('width', '100%');
+    bg.setAttribute('height', '100%');
+    bg.setAttribute('fill', 'white');
+    clone.insertBefore(bg, clone.firstChild);
+
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(clone);
+    const blob = new Blob([svgString], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    const processId = formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso);
+    a.download = `timeline-${processId.replace(/[\/\s.]/g, '_')}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [rawProcessData, numeroProcesso]);
 
   const handleNodeNavigate = useCallback((id: string, type: 'andamento' | 'document') => {
     if (!processedFlowData?.tasks) return;
@@ -245,12 +340,7 @@ function VisualizarProcessoContent() {
     return Array.from(processedFlowData.laneMap.keys()).sort();
   }, [processedFlowData]);
 
-  // Augment loading tasks with open units
-  const allLoadingTasks = useMemo(() => {
-    const tasks = [...loadingTasks];
-    if (isLoadingOpenUnits) tasks.splice(1, 0, "Verificando unidades abertas");
-    return tasks;
-  }, [loadingTasks, isLoadingOpenUnits]);
+  const allLoadingTasks = loadingTasks;
 
   return (
     <>
@@ -287,7 +377,7 @@ function VisualizarProcessoContent() {
           <ProcessToolbar
             rawProcessData={rawProcessData}
             numeroProcesso={numeroProcesso}
-            processLinkAcesso={processLinkAcesso}
+            processLinkAcesso={null}
             openUnitsInProcess={openUnitsInProcess}
             hasBackgroundLoading={hasBackgroundLoading}
             lastFetchedAt={lastFetchedAt}
@@ -297,6 +387,7 @@ function VisualizarProcessoContent() {
             onRefresh={refresh}
             initialIsSaved={isSaved}
             onSavedStatusChange={setIsSaved}
+            dataCarga={dataCarga}
           />
         )}
 
@@ -316,13 +407,21 @@ function VisualizarProcessoContent() {
           isExternalProcess={isExternalProcess}
           daysOpenInUserOrgao={daysOpenInUserOrgao}
           onNodeNavigate={handleNodeNavigate}
+          resumoFailed={resumoFailed}
+          resumoError={resumoError}
+          unidadesFiltroList={unidadesFiltroList}
+          currentUnidade={resumoUnidadeOverride || unidadeParaConsulta}
+          onRetryResumoWithUnidade={(unidadeId) => {
+            setResumoUnidadeOverride(unidadeId);
+            retryResumo();
+          }}
         />
 
         {rawProcessData && (
           <ProcessProvider value={{
             sessionToken,
             isAuthenticated,
-            selectedUnidadeFiltro,
+            selectedUnidadeFiltro: unidadeParaConsulta,
             processNumber: numeroProcesso || rawProcessData?.Info?.NumeroProcesso || '',
             openUnitsInProcess,
             refresh,
@@ -331,22 +430,20 @@ function VisualizarProcessoContent() {
               {/* Open Units */}
               <OpenUnitsCard
                 openUnitsInProcess={openUnitsInProcess}
-                isLoadingOpenUnits={isLoadingOpenUnits}
                 unitAccessDenied={unitAccessDenied}
                 processedFlowData={processedFlowData}
                 onTaskCardClick={handleTaskCardClick}
-                isPartialData={isPartialData}
               />
 
               {/* Andamentos (Timeline or Table) */}
               <Card className="flex flex-col" data-diagram-card>
                 <CardHeader className="pb-3 flex-shrink-0">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <GanttChartSquare className="h-5 w-5" /> Andamentos
-                    </CardTitle>
-                    <div className="flex items-center gap-2">
-                      {/* View toggle */}
+                    {/* LEFT: title + view toggle */}
+                    <div className="flex items-center gap-3">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <GanttChartSquare className="h-5 w-5" /> Andamentos
+                      </CardTitle>
                       <div className="flex items-center border rounded-md overflow-hidden">
                         <Button
                           variant={andamentosView === 'timeline' ? 'default' : 'ghost'}
@@ -367,22 +464,60 @@ function VisualizarProcessoContent() {
                           <span className="hidden sm:inline">Tabela</span>
                         </Button>
                       </div>
+                    </div>
 
+                    {/* RIGHT: filters + actions */}
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      {/* Cache controls */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-8 text-xs border-amber-500/50 text-amber-700">
+                            <FlaskConical className="mr-1 h-3 w-3" />
+                            Experimental
+                            <ChevronDown className="ml-1 h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Cache</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={refreshNoCache} disabled={isRefreshing || hasBackgroundLoading}>
+                            <Trash2 className="mr-2 h-3 w-3" /> Limpar cache
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
+                      {/* Export dropdown */}
+                      {processedFlowData && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 text-xs">
+                              <Download className="mr-1 h-3 w-3" /> Exportar <ChevronDown className="ml-1 h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {andamentosView === 'timeline' && (
+                              <DropdownMenuItem onClick={handleExportTimeline}>
+                                <Download className="mr-2 h-3 w-3" /> Exportar SVG
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={handleExportTimelineText}>
+                              <Download className="mr-2 h-3 w-3" /> Exportar TXT (LLM)
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+
+                      <Separator orientation="vertical" className="h-5" />
+
+                      {/* Shared filters (both views) */}
+                      <div className="flex items-center space-x-2">
+                        <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading} />
+                        <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
+                      </div>
+
+                      {/* Timeline-only controls */}
                       {andamentosView === 'timeline' && (
                         <>
-                          <Separator orientation="vertical" className="h-5" />
-                          <div className="flex items-center space-x-2">
-                            <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading} />
-                            <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
-                          </div>
-                          {isPartialData && rawProcessData?.Info && (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              <span>
-                                {andamentosProgress?.loaded ?? rawProcessData.Andamentos?.length ?? 0} de {andamentosProgress?.total ?? rawProcessData.Info.TotalItens} andamentos carregados
-                              </span>
-                            </div>
-                          )}
                           <Separator orientation="vertical" className="h-5" />
                           <Button onClick={handleScrollToFirstTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
                             <ChevronsLeft className="mr-1 h-4 w-4" /> Inicio
@@ -461,6 +596,7 @@ function VisualizarProcessoContent() {
                         </>
                       )}
 
+                      {/* Table-only: search */}
                       {andamentosView === 'table' && (
                         <>
                           <Separator orientation="vertical" className="h-5" />
@@ -492,7 +628,6 @@ function VisualizarProcessoContent() {
                           taskToScrollTo={taskToScrollTo}
                           taskToSelect={taskToSelect}
                           filteredLaneUnits={selectedLaneUnits}
-                          isPartialData={isPartialData}
                         />
                       </div>
                     ) : (
@@ -517,32 +652,34 @@ function VisualizarProcessoContent() {
                 <Card className="flex flex-col">
                   <CardHeader className="pb-3 flex-shrink-0">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <GanttChartSquare className="h-5 w-5" /> Tabela Produtividade
-                      </CardTitle>
-                      <div className="flex items-center gap-2">
+                      {/* LEFT: title + tabs */}
+                      <div className="flex items-center gap-3">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <GanttChartSquare className="h-5 w-5" /> Tabela Produtividade
+                        </CardTitle>
                         <ProcessProductivityTabs
                           value={prodActiveTab}
                           onValueChange={(value) => setProdActiveTab(value as ProductivityTab)}
                           hasHorasConfig={hasHorasConfig}
                           canViewFinanceiro={papelGlobal === 'admin' || papelGlobal === 'beta'}
                         />
-                        <>
-                          <div className="relative w-64">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                            <Input
-                              placeholder="Buscar unidade ou usuário..."
-                              value={prodSearchQuery}
-                              onChange={(e) => setProdSearchQuery(e.target.value)}
-                              className="h-8 pl-8 text-sm text-foreground font-medium"
-                            />
-                          </div>
-                          <ProcessProductivityUnitFilter
-                            andamentos={rawProcessData.Andamentos}
-                            value={prodUnitFilter}
-                            onChange={setProdUnitFilter}
+                      </div>
+                      {/* RIGHT: search + filter */}
+                      <div className="flex items-center gap-2">
+                        <div className="relative w-64">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            placeholder="Buscar unidade ou usuário..."
+                            value={prodSearchQuery}
+                            onChange={(e) => setProdSearchQuery(e.target.value)}
+                            className="h-8 pl-8 text-sm text-foreground font-medium"
                           />
-                        </>
+                        </div>
+                        <ProcessProductivityUnitFilter
+                          andamentos={rawProcessData.Andamentos}
+                          value={prodUnitFilter}
+                          onChange={setProdUnitFilter}
+                        />
                       </div>
                     </div>
                   </CardHeader>

@@ -1208,11 +1208,8 @@ export function ProcessoKanbanSheet({
               const unitId = selectedUnidadeFiltro || idUnidadeAtual;
               if (unitId) {
                 updateSelectedUnidade(unitId);
-                router.push(`/processo/${encodeURIComponent(processo.numero_processo)}/visualizar`);
-              } else {
-                // No unit available — redirect to unit selection page
-                router.push(`/processo/${encodeURIComponent(processo.numero_processo)}`);
               }
+              router.push(`/processo/${encodeURIComponent(processo.numero_processo)}/visualizar`);
             }}
           >
             <ExternalLink className="h-4 w-4 mr-2" />

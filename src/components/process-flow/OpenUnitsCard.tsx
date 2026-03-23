@@ -2,27 +2,23 @@
 
 import React, { useMemo } from 'react';
 import type { ProcessedFlowData, ProcessedAndamento, UnidadeAberta } from '@/types/process-flow';
-import { Loader2, AlertTriangle, CheckCircle, Clock, User } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { findOpenTaskForUnit } from '@/lib/process-flow-utils';
 
 interface OpenUnitsCardProps {
   openUnitsInProcess: UnidadeAberta[] | null;
-  isLoadingOpenUnits: boolean;
   unitAccessDenied: boolean;
   processedFlowData: ProcessedFlowData | null;
   onTaskCardClick: (task: ProcessedAndamento) => void;
-  isPartialData?: boolean;
 }
 
 export function OpenUnitsCard({
   openUnitsInProcess,
-  isLoadingOpenUnits,
   unitAccessDenied,
   processedFlowData,
   onTaskCardClick,
-  isPartialData = false,
 }: OpenUnitsCardProps) {
   return (
     <Card>
@@ -41,17 +37,11 @@ export function OpenUnitsCard({
             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
             <span>Não foi possível consultar unidades em aberto</span>
           </div>
-        ) : isLoadingOpenUnits ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Verificando unidades abertas...</span>
-          </div>
         ) : openUnitsInProcess && openUnitsInProcess.length > 0 ? (
           <SortedOpenUnits
             openUnitsInProcess={openUnitsInProcess}
             processedFlowData={processedFlowData}
             onTaskCardClick={onTaskCardClick}
-            isPartialData={isPartialData}
           />
         ) : openUnitsInProcess && openUnitsInProcess.length === 0 ? (
           <div className="flex items-center gap-2 text-sm">
@@ -68,12 +58,10 @@ function SortedOpenUnits({
   openUnitsInProcess,
   processedFlowData,
   onTaskCardClick,
-  isPartialData = false,
 }: {
   openUnitsInProcess: UnidadeAberta[];
   processedFlowData: ProcessedFlowData | null;
   onTaskCardClick: (task: ProcessedAndamento) => void;
-  isPartialData?: boolean;
 }) {
   const sortedUnits = useMemo(() => {
     return openUnitsInProcess
@@ -106,11 +94,6 @@ function SortedOpenUnits({
               <span className="text-xs text-muted-foreground flex items-center">
                 <Clock className="h-3 w-3 mr-1 flex-shrink-0" />
                 {openTask.daysOpen} {openTask.daysOpen === 1 ? 'dia' : 'dias'}
-              </span>
-            ) : isPartialData ? (
-              <span className="text-xs text-muted-foreground flex items-center">
-                <Loader2 className="h-3 w-3 mr-1 flex-shrink-0 animate-spin" />
-                Aguardando carregamento
               </span>
             ) : null}
           </div>

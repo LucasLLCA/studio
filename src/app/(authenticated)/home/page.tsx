@@ -113,7 +113,7 @@ function HomeContent() {
       return;
     }
 
-    router.push(`/processo/${encodeURIComponent(digits)}`);
+    router.push(`/processo/${encodeURIComponent(digits)}/visualizar`);
   };
 
   const inputRef = React.createRef<HTMLInputElement>();
@@ -129,10 +129,8 @@ function HomeContent() {
   const handleHistoryItemClick = (item: HistoryItem) => {
     if (item.id_unidade) {
       updateSelectedUnidade(item.id_unidade);
-      router.push(`/processo/${encodeURIComponent(item.numero_processo)}/visualizar`);
-    } else {
-      handleSearchClick(item.numero_processo);
     }
+    router.push(`/processo/${encodeURIComponent(item.numero_processo)}/visualizar`);
   };
 
   const handleHistorySave = (item: HistoryItem) => {

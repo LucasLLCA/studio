@@ -36,20 +36,22 @@ export function KanbanCard({ processo, sourceTagId, onClick, onDelete, isDraggab
       className={`group/card transition-shadow ${
         isDragging
           ? 'opacity-40 shadow-none cursor-grabbing'
+          : isDraggable
+          ? 'hover:shadow-md cursor-grab active:cursor-grabbing'
           : 'hover:shadow-md cursor-pointer'
       }`}
       onClick={isDragging ? undefined : onClick}
     >
       <CardContent className="p-3">
         <div className="flex items-start gap-1">
-          {/* Handle de arrasto — só aparece quando há mais de um grupo */}
+          {/* Handle de arrasto com fundo visível no hover */}
           {isDraggable && (
             <button
               {...listeners}
               {...attributes}
-              className="shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors touch-none"
+              className="shrink-0 mt-0.5 touch-none rounded p-0.5 text-muted-foreground/30 group-hover/card:text-muted-foreground/70 group-hover/card:bg-muted hover:!text-foreground hover:!bg-muted-foreground/15 transition-all cursor-grab active:cursor-grabbing"
               onClick={(e) => e.stopPropagation()}
-              title="Arrastar para outro grupo"
+              title="Arrastar para mover para outro grupo"
             >
               <GripVertical className="h-4 w-4" />
             </button>

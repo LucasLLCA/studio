@@ -24,6 +24,7 @@ interface ProcessToolbarProps {
   onRefresh: () => void;
   initialIsSaved: boolean;
   onSavedStatusChange: (saved: boolean) => void;
+  dataCarga?: string | null;
 }
 
 export function ProcessToolbar({
@@ -39,6 +40,7 @@ export function ProcessToolbar({
   onRefresh,
   initialIsSaved,
   onSavedStatusChange,
+  dataCarga,
 }: ProcessToolbarProps) {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isObservacoesOpen, setIsObservacoesOpen] = useState(false);
@@ -58,6 +60,14 @@ export function ProcessToolbar({
             <span className="text-muted-foreground/40">|</span>
             <span className="text-xs text-muted-foreground">
               Atualizado {formatDistanceToNowStrict(lastFetchedAt, { addSuffix: true, locale: ptBR })}
+            </span>
+          </>
+        )}
+        {dataCarga && (
+          <>
+            <span className="text-muted-foreground/40">|</span>
+            <span className="text-xs text-amber-600">
+              Dados atualizados em: {new Date(dataCarga).toLocaleString('pt-BR')}
             </span>
           </>
         )}
