@@ -111,6 +111,35 @@ export async function marcarMencaoVista(
   }
 }
 
+export async function updateObservacao(
+  numeroProcesso: string,
+  observacaoId: string,
+  usuario: string,
+  conteudo: string,
+): Promise<Observacao | ApiError> {
+  try {
+    const response = await fetch(
+      `${getApiBaseUrl()}/observacoes/${encodeURIComponent(numeroProcesso)}/${observacaoId}?usuario=${encodeURIComponent(usuario)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ conteudo }),
+        cache: 'no-store',
+      },
+    );
+
+    if (!response.ok) {
+      const details = await response.json().catch(() => response.statusText);
+      return { error: `Falha ao atualizar observacao: ${response.status}`, details, status: response.status };
+    }
+
+    const data = await response.json();
+    return data.data as Observacao;
+  } catch (error) {
+    return { error: 'Erro ao conectar com o servico', details: error instanceof Error ? error.message : String(error), status: 500 };
+  }
+}
+
 export async function deleteObservacao(
   numeroProcesso: string,
   observacaoId: string,
