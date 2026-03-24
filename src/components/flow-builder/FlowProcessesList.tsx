@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trash2, ExternalLink } from 'lucide-react';
+import { Trash2, Eye } from 'lucide-react';
 import type { FluxoProcesso } from '@/types/fluxos';
 import type { Node } from '@xyflow/react';
 
@@ -65,14 +66,10 @@ export default function FlowProcessesList({
             )}
             <div className="flex items-center gap-1 pt-1">
               <Button variant="ghost" size="sm" asChild>
-                <a
-                  href={`/processo/${encodeURIComponent(proc.numero_processo_formatado || proc.numero_processo)}/visualizar`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="h-3 w-3 mr-1" />
+                <Link href={`/processo/${encodeURIComponent(proc.numero_processo_formatado || proc.numero_processo)}/visualizar`}>
+                  <Eye className="h-3 w-3 mr-1" />
                   Ver
-                </a>
+                </Link>
               </Button>
               {!readOnly && onRemove && (
                 <Button

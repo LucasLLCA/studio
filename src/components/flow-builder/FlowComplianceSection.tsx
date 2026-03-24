@@ -87,10 +87,8 @@ function ComplianceBadge({ status }: { status: ComplianceStatus }) {
 function FlowComplianceCard({ result }: { result: FluxoComplianceResult }) {
   const { fluxo, summary, nodes } = result;
 
-  // Filter out inicio/fim for the step list display
-  const actionableNodes = nodes.filter(
-    (n) => n.node.tipo !== 'inicio' && n.node.tipo !== 'fim'
-  );
+  // All nodes including inicio/fim for the step list display
+  const displayNodes = nodes;
 
   return (
     <div className="border rounded-lg p-4 space-y-3">
@@ -147,15 +145,15 @@ function FlowComplianceCard({ result }: { result: FluxoComplianceResult }) {
       )}
 
       {/* Step list (expandable) */}
-      {actionableNodes.length > 0 && (
+      {displayNodes.length > 0 && (
         <Accordion type="single" collapsible>
           <AccordionItem value="steps" className="border-none">
             <AccordionTrigger className="py-1.5 text-xs text-muted-foreground hover:no-underline">
-              Ver etapas ({actionableNodes.length})
+              Ver etapas ({displayNodes.length})
             </AccordionTrigger>
             <AccordionContent>
               <div className="space-y-1 pt-1">
-                {actionableNodes.map((nc) => (
+                {displayNodes.map((nc) => (
                   <div
                     key={nc.node.node_id}
                     className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/50 text-sm"

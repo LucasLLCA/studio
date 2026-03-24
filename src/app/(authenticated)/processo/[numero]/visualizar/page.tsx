@@ -89,6 +89,8 @@ import {
   type ProductivityTab,
 } from '@/components/process-flow/ProcessProductivityTable';
 import { FlowComplianceSection } from '@/components/flow-builder/FlowComplianceSection';
+import { useFluxosByProcesso } from '@/lib/react-query/queries/useFluxos';
+import { stripProcessNumber } from '@/lib/utils';
 import { ProcessProvider } from '@/contexts/process-context';
 import { useLastViewedProcess } from '@/contexts/last-viewed-process-context';
 import { useProcessoSalvo } from '@/lib/react-query/queries/useProcessoSalvo';
@@ -172,6 +174,10 @@ function VisualizarProcessoContent() {
   useEffect(() => {
     if (processoSalvoData) setIsSaved(processoSalvoData.salvo);
   }, [processoSalvoData]);
+
+  // Check if process has any linked flows (for "Vincular a Fluxo" button)
+  const { data: fluxosVinculados } = useFluxosByProcesso(usuario || '', stripProcessNumber(numeroProcesso));
+  const hasLinkedFluxo = (fluxosVinculados?.length ?? 0) > 0;
 
   const unitAccessDenied = noDocAccessParam;
 
@@ -450,6 +456,8 @@ function VisualizarProcessoContent() {
             initialIsSaved={isSaved}
             onSavedStatusChange={setIsSaved}
             dataCarga={dataCarga}
+            hasLinkedFluxo={hasLinkedFluxo}
+            onVincularFluxo={() => router.push('/fluxos')}
           />
         )}
 

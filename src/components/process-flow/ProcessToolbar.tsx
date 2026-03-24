@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import type { ProcessoData, UnidadeAberta } from '@/types/process-flow';
-import { Loader2, ExternalLink, PanelRight, Bookmark, BookmarkCheck, Bell, RefreshCw, MessageSquare } from 'lucide-react';
+import { Loader2, ExternalLink, PanelRight, Bookmark, BookmarkCheck, Bell, RefreshCw, MessageSquare, GitBranch } from 'lucide-react';
 import { StatusIndicator } from '@/components/ui/status-indicator';
 import { Button } from '@/components/ui/button';
 import { formatProcessNumber } from '@/lib/utils';
@@ -25,6 +25,8 @@ interface ProcessToolbarProps {
   initialIsSaved: boolean;
   onSavedStatusChange: (saved: boolean) => void;
   dataCarga?: string | null;
+  hasLinkedFluxo?: boolean;
+  onVincularFluxo?: () => void;
 }
 
 export function ProcessToolbar({
@@ -41,6 +43,8 @@ export function ProcessToolbar({
   initialIsSaved,
   onSavedStatusChange,
   dataCarga,
+  hasLinkedFluxo,
+  onVincularFluxo,
 }: ProcessToolbarProps) {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isObservacoesOpen, setIsObservacoesOpen] = useState(false);
@@ -118,6 +122,11 @@ export function ProcessToolbar({
             <><Bookmark className="mr-2 h-4 w-4" /> Salvar</>
           )}
         </Button>
+        {!hasLinkedFluxo && onVincularFluxo && (
+          <Button variant="outline" size="sm" onClick={onVincularFluxo}>
+            <GitBranch className="mr-2 h-4 w-4" /> Vincular a Fluxo
+          </Button>
+        )}
         <Button
           variant={isObservacoesOpen ? "default" : "outline"}
           size="sm"

@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Save, Eye, Link2, Loader2, LayoutList } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -79,7 +78,7 @@ export default function FlowToolbar({
       )}
 
       <select
-        className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+        className={`rounded-md border px-2 py-1 text-xs font-medium ${STATUS_COLORS[status] || 'border-input bg-background'}`}
         value={status}
         onChange={(e) => onStatusChange(e.target.value)}
       >
@@ -87,10 +86,6 @@ export default function FlowToolbar({
         <option value="publicado">Publicado</option>
         <option value="arquivado">Arquivado</option>
       </select>
-
-      <Badge variant="outline" className={STATUS_COLORS[status] || ''}>
-        {status}
-      </Badge>
 
       <div className="flex-1" />
 
