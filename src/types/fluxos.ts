@@ -84,6 +84,41 @@ export interface FluxoProcesso {
   atualizado_em: string;
 }
 
+// ── Reverse lookup & Compliance ─────────────────────────────
+
+export interface FluxoComVinculacao {
+  fluxo: FluxoDetalhe;
+  vinculacao: FluxoProcesso;
+}
+
+export type ComplianceStatus = 'concluido' | 'em_andamento' | 'pendente' | 'violado';
+
+export interface FluxoNodeCompliance {
+  node: FluxoNode;
+  status: ComplianceStatus;
+  matched_andamentos: Array<{ Tarefa: string; DataHora: string; Usuario?: { Nome?: string } }>;
+  timestamp: string | null;
+  order: number;
+}
+
+export interface FluxoComplianceSummary {
+  total: number;
+  concluido: number;
+  em_andamento: number;
+  pendente: number;
+  violado: number;
+  progress_percent: number;
+}
+
+export interface FluxoComplianceResult {
+  fluxo: FluxoDetalhe;
+  vinculacao: FluxoProcesso;
+  nodes: FluxoNodeCompliance[];
+  summary: FluxoComplianceSummary;
+}
+
+// ── Canvas save ─────────────────────────────────────────────
+
 export interface FluxoSaveCanvasPayload {
   nodes: Array<{
     node_id: string;

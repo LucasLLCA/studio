@@ -5,6 +5,7 @@ import {
   getFluxos,
   getFluxoDetalhe,
   getFluxoProcessos,
+  getFluxosByProcesso,
   saveFluxoCanvas,
   assignProcesso,
   createFluxo,
@@ -14,7 +15,7 @@ import {
   removeFluxoProcesso,
 } from '@/lib/api/fluxos-api-client';
 import { queryKeys } from '../keys';
-import type { Fluxo, FluxoDetalhe, FluxoProcesso, FluxoSaveCanvasPayload } from '@/types/fluxos';
+import type { Fluxo, FluxoDetalhe, FluxoProcesso, FluxoComVinculacao, FluxoSaveCanvasPayload } from '@/types/fluxos';
 import { useCallback } from 'react';
 
 // ── Queries ──────────────────────────────────────────────────
@@ -57,6 +58,20 @@ export function useFluxoProcessos(fluxoId: string | undefined, usuario: string) 
     },
     enabled: !!fluxoId && !!usuario,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useFluxosByProcesso(usuario: string, numeroProcesso: string) {
+  return useQuery<FluxoComVinculacao[], Error>({
+    queryKey: queryKeys.fluxos.byProcesso(numeroProcesso),
+    queryFn: async () => {
+      const result = await getFluxosByProcesso(usuario, numeroProcesso);
+      if ('error' in result) throw new Error(result.error);
+      return result;
+    },
+    enabled: !!usuario && !!numeroProcesso,
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
 }

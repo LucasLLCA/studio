@@ -3,6 +3,7 @@ import type {
   Fluxo,
   FluxoDetalhe,
   FluxoProcesso,
+  FluxoComVinculacao,
   FluxoSaveCanvasPayload,
 } from '@/types/fluxos';
 import { getApiBaseUrl } from './fetch-utils';
@@ -239,6 +240,28 @@ export async function removeFluxoProcesso(
       return { error: `Falha ao remover processo: ${response.status}`, details, status: response.status };
     }
     return await response.json();
+  } catch (error) {
+    return { error: 'Erro ao conectar com o serviço', details: error instanceof Error ? error.message : String(error), status: 500 };
+  }
+}
+
+export async function getFluxosByProcesso(
+  usuario: string,
+  numero_processo: string,
+): Promise<FluxoComVinculacao[] | ApiError> {
+  try {
+    const query = qs({ usuario, numero_processo });
+    const response = await fetch(`${getApiBaseUrl()}/fluxos/by-processo${query}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      const details = await response.json().catch(() => response.statusText);
+      return { error: `Falha ao buscar fluxos do processo: ${response.status}`, details, status: response.status };
+    }
+    const data = await response.json();
+    return data.data as FluxoComVinculacao[];
   } catch (error) {
     return { error: 'Erro ao conectar com o serviço', details: error instanceof Error ? error.message : String(error), status: 500 };
   }

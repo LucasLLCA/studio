@@ -106,6 +106,8 @@ export const queryKeys = {
       ['fluxos', usuario, equipeId ?? '', orgao ?? ''] as const,
     detail: (fluxoId: string) => ['fluxos', 'detail', fluxoId] as const,
     processos: (fluxoId: string) => ['fluxos', 'processos', fluxoId] as const,
+    byProcesso: (numeroProcesso: string) =>
+      ['fluxos', 'byProcesso', stripProcessNumber(numeroProcesso)] as const,
   },
 
   // Permissions (RBAC)

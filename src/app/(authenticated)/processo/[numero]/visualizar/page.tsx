@@ -88,6 +88,7 @@ import {
   ProcessProductivityUnitFilter,
   type ProductivityTab,
 } from '@/components/process-flow/ProcessProductivityTable';
+import { FlowComplianceSection } from '@/components/flow-builder/FlowComplianceSection';
 import { ProcessProvider } from '@/contexts/process-context';
 import { useLastViewedProcess } from '@/contexts/last-viewed-process-context';
 import { useProcessoSalvo } from '@/lib/react-query/queries/useProcessoSalvo';
@@ -1084,6 +1085,15 @@ function VisualizarProcessoContent() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Flow Compliance */}
+              {rawProcessData?.Andamentos && usuario && (
+                <FlowComplianceSection
+                  usuario={usuario}
+                  numeroProcesso={numeroProcesso}
+                  andamentos={rawProcessData.Andamentos}
+                />
+              )}
 
               {/* Productivity Table */}
               {rawProcessData?.Andamentos?.length > 0 && (
