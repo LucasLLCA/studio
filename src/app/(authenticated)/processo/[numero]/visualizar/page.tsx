@@ -88,6 +88,7 @@ import {
   ProcessProductivityUnitFilter,
   type ProductivityTab,
 } from '@/components/process-flow/ProcessProductivityTable';
+import { MobileVerticalTimeline } from '@/components/process-flow/MobileVerticalTimeline';
 import { FlowComplianceSection } from '@/components/flow-builder/FlowComplianceSection';
 import { useFluxosByProcesso } from '@/lib/react-query/queries/useFluxos';
 import { stripProcessNumber } from '@/lib/utils';
@@ -1065,21 +1066,28 @@ function VisualizarProcessoContent() {
                 <CardContent className="overflow-hidden p-0 px-6 pb-6 pt-4">
                   {andamentosView === 'timeline' ? (
                     processedFlowData && processedFlowData.tasks.length > 0 ? (
-                      <div
-                        className="flex flex-col w-full"
-                        style={{ height: `${Math.min(processedFlowData.svgHeight + 80, 600)}px` }}
-                      >
-                        <ProcessFlowDiagram
-                          tasks={processedFlowData.tasks}
-                          connections={processedFlowData.connections}
-                          svgWidth={processedFlowData.svgWidth}
-                          svgHeight={processedFlowData.svgHeight}
-                          laneMap={processedFlowData.laneMap}
-                          taskToScrollTo={taskToScrollTo}
-                          taskToSelect={taskToSelect}
-                          filteredLaneUnits={selectedLaneUnits}
-                        />
-                      </div>
+                      <>
+                        {/* Desktop: horizontal SVG diagram */}
+                        <div
+                          className="hidden lg:flex flex-col w-full"
+                          style={{ height: `${Math.min(processedFlowData.svgHeight + 80, 600)}px` }}
+                        >
+                          <ProcessFlowDiagram
+                            tasks={processedFlowData.tasks}
+                            connections={processedFlowData.connections}
+                            svgWidth={processedFlowData.svgWidth}
+                            svgHeight={processedFlowData.svgHeight}
+                            laneMap={processedFlowData.laneMap}
+                            taskToScrollTo={taskToScrollTo}
+                            taskToSelect={taskToSelect}
+                            filteredLaneUnits={selectedLaneUnits}
+                          />
+                        </div>
+                        {/* Mobile: vertical timeline */}
+                        <div className="lg:hidden">
+                          <MobileVerticalTimeline tasks={processedFlowData.tasks} />
+                        </div>
+                      </>
                     ) : (
                       <p className="text-center text-muted-foreground py-10">Nenhum andamento para exibir ou dados inválidos.</p>
                     )

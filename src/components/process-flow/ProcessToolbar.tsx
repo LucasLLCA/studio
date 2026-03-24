@@ -61,11 +61,11 @@ export function ProcessToolbar({
   const formattedNumber = formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso);
 
   return (
-    <div className="mb-8 space-y-2">
+    <div className="mb-8 space-y-3">
       {/* Status line — stacks vertically on mobile */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
         {openUnitsInProcess !== null && (
-          <StatusIndicator status={openUnitsInProcess.length === 0 ? 'completed' : 'in-progress'} />
+          <StatusIndicator status={openUnitsInProcess.length === 0 ? 'completed' : 'in-progress'} className="gap-2" />
         )}
         {hasBackgroundLoading && (
           <Loader2 className="h-4 w-4 text-primary animate-spin" />
@@ -81,6 +81,8 @@ export function ProcessToolbar({
           </span>
         )}
       </div>
+
+      <hr className="border-border/50" />
 
       {/* Número + link — number on separate line on mobile */}
       <div className="flex items-center gap-3">
@@ -161,8 +163,8 @@ export function ProcessToolbar({
 
         <Drawer open={isMobileMoreOpen} onOpenChange={setIsMobileMoreOpen}>
           <DrawerTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Menu className="mr-2 h-4 w-4" /> Mais
+            <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Mais opções">
+              <Menu className="h-4 w-4" />
             </Button>
           </DrawerTrigger>
           <DrawerContent className="rounded-t-3xl">
