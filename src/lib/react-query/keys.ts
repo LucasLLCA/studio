@@ -115,6 +115,28 @@ export const queryKeys = {
     orgaos: ['admin', 'orgaos'] as const,
     configuracaoHorasPublic: (orgao: string) => ['configuracaoHoras', orgao] as const,
   },
+
+  // BI
+  bi: {
+    all: ['bi'] as const,
+    estoque: (origem?: string, passagem?: string, aberta?: string, orgOrigem?: string, orgPassagem?: string, orgAberta?: string) =>
+      ['bi', 'estoque', origem ?? '', passagem ?? '', aberta ?? '', orgOrigem ?? '', orgPassagem ?? '', orgAberta ?? ''] as const,
+    estoqueList: (page: number, search?: string, origem?: string, passagem?: string, aberta?: string, orgOrigem?: string, orgPassagem?: string, orgAberta?: string) =>
+      ['bi', 'estoqueList', page, search ?? '', origem ?? '', passagem ?? '', aberta ?? '', orgOrigem ?? '', orgPassagem ?? '', orgAberta ?? ''] as const,
+    unidades: ['bi', 'unidades'] as const,
+    tasks: ['bi', 'tasks'] as const,
+    prodUnidade: (orgao?: string, unidade?: string) =>
+      ['bi', 'prodUnidade', orgao ?? '', unidade ?? ''] as const,
+    prodUnidadeMensal: (orgao?: string, unidade?: string, ano_mes?: string) =>
+      ['bi', 'prodUnidadeMensal', orgao ?? '', unidade ?? '', ano_mes ?? ''] as const,
+    prodUsuario: (orgao?: string, unidade?: string) =>
+      ['bi', 'prodUsuario', orgao ?? '', unidade ?? ''] as const,
+    prodUsuarioMensal: (orgao?: string, unidade?: string, ano_mes?: string) =>
+      ['bi', 'prodUsuarioMensal', orgao ?? '', unidade ?? '', ano_mes ?? ''] as const,
+    feed: (usuario: string) => ['bi', 'feed', usuario] as const,
+    feedBadge: (usuario: string) => ['bi', 'feedBadge', usuario] as const,
+    processosComAtividade: (usuario: string) => ['bi', 'processosComAtividade', usuario] as const,
+  },
 } as const;
 
 /**

@@ -20,6 +20,7 @@ import {
   FlaskConical,
   Compass,
   X,
+  Bell,
 } from "lucide-react";
 import { AlertBox } from "@/components/ui/alert-box";
 import { Button } from "@/components/ui/button";
@@ -52,13 +53,19 @@ import {
 } from "@/components/ui/sheet";
 import { hasAuthTokenCookie, clearAuthTokenCookie } from "@/app/sei-actions";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { FeedPanel } from "@/components/bi/FeedPanel";
+import { useFeedBadge } from "@/lib/react-query/queries/useBiQueries";
 
 export default function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
-  const { isAuthenticated, papelGlobal, logout: persistLogout } = usePersistedAuth();
+  const { isAuthenticated, papelGlobal, usuario, logout: persistLogout } = usePersistedAuth();
   const { lastViewedProcess, clearLastViewedProcess, recentProcesses, removeRecentProcess } = useLastViewedProcess();
+
+  const [isFeedOpen, setIsFeedOpen] = useState(false);
+  const { data: badgeData } = useFeedBadge(usuario ?? undefined);
+  const unreadCount = badgeData?.unread_count ?? 0;
 
   const isOnHome = pathname === "/home";
   const isOnEquipes = pathname.startsWith("/equipes");
@@ -186,13 +193,13 @@ export default function AppHeader() {
                 </Button>
               )}
 
-              {/* BI's — disabled */}
+              {/* BI's */}
               <Button
-                className="bg-transparent border-0"
+                className={tabClass(pathname.startsWith("/bi"))}
                 variant="outline"
                 size="sm"
-                disabled
-                title="Em breve"
+                onClick={() => router.push("/bi")}
+                title="Business Intelligence"
               >
                 <BarChart3 className="h-4 w-4 lg:mr-2" />
                 <span className="hidden lg:inline">BI&apos;s</span>
@@ -218,6 +225,24 @@ export default function AppHeader() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Notificações (bell icon) */}
+              {mounted && isAuthenticated && usuario && (
+                <Button
+                  className="bg-transparent border-0 relative"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsFeedOpen(true)}
+                  title="Movimentacoes"
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </Button>
+              )}
 
               {/* Configurações dropdown (icon only) */}
               <DropdownMenu>
@@ -295,7 +320,7 @@ export default function AppHeader() {
                         </Button>
                       )}
 
-                      <Button variant="ghost" className="justify-start" disabled>
+                      <Button variant="ghost" className="justify-start" onClick={() => { router.push("/bi"); setIsMobileMenuOpen(false); }}>
                         <BarChart3 className="mr-2 h-4 w-4" />
                         BI&apos;s
                       </Button>
@@ -322,6 +347,22 @@ export default function AppHeader() {
                         <Newspaper className="mr-2 h-4 w-4" />
                         Atualizações
                       </Button>
+
+                      {mounted && isAuthenticated && usuario && (
+                        <Button
+                          variant="ghost"
+                          className="justify-start relative"
+                          onClick={() => { setIsFeedOpen(true); setIsMobileMenuOpen(false); }}
+                        >
+                          <Bell className="mr-2 h-4 w-4" />
+                          Movimentacoes
+                          {unreadCount > 0 && (
+                            <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          )}
+                        </Button>
+                      )}
                     </div>
 
                     {mounted && isAuthenticated && !isEmbedMode && (
@@ -383,6 +424,14 @@ export default function AppHeader() {
           </div>
         )}
       </div>
+
+      {mounted && isAuthenticated && usuario && (
+        <FeedPanel
+          open={isFeedOpen}
+          onOpenChange={setIsFeedOpen}
+          usuario={usuario}
+        />
+      )}
 
       <Dialog open={isInfoModalOpen} onOpenChange={setIsInfoModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden">
