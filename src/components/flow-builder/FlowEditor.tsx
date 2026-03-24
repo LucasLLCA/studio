@@ -75,18 +75,27 @@ function dbToNodes(fluxo: FluxoDetalhe): Node[] {
 }
 
 function dbToEdges(fluxo: FluxoDetalhe): Edge[] {
-  return fluxo.edges.map((e) => ({
-    id: e.edge_id,
-    source: e.source_node_id,
-    target: e.target_node_id,
-    type: e.tipo === 'padrao' ? 'padrao' : e.tipo,
-    label: e.label || undefined,
-    animated: e.animated,
-    data: {
-      condicao: e.condicao,
-      ordem: e.ordem,
-    },
-  }));
+  const edgeMap = new Map<string, Edge>();
+  
+  fluxo.edges.forEach((e) => {
+    const key = `${e.source_node_id}-${e.target_node_id}-${e.edge_id}`;
+    if (!edgeMap.has(key)) {
+      edgeMap.set(key, {
+        id: e.edge_id,
+        source: e.source_node_id,
+        target: e.target_node_id,
+        type: e.tipo === 'padrao' ? 'padrao' : e.tipo,
+        label: e.label || undefined,
+        animated: e.animated,
+        data: {
+          condicao: e.condicao,
+          ordem: e.ordem,
+        },
+      });
+    }
+  });
+  
+  return Array.from(edgeMap.values());
 }
 
 // ── React Flow → Save Payload ────────────────────────────────
@@ -188,7 +197,15 @@ export default function FlowEditor({
 
   const onConnect: OnConnect = useCallback(
     (connection) => {
-      setEdges((eds) => addEdge({ ...connection, type: 'padrao' }, eds));
+      setEdges((eds) => {
+        // Verificar se já existe uma edge entre esses nós
+        const exists = eds.some(
+          (e) => e.source === connection.source && e.target === connection.target
+        );
+        if (exists) return eds;
+        
+        return addEdge({ ...connection, type: 'padrao' }, eds);
+      });
       markDirty();
     },
     [markDirty],

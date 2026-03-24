@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
+
 const COOKIE_NAME = 'auth_token';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 

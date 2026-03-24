@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Save, Eye, Link2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Link2, Loader2, LayoutList } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface FlowToolbarProps {
@@ -13,10 +13,12 @@ interface FlowToolbarProps {
   status: string;
   isSaving: boolean;
   hasUnsavedChanges: boolean;
+  showSummary: boolean;
   onNameChange: (name: string) => void;
   onStatusChange: (status: string) => void;
   onSave: () => void;
   onAssignProcess: () => void;
+  onToggleSummary: () => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -31,10 +33,12 @@ export default function FlowToolbar({
   status,
   isSaving,
   hasUnsavedChanges,
+  showSummary,
   onNameChange,
   onStatusChange,
   onSave,
   onAssignProcess,
+  onToggleSummary,
 }: FlowToolbarProps) {
   const router = useRouter();
   const [editingName, setEditingName] = useState(false);
@@ -102,6 +106,15 @@ export default function FlowToolbar({
       <Button variant="outline" size="sm" onClick={onAssignProcess}>
         <Link2 className="h-4 w-4 mr-1" />
         Vincular Processo
+      </Button>
+
+      <Button
+        variant={showSummary ? 'default' : 'outline'}
+        size="sm"
+        onClick={onToggleSummary}
+      >
+        <LayoutList className="h-4 w-4 mr-1" />
+        Resumo
       </Button>
 
       <Button variant="outline" size="sm" onClick={() => router.push(`/fluxos/${fluxoId}/view`)}>

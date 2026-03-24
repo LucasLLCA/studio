@@ -7,6 +7,35 @@ import { X, Plus, Trash2, ChevronDown } from 'lucide-react';
 import type { Node } from '@xyflow/react';
 import { cn } from '@/lib/utils';
 import { useUnidadesSei } from '@/hooks/use-unidades-sei';
+import { useTiposDocumento } from '@/hooks/use-tipos-documento';
+
+function AutoResizeTextarea({ value, onChange, placeholder, className }: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.style.height = 'auto';
+      ref.current.style.height = ref.current.scrollHeight + 'px';
+    }
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      rows={1}
+      className={className}
+      style={{ resize: 'none', overflow: 'hidden', minHeight: '2.25rem' }}
+    />
+  );
+}
 
 interface NodePropertiesPanelProps {
   node: Node | null;
@@ -37,6 +66,29 @@ export default function NodePropertiesPanel({ node, onUpdate, onClose, onDelete 
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [unidadeOpen, setUnidadeOpen] = useState(false);
   const unidadeRef = useRef<HTMLDivElement>(null);
+
+  // Estado do seletor de documentos
+  const [docSearch, setDocSearch] = useState('');
+  const [debouncedDocSearch, setDebouncedDocSearch] = useState('');
+  const [docDropdownOpen, setDocDropdownOpen] = useState(false);
+  const docRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedDocSearch(docSearch), 300);
+    return () => clearTimeout(timer);
+  }, [docSearch]);
+
+  const { data: tiposDocumento = [], isFetching: loadingTipos } = useTiposDocumento(debouncedDocSearch);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (docRef.current && !docRef.current.contains(e.target as Node)) {
+        setDocDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Debounce: só dispara a busca 350ms após parar de digitar
   useEffect(() => {
@@ -76,7 +128,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onClose, onDelete 
   );
 
   return (
-    <div className="w-72 border-l border-border bg-card overflow-y-auto flex-shrink-0 flex flex-col">
+    <div className="w-96 border-l border-border bg-card overflow-y-auto flex-shrink-0 flex flex-col">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between p-3 border-b border-border">
         <div className="min-w-0">
@@ -118,9 +170,8 @@ export default function NodePropertiesPanel({ node, onUpdate, onClose, onDelete 
         {/* Descrição */}
         <div>
           <label className="text-xs font-medium text-muted-foreground">Descrição</label>
-          <textarea
-            className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
-            rows={3}
+          <AutoResizeTextarea
+            className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={(d.descricao as string) || ''}
             onChange={(e) => update('descricao', e.target.value)}
           />
@@ -249,35 +300,80 @@ export default function NodePropertiesPanel({ node, onUpdate, onClose, onDelete 
         {/* Documentos necessários */}
         <div>
           <label className="text-xs font-medium text-muted-foreground">Documentos necessários</label>
-          <div className="mt-1 space-y-1">
-            {documentos.map((doc, i) => (
-              <div key={i} className="flex items-center gap-1">
-                <Input
-                  value={doc}
-                  onChange={(e) => {
-                    const updated = [...documentos];
-                    updated[i] = e.target.value;
-                    update('documentos_necessarios', updated);
-                  }}
-                  className="flex-1"
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => update('documentos_necessarios', documentos.filter((_, j) => j !== i))}
+
+          {/* Pills dos documentos selecionados */}
+          {documentos.filter(Boolean).length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {documentos.filter(Boolean).map((doc, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-accent border border-border"
                 >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => update('documentos_necessarios', [...documentos, ''])}
+                  <span className="max-w-[180px] truncate">{doc}</span>
+                  <button
+                    type="button"
+                    className="hover:text-destructive transition-colors shrink-0"
+                    onClick={() => update('documentos_necessarios', documentos.filter((_, j) => j !== i))}
+                    title="Remover"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Seletor com busca */}
+          <div ref={docRef} className="relative mt-1.5">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-left hover:bg-accent transition-colors"
+              onClick={() => { setDocDropdownOpen((v) => !v); setDocSearch(''); }}
             >
-              <Plus className="h-3 w-3 mr-1" /> Adicionar
-            </Button>
+              <span className="text-muted-foreground">Adicionar documento...</span>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
+            </button>
+
+            {docDropdownOpen && (
+              <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg overflow-hidden">
+                <div className="p-1.5 border-b border-border">
+                  <Input
+                    autoFocus
+                    placeholder="Buscar tipo de documento..."
+                    value={docSearch}
+                    onChange={(e) => setDocSearch(e.target.value)}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="max-h-52 overflow-y-auto">
+                  {loadingTipos && (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">Buscando...</p>
+                  )}
+                  {!loadingTipos && tiposDocumento.length === 0 && (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">
+                      {debouncedDocSearch.trim().length >= 2
+                        ? 'Nenhum tipo encontrado.'
+                        : 'Digite para buscar ou veja todos os tipos...'}
+                    </p>
+                  )}
+                  {tiposDocumento
+                    .filter((t) => !documentos.includes(t.nome))
+                    .map((tipo) => (
+                      <button
+                        key={tipo.id}
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors"
+                        onClick={() => {
+                          update('documentos_necessarios', [...documentos.filter(Boolean), tipo.nome]);
+                          setDocDropdownOpen(false);
+                          setDocSearch('');
+                        }}
+                      >
+                        {tipo.nome}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -286,7 +382,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onClose, onDelete 
           <label className="text-xs font-medium text-muted-foreground">Checklist</label>
           <div className="mt-1 space-y-1">
             {checklist.map((item, i) => (
-              <div key={i} className="flex items-center gap-1">
+              <div key={i} className="flex items-start gap-1">
                 <input
                   type="checkbox"
                   checked={item.obrigatorio}
@@ -296,15 +392,16 @@ export default function NodePropertiesPanel({ node, onUpdate, onClose, onDelete 
                     update('checklist', updated);
                   }}
                   title="Obrigatório"
+                  className="mt-2.5"
                 />
-                <Input
+                <AutoResizeTextarea
                   value={item.item}
                   onChange={(e) => {
                     const updated = [...checklist];
                     updated[i] = { ...item, item: e.target.value };
                     update('checklist', updated);
                   }}
-                  className="flex-1"
+                  className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
                   placeholder="Item..."
                 />
                 <Button
