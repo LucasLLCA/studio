@@ -15,7 +15,8 @@ export default function AppFooter() {
               alt="Logo SoberanIA"
               width={120}
               height={40}
-              className="h-10 w-auto object-contain"
+              className="object-contain"
+              style={{ height: '40px', width: 'auto' }}
             />
           </a>
           <a href="https://pidigital.pi.gov.br/">
