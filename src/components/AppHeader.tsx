@@ -53,6 +53,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { hasAuthTokenCookie, clearAuthTokenCookie } from "@/app/sei-actions";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { FeedPanel } from "@/components/bi/FeedPanel";
 import { useFeedBadge } from "@/lib/react-query/queries/useBiQueries";
@@ -62,7 +63,7 @@ export default function AppHeader() {
   const pathname = usePathname();
   const { toast } = useToast();
   const { isAuthenticated, usuario, logout: persistLogout } = usePersistedAuth();
-  const { hasModulo } = usePermissions();
+  const { hasModulo, papelNome } = usePermissions();
   const { lastViewedProcess, clearLastViewedProcess, recentProcesses, removeRecentProcess } = useLastViewedProcess();
 
   const [isFeedOpen, setIsFeedOpen] = useState(false);
@@ -259,6 +260,17 @@ export default function AppHeader() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {mounted && papelNome && (
+                    <>
+                      <div className="px-2 py-1.5 flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Papel:</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
+                          {papelNome}
+                        </Badge>
+                      </div>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   {mounted && hasModulo('admin') && (
                     <DropdownMenuItem onClick={() => router.push('/admin')}>
                       <Shield className="h-4 w-4 mr-2" />
@@ -337,6 +349,15 @@ export default function AppHeader() {
                       </Button>
 
                       <div className="border-t my-2" />
+
+                      {mounted && papelNome && (
+                        <div className="px-3 py-1.5 flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Papel:</span>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
+                            {papelNome}
+                          </Badge>
+                        </div>
+                      )}
 
                       {mounted && hasModulo('admin') && (
                         <Button variant="ghost" className="justify-start" onClick={() => { router.push('/admin'); setIsMobileMenuOpen(false); }}>
