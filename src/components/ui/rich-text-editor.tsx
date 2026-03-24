@@ -64,13 +64,13 @@ function ToolbarButton({
 }
 
 function EditorToolbar({ editor }: { editor: Editor | null }) {
-  const [updateCount, setUpdateCount] = useState(0);
+  const [, setRenderTrigger] = useState(0);
 
   useEffect(() => {
     if (!editor) return;
 
     const updateHandler = () => {
-      setUpdateCount(c => c + 1);
+      setRenderTrigger(c => c + 1);
     };
 
     editor.on('update', updateHandler);
@@ -89,7 +89,7 @@ function EditorToolbar({ editor }: { editor: Editor | null }) {
   if (!editor) return null;
 
   return (
-    <div className="flex gap-1 flex-wrap p-1.5 border border-input rounded-md bg-muted/30" key={updateCount}>
+    <div className="flex gap-1 flex-wrap p-1.5 border border-input rounded-md bg-muted/30">
       <ToolbarButton
         editor={editor}
         isActive={editor.isActive('bold')}
@@ -154,8 +154,6 @@ export function RichTextEditor({
   onChange,
   onSubmit,
   placeholder = 'Escreva uma observação... use @ para mencionar',
-  autoFocus = false,
-  disabled = false,
   className,
   editorClassName,
 }: RichTextEditorProps) {
@@ -165,6 +163,12 @@ export function RichTextEditor({
         heading: {
           levels: [2, 3],
         },
+        bulletList: {
+          keepMarks: true,
+        },
+        orderedList: {
+          keepMarks: true,
+        },
       }),
       Placeholder.configure({
         placeholder,
@@ -172,20 +176,8 @@ export function RichTextEditor({
     ],
     content: value,
     immediatelyRender: false,
-    onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
-    },
-    onKeyDown: ({ editor, event }) => {
-      // Ctrl+Enter ou Cmd+Enter para enviar
-      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-        event.preventDefault();
-        onSubmit?.();
-      }
-      // Shift+Enter é permitido (quebra de linha)
-      if (event.shiftKey && event.key === 'Enter') {
-        event.preventDefault();
-        editor.commands.setHardBreak();
-      }
+    onUpdate: ({ editor: currentEditor }) => {
+      onChange(currentEditor.getHTML());
     },
     editorProps: {
       attributes: {
@@ -193,6 +185,15 @@ export function RichTextEditor({
           'focus:outline-none w-full min-h-[60px] max-h-[200px] overflow-y-auto rounded-md border border-input bg-white dark:bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           editorClassName
         ),
+      },
+      handleKeyDown: (_view: any, event: KeyboardEvent): boolean => {
+        // Ctrl+Enter ou Cmd+Enter para enviar
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+          event.preventDefault();
+          onSubmit?.();
+          return true;
+        }
+        return false;
       },
     },
   });
