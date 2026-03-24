@@ -276,15 +276,11 @@ export function computeFlowCompliance(
 
   const nodeResults = Array.from(complianceMap.values()).sort((a, b) => a.order - b.order);
 
-  // Only count actionable nodes (skip inicio/fim for progress)
-  const actionable = nodeResults.filter(
-    (n) => n.node.tipo !== 'inicio' && n.node.tipo !== 'fim'
-  );
-  const total = actionable.length;
-  const concluido = actionable.filter((n) => n.status === 'concluido').length;
-  const em_andamento = actionable.filter((n) => n.status === 'em_andamento').length;
-  const pendente = actionable.filter((n) => n.status === 'pendente').length;
-  const violado = actionable.filter((n) => n.status === 'violado').length;
+  const total = nodeResults.length;
+  const concluido = nodeResults.filter((n) => n.status === 'concluido').length;
+  const em_andamento = nodeResults.filter((n) => n.status === 'em_andamento').length;
+  const pendente = nodeResults.filter((n) => n.status === 'pendente').length;
+  const violado = nodeResults.filter((n) => n.status === 'violado').length;
 
   const summary: FluxoComplianceSummary = {
     total,
