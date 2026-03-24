@@ -1,17 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "../keys";
-import { fetchPermissions, type PermissionsResponse } from "@/lib/api/permissions-api-client";
+import { fetchPermissionsByEmail, type PermissionsResponse } from "@/lib/api/permissions-api-client";
 
-export function usePermissionsQuery(idPessoa: number | null) {
+export function usePermissionsQuery(usuario: string | null) {
   return useQuery<PermissionsResponse>({
-    queryKey: queryKeys.permissions.byUser(idPessoa ?? 0),
+    queryKey: queryKeys.permissions.byUser(usuario ?? ''),
     queryFn: async () => {
-      if (!idPessoa) throw new Error("idPessoa required");
-      const result = await fetchPermissions(idPessoa);
-      if ("error" in result) throw new Error(result.error);
+      if (!usuario) throw new Error("usuario required");
+      console.log('[usePermissionsQuery] fetching permissions by email:', usuario);
+      const result = await fetchPermissionsByEmail(usuario);
+      if ("error" in result) {
+        console.error('[usePermissionsQuery] API error:', result.error);
+        throw new Error(result.error);
+      }
+      console.log('[usePermissionsQuery] response:', result);
       return result;
     },
-    enabled: !!idPessoa,
+    enabled: !!usuario,
     staleTime: 2 * 60 * 1000, // 2 minutes
     retry: 1,
   });

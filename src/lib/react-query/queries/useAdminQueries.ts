@@ -9,7 +9,7 @@ import {
   fetchConfiguracaoHorasPublic,
   fetchPapeis,
   fetchModulosList,
-  type UsuarioAdmin,
+  type UsuariosPaginatedResponse,
   type HorasItem,
   type PapelAdmin,
 } from '@/lib/api/admin-api-client';
@@ -18,44 +18,44 @@ function isError(v: unknown): v is { error: string } {
   return !!v && typeof v === 'object' && 'error' in v;
 }
 
-export function useUsuarios(idPessoa: number | null, search?: string) {
-  return useQuery<UsuarioAdmin[]>({
-    queryKey: queryKeys.admin.usuarios(search),
+export function useUsuarios(usuario: string | null, search?: string, page: number = 1, pageSize: number = 20) {
+  return useQuery<UsuariosPaginatedResponse>({
+    queryKey: queryKeys.admin.usuarios(search, page, pageSize),
     queryFn: async () => {
-      if (!idPessoa) throw new Error('Não autenticado');
-      const res = await fetchUsuarios(idPessoa, search);
+      if (!usuario) throw new Error('Não autenticado');
+      const res = await fetchUsuarios(usuario, search, page, pageSize);
       if (isError(res)) throw new Error(res.error);
       return res;
     },
-    enabled: !!idPessoa,
+    enabled: !!usuario,
     staleTime: 30_000,
   });
 }
 
-export function useConfiguracaoHoras(idPessoa: number | null, orgao: string) {
+export function useConfiguracaoHoras(usuario: string | null, orgao: string) {
   return useQuery<HorasItem[]>({
     queryKey: queryKeys.admin.configuracaoHoras(orgao),
     queryFn: async () => {
-      if (!idPessoa) throw new Error('Não autenticado');
-      const res = await fetchConfiguracaoHoras(idPessoa, orgao);
+      if (!usuario) throw new Error('Não autenticado');
+      const res = await fetchConfiguracaoHoras(usuario, orgao);
       if (isError(res)) throw new Error(res.error);
       return res;
     },
-    enabled: !!idPessoa && !!orgao,
+    enabled: !!usuario && !!orgao,
     staleTime: 5 * 60_000,
   });
 }
 
-export function useOrgaos(idPessoa: number | null) {
+export function useOrgaos(usuario: string | null) {
   return useQuery<string[]>({
     queryKey: queryKeys.admin.orgaos,
     queryFn: async () => {
-      if (!idPessoa) throw new Error('Não autenticado');
-      const res = await fetchOrgaos(idPessoa);
+      if (!usuario) throw new Error('Não autenticado');
+      const res = await fetchOrgaos(usuario);
       if (isError(res)) throw new Error(res.error);
       return res;
     },
-    enabled: !!idPessoa,
+    enabled: !!usuario,
     staleTime: 10 * 60_000,
   });
 }
@@ -74,30 +74,30 @@ export function useConfiguracaoHorasPublic(orgao: string | null) {
   });
 }
 
-export function usePapeis(idPessoa: number | null) {
+export function usePapeis(usuario: string | null) {
   return useQuery<PapelAdmin[]>({
     queryKey: queryKeys.admin.papeis,
     queryFn: async () => {
-      if (!idPessoa) throw new Error('Não autenticado');
-      const res = await fetchPapeis(idPessoa);
+      if (!usuario) throw new Error('Não autenticado');
+      const res = await fetchPapeis(usuario);
       if (isError(res)) throw new Error(res.error);
       return res;
     },
-    enabled: !!idPessoa,
+    enabled: !!usuario,
     staleTime: 30_000,
   });
 }
 
-export function useModulosList(idPessoa: number | null) {
+export function useModulosList(usuario: string | null) {
   return useQuery<Record<string, string>>({
     queryKey: queryKeys.admin.modulosList,
     queryFn: async () => {
-      if (!idPessoa) throw new Error('Não autenticado');
-      const res = await fetchModulosList(idPessoa);
+      if (!usuario) throw new Error('Não autenticado');
+      const res = await fetchModulosList(usuario);
       if (isError(res)) throw new Error(res.error);
       return res;
     },
-    enabled: !!idPessoa,
+    enabled: !!usuario,
     staleTime: 10 * 60_000,
   });
 }

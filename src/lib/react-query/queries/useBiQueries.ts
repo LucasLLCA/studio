@@ -5,6 +5,7 @@ import {
   fetchEstoqueList,
   fetchEstoqueUnidades,
   fetchBiTasks,
+  fetchRotinas,
   fetchProdutividadeUnidade,
   fetchProdutividadeUsuario,
   fetchProdutividadeUnidadeMensal,
@@ -19,6 +20,7 @@ import type {
   EstoqueListResponse,
   EstoqueUnidadesOptions,
   BiTask,
+  BiRotina,
   ProdutividadeResponse,
   ProdutividadeUsuarioResponse,
   ProdutividadeMensalResponse,
@@ -92,6 +94,18 @@ export function useBiTasks() {
       return result;
     },
     refetchInterval: 30_000, // poll every 30s when tab is active
+  });
+}
+
+export function useRotinas() {
+  return useQuery<BiRotina[]>({
+    queryKey: queryKeys.bi.rotinas,
+    queryFn: async () => {
+      const result = await fetchRotinas();
+      if ("error" in result) throw new Error(result.error);
+      return result;
+    },
+    staleTime: 60 * 60 * 1000, // 1 hour — registry rarely changes
   });
 }
 

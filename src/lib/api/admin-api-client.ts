@@ -2,13 +2,18 @@ import { getApiBaseUrl, fetchWithErrorHandling } from './fetch-utils';
 import type { ApiError } from '@/types/process-flow';
 
 export interface UsuarioAdmin {
-  id_pessoa: number;
   usuario_sei: string;
   orgao: string;
-  cpf?: string | null;
   papel_nome?: string | null;
   papel_slug?: string | null;
   papel_id?: string | null;
+}
+
+export interface UsuariosPaginatedResponse {
+  items: UsuarioAdmin[];
+  total: number;
+  page: number;
+  page_size: number;
 }
 
 export interface PapelAdmin {
@@ -29,42 +34,48 @@ export interface HorasItem {
   atualizado_por?: string | null;
 }
 
-function adminUrl(path: string, idPessoa: number): string {
+function adminUrl(path: string, usuarioSei: string): string {
   const base = getApiBaseUrl();
   const separator = path.includes('?') ? '&' : '?';
-  return `${base}/admin${path}${separator}id_pessoa=${idPessoa}`;
+  return `${base}/admin${path}${separator}usuario_sei=${encodeURIComponent(usuarioSei)}`;
 }
 
 export async function fetchUsuarios(
-  idPessoa: number,
+  usuarioSei: string,
   search?: string,
-): Promise<UsuarioAdmin[] | ApiError> {
-  const searchParam = search ? `?search=${encodeURIComponent(search)}` : '';
-  return fetchWithErrorHandling<UsuarioAdmin[]>(
-    adminUrl(`/usuarios${searchParam}`, idPessoa),
+  page: number = 1,
+  pageSize: number = 20,
+): Promise<UsuariosPaginatedResponse | ApiError> {
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  params.set('page', String(page));
+  params.set('page_size', String(pageSize));
+  const qs = params.toString();
+  return fetchWithErrorHandling<UsuariosPaginatedResponse>(
+    adminUrl(`/usuarios?${qs}`, usuarioSei),
     { method: 'GET' },
     'buscar usuários',
   );
 }
 
 export async function fetchConfiguracaoHoras(
-  idPessoa: number,
+  usuarioSei: string,
   orgao: string,
 ): Promise<HorasItem[] | ApiError> {
   return fetchWithErrorHandling<HorasItem[]>(
-    adminUrl(`/configuracao-horas?orgao=${encodeURIComponent(orgao)}`, idPessoa),
+    adminUrl(`/configuracao-horas?orgao=${encodeURIComponent(orgao)}`, usuarioSei),
     { method: 'GET' },
     'buscar configuração de horas',
   );
 }
 
 export async function saveConfiguracaoHoras(
-  idPessoa: number,
+  usuarioSei: string,
   orgao: string,
   items: { grupo_key: string; horas: number }[],
 ): Promise<{ status: string } | ApiError> {
   return fetchWithErrorHandling<{ status: string }>(
-    adminUrl('/configuracao-horas', idPessoa),
+    adminUrl('/configuracao-horas', usuarioSei),
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -75,10 +86,10 @@ export async function saveConfiguracaoHoras(
 }
 
 export async function fetchOrgaos(
-  idPessoa: number,
+  usuarioSei: string,
 ): Promise<string[] | ApiError> {
   return fetchWithErrorHandling<string[]>(
-    adminUrl('/orgaos', idPessoa),
+    adminUrl('/orgaos', usuarioSei),
     { method: 'GET' },
     'buscar órgãos',
   );
@@ -99,21 +110,21 @@ export async function fetchConfiguracaoHorasPublic(
 // --------------- Papeis (Roles) CRUD ---------------
 
 export async function fetchPapeis(
-  idPessoa: number,
+  usuarioSei: string,
 ): Promise<PapelAdmin[] | ApiError> {
   return fetchWithErrorHandling<PapelAdmin[]>(
-    adminUrl('/papeis', idPessoa),
+    adminUrl('/papeis', usuarioSei),
     { method: 'GET' },
     'buscar papéis',
   );
 }
 
 export async function createPapel(
-  idPessoa: number,
+  usuarioSei: string,
   body: { nome: string; slug: string; descricao?: string; modulos: string[] },
 ): Promise<PapelAdmin | ApiError> {
   return fetchWithErrorHandling<PapelAdmin>(
-    adminUrl('/papeis', idPessoa),
+    adminUrl('/papeis', usuarioSei),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -124,12 +135,12 @@ export async function createPapel(
 }
 
 export async function updatePapel(
-  idPessoa: number,
+  usuarioSei: string,
   papelId: string,
   body: { nome?: string; descricao?: string; modulos?: string[] },
 ): Promise<PapelAdmin | ApiError> {
   return fetchWithErrorHandling<PapelAdmin>(
-    adminUrl(`/papeis/${papelId}`, idPessoa),
+    adminUrl(`/papeis/${papelId}`, usuarioSei),
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -140,32 +151,32 @@ export async function updatePapel(
 }
 
 export async function deletePapel(
-  idPessoa: number,
+  usuarioSei: string,
   papelId: string,
 ): Promise<{ status: string } | ApiError> {
   return fetchWithErrorHandling<{ status: string }>(
-    adminUrl(`/papeis/${papelId}`, idPessoa),
+    adminUrl(`/papeis/${papelId}`, usuarioSei),
     { method: 'DELETE' },
     'deletar papel',
   );
 }
 
 export async function fetchModulosList(
-  idPessoa: number,
+  usuarioSei: string,
 ): Promise<Record<string, string> | ApiError> {
   return fetchWithErrorHandling<Record<string, string>>(
-    adminUrl('/papeis/modulos', idPessoa),
+    adminUrl('/papeis/modulos', usuarioSei),
     { method: 'GET' },
     'buscar módulos',
   );
 }
 
 export async function assignUsuarioPapel(
-  idPessoa: number,
+  usuarioSei: string,
   body: { usuario_sei: string; papel_id: string },
 ): Promise<{ status: string; usuario_sei: string; papel_slug: string; papel_nome: string } | ApiError> {
   return fetchWithErrorHandling(
-    adminUrl('/usuario-papel', idPessoa),
+    adminUrl('/usuario-papel', usuarioSei),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -176,11 +187,11 @@ export async function assignUsuarioPapel(
 }
 
 export async function removeUsuarioPapel(
-  idPessoa: number,
   usuarioSei: string,
+  targetUsuarioSei: string,
 ): Promise<{ status: string } | ApiError> {
   return fetchWithErrorHandling<{ status: string }>(
-    adminUrl(`/usuario-papel/${encodeURIComponent(usuarioSei)}`, idPessoa),
+    adminUrl(`/usuario-papel/${encodeURIComponent(targetUsuarioSei)}`, usuarioSei),
     { method: 'DELETE' },
     'remover papel do usuário',
   );

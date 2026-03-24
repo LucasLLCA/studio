@@ -154,6 +154,7 @@ function VisualizarProcessoContent() {
   const [prodActiveTab, setProdActiveTab] = useState<ProductivityTab>('tarefas');
   const [isClient, setIsClient] = useState(false);
   const [isMobileAndamentosMenuOpen, setIsMobileAndamentosMenuOpen] = useState(false);
+  const [isMobileProdMenuOpen, setIsMobileProdMenuOpen] = useState(false);
 
   // Hour coefficient config for productivity table
   const { data: horasConfig } = useConfiguracaoHorasPublic(userOrgao);
@@ -1088,7 +1089,8 @@ function VisualizarProcessoContent() {
               {rawProcessData?.Andamentos?.length > 0 && (
                 <Card className="flex flex-col">
                   <CardHeader className="pb-3 flex-shrink-0">
-                    <div className="flex items-center justify-between">
+                    {/* DESKTOP */}
+                    <div className="hidden lg:flex items-center justify-between">
                       {/* LEFT: title + tabs */}
                       <div className="flex items-center gap-3">
                         <CardTitle className="flex items-center gap-2 text-lg">
@@ -1118,6 +1120,105 @@ function VisualizarProcessoContent() {
                           onChange={setProdUnitFilter}
                         />
                       </div>
+                    </div>
+
+                    {/* MOBILE */}
+                    <div className="flex lg:hidden items-center justify-between gap-2">
+                      <CardTitle className="flex items-center gap-2 text-lg min-w-0">
+                        <GanttChartSquare className="h-5 w-5 shrink-0" />
+                        <span className="truncate">Produtividade</span>
+                      </CardTitle>
+
+                      <Drawer open={isMobileProdMenuOpen} onOpenChange={setIsMobileProdMenuOpen}>
+                        <DrawerTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-10 w-10 rounded-xl shrink-0"
+                            aria-label="Abrir opções de produtividade"
+                          >
+                            <Menu className="h-4 w-4" />
+                          </Button>
+                        </DrawerTrigger>
+
+                        <DrawerContent className="rounded-t-3xl">
+                          <div className="mx-auto w-full max-w-md">
+                            <DrawerHeader className="text-center pb-2">
+                              <DrawerTitle className="text-lg font-semibold">
+                                Opções de Produtividade
+                              </DrawerTitle>
+                            </DrawerHeader>
+
+                            <div className="px-4 pb-4 space-y-5 max-h-[75vh] overflow-y-auto">
+                              {/* Visualização */}
+                              <div className="space-y-2">
+                                <p className="text-sm font-semibold text-primary">Visualização</p>
+                                <Button
+                                  variant={prodActiveTab === 'tarefas' ? 'default' : 'outline'}
+                                  className="w-full justify-start rounded-xl h-12"
+                                  onClick={() => { setProdActiveTab('tarefas'); setIsMobileProdMenuOpen(false); }}
+                                >
+                                  Tarefas
+                                </Button>
+                                {hasHorasConfig && (
+                                  <Button
+                                    variant={prodActiveTab === 'horas' ? 'default' : 'outline'}
+                                    className="w-full justify-start rounded-xl h-12"
+                                    onClick={() => { setProdActiveTab('horas'); setIsMobileProdMenuOpen(false); }}
+                                  >
+                                    Horas
+                                  </Button>
+                                )}
+                                {hasHorasConfig && hasModulo('financeiro') && (
+                                  <Button
+                                    variant={prodActiveTab === 'financeiro' ? 'default' : 'outline'}
+                                    className="w-full justify-start rounded-xl h-12"
+                                    onClick={() => { setProdActiveTab('financeiro'); setIsMobileProdMenuOpen(false); }}
+                                  >
+                                    Financeiro
+                                  </Button>
+                                )}
+                              </div>
+
+                              {/* Filtros */}
+                              <div className="space-y-2">
+                                <p className="text-sm font-semibold text-primary">Filtros</p>
+                                <div className="flex flex-col gap-2">
+                                  <label className="text-xs text-muted-foreground">Unidade</label>
+                                  <ProcessProductivityUnitFilter
+                                    andamentos={rawProcessData.Andamentos}
+                                    value={prodUnitFilter}
+                                    onChange={setProdUnitFilter}
+                                    triggerClassName="w-full h-12 rounded-xl text-sm text-foreground font-medium"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Busca */}
+                              <div className="space-y-2">
+                                <p className="text-sm font-semibold text-primary">Busca</p>
+                                <div className="relative">
+                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                  <Input
+                                    placeholder="Buscar unidade ou usuário..."
+                                    value={prodSearchQuery}
+                                    onChange={(e) => setProdSearchQuery(e.target.value)}
+                                    className="h-12 pl-9 rounded-xl text-sm text-foreground font-medium"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-4">
+                              <DrawerClose asChild>
+                                <Button variant="outline" className="w-full rounded-xl h-12">
+                                  Fechar
+                                </Button>
+                              </DrawerClose>
+                            </div>
+                          </div>
+                        </DrawerContent>
+                      </Drawer>
                     </div>
                   </CardHeader>
                   <Separator />

@@ -3,6 +3,7 @@ import type {
   EstoqueUnidadesOptions,
   EstoqueListResponse,
   BiTask,
+  BiRotina,
   ProdutividadeResponse,
   ProdutividadeUsuarioResponse,
   ProdutividadeMensalResponse,
@@ -266,5 +267,29 @@ export async function fetchProcessosComAtividade(
     url,
     { method: "GET", headers: { Accept: "application/json" } },
     "buscar processos com atividade recente"
+  );
+}
+
+export async function fetchRotinas(): Promise<BiRotina[] | ApiError> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}/d1/bi/rotinas`;
+
+  return fetchWithErrorHandling<BiRotina[]>(
+    url,
+    { method: "GET", headers: { Accept: "application/json" } },
+    "buscar rotinas registradas"
+  );
+}
+
+export async function triggerRotina(
+  refreshEndpoint: string
+): Promise<{ task_id: string } | ApiError> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}/d1/bi${refreshEndpoint}`;
+
+  return fetchWithErrorHandling<{ task_id: string }>(
+    url,
+    { method: "POST", headers: { Accept: "application/json" } },
+    "executar rotina"
   );
 }

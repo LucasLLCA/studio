@@ -119,7 +119,9 @@ function LoginPageContent() {
           // Use email from stored credentials (not CPF from JWE)
           const usuario = response.usuarioSei || identity.usuario;
           const orgao = response.orgao;
-          persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, orgao, usuario, response.nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura);
+          const resolvedIdPessoa = response.idPessoa ?? identity.id_pessoa;
+          console.log('[auto-login] persistLogin idPessoa:', resolvedIdPessoa, '(response:', response.idPessoa, ', identity:', identity.id_pessoa, ')');
+          persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, orgao, usuario, response.nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura, resolvedIdPessoa);
           router.push('/home');
           return;
         }
@@ -291,6 +293,7 @@ function LoginPageContent() {
           }
         }
 
+        console.log('[manual-login] persistLogin idPessoa:', response.idPessoa);
         persistLogin(response.token, unidadesRecebidas, idUnidadeAtual, data.orgao, data.usuario, nomeUsuario, response.idUsuario, response.idLogin, response.cargoAssinatura, response.idPessoa);
 
         toast({

@@ -136,3 +136,13 @@ export interface ProcessoComAtividade {
   dt_ultima_atividade: string;
   descr_atividade: string | null;
 }
+
+export interface BiRotina {
+  key: string;
+  name: string;
+  description: string;
+  schedule: string;
+  category: "BI" | "Sistema";
+  task_name: string;
+  refresh_endpoint: string;
+}

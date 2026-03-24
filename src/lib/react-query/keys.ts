@@ -111,12 +111,12 @@ export const queryKeys = {
   // Permissions (RBAC)
   permissions: {
     all: ['permissions'] as const,
-    byUser: (idPessoa: number) => ['permissions', idPessoa] as const,
+    byUser: (identifier: string | number) => ['permissions', identifier] as const,
   },
 
   // Admin
   admin: {
-    usuarios: (search?: string) => ['admin', 'usuarios', search ?? ''] as const,
+    usuarios: (search?: string, page?: number, pageSize?: number) => ['admin', 'usuarios', search ?? '', page ?? 1, pageSize ?? 20] as const,
     configuracaoHoras: (orgao: string) => ['admin', 'configuracaoHoras', orgao] as const,
     orgaos: ['admin', 'orgaos'] as const,
     configuracaoHorasPublic: (orgao: string) => ['configuracaoHoras', orgao] as const,
@@ -133,6 +133,7 @@ export const queryKeys = {
       ['bi', 'estoqueList', page, search ?? '', origem ?? '', passagem ?? '', aberta ?? '', orgOrigem ?? '', orgPassagem ?? '', orgAberta ?? ''] as const,
     unidades: ['bi', 'unidades'] as const,
     tasks: ['bi', 'tasks'] as const,
+    rotinas: ['bi', 'rotinas'] as const,
     prodUnidade: (orgao?: string, unidade?: string) =>
       ['bi', 'prodUnidade', orgao ?? '', unidade ?? ''] as const,
     prodUnidadeMensal: (orgao?: string, unidade?: string, ano_mes?: string) =>

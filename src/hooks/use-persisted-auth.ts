@@ -6,15 +6,15 @@ import { AUTH_CONFIG } from '@/config/constants';
 
 interface PersistedAuthData {
   isAuthenticated: boolean;
-  sessionToken: string | null; // Apenas token de sessão, não credenciais
-  idUnidadeAtual: string | null; // ID da unidade atual para requisições
-  orgao: string | null; // Órgão do usuário (ex: "SEAD-PI")
-  usuario: string | null; // Email/username do usuário
-  nomeUsuario: string | null; // Nome do usuário para exibição
-  idUsuario: string | null; // IdUsuario — needed for document signing
-  idLogin: string | null; // IdLogin — needed for document signing
-  cargoAssinatura: string | null; // UltimoCargoAssinatura — needed for document signing
-  idPessoa: number | null; // id_pessoa from credential storage
+  sessionToken: string | null;
+  idUnidadeAtual: string | null;
+  orgao: string | null;
+  usuario: string | null;
+  nomeUsuario: string | null;
+  idUsuario: string | null;
+  idLogin: string | null;
+  cargoAssinatura: string | null;
+  idPessoa: number | null;
   unidadesFiltroList: UnidadeFiltro[];
   selectedUnidadeFiltro: string | undefined;
   timestamp: number;
@@ -34,43 +34,48 @@ function sanitizeDisplayName(name?: string | null): string | null {
   return cleaned || null;
 }
 
+function getStorage(): Storage | null {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage;
+}
+
 export function usePersistedAuth() {
-  // Função para carregar dados do localStorage
   const loadFromStorage = useCallback((): PersistedAuthData | null => {
-    if (typeof window === 'undefined') return null;
-    
+    const storage = getStorage();
+    if (!storage) return null;
+
     try {
-      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+      const stored = storage.getItem(AUTH_STORAGE_KEY);
       if (!stored) return null;
-      
+
       const rawData = JSON.parse(stored);
-      
+
       // Migração apenas se necessário
       if (rawData.loginCredentials && !rawData.sessionToken) {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
+        storage.removeItem(AUTH_STORAGE_KEY);
         return null;
       }
-      
+
       const data: PersistedAuthData = rawData;
-      
+
       // Verifica se os dados não expiraram
       const now = Date.now();
       const expiryTime = data.timestamp + (AUTH_EXPIRY_HOURS * 60 * 60 * 1000);
-      
+
       if (now > expiryTime) {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
+        storage.removeItem(AUTH_STORAGE_KEY);
         return null;
       }
-      
+
       return data;
     } catch (error) {
       console.warn('Erro ao carregar dados de autenticação salvos:', error);
-      localStorage.removeItem(AUTH_STORAGE_KEY);
+      storage.removeItem(AUTH_STORAGE_KEY);
       return null;
     }
   }, []);
 
-  // Inicializa os estados com dados do localStorage
+  // Inicializa os estados com dados do sessionStorage
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const stored = loadFromStorage();
     return stored?.isAuthenticated || false;
@@ -131,9 +136,9 @@ export function usePersistedAuth() {
     return stored?.selectedUnidadeFiltro;
   });
 
-  // Função para salvar no localStorage
   const saveToStorage = useCallback((data: Partial<PersistedAuthData>) => {
-    if (typeof window === 'undefined') return;
+    const storage = getStorage();
+    if (!storage) return;
 
     try {
       const current = loadFromStorage() || {
@@ -159,15 +164,13 @@ export function usePersistedAuth() {
         usuario: data.usuario !== undefined ? data.usuario : (current.usuario || null)
       };
 
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
+      storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
     } catch (error) {
-      console.warn('Erro ao salvar dados de autenticação no armazenamento local:', error);
+      console.warn('Erro ao salvar dados de autenticação:', error);
     }
   }, [loadFromStorage]);
 
-  // Função para fazer login
   const login = useCallback((token: string, unidades: UnidadeFiltro[], idUnidadeAtual?: string, userOrgao?: string, userEmail?: string, userName?: string, userIdUsuario?: string, userIdLogin?: string, userCargoAssinatura?: string, userIdPessoa?: number) => {
-    // Tentar converter token para string se necessário
     let validToken: string;
     if (typeof token === 'string') {
       validToken = token;
@@ -177,6 +180,11 @@ export function usePersistedAuth() {
     } else {
       console.error('Login falhou - token invalido');
       return;
+    }
+
+    // Clear any stale localStorage data from previous versions
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
     }
 
     setIsAuthenticated(true);
@@ -207,7 +215,6 @@ export function usePersistedAuth() {
     });
   }, [saveToStorage]);
 
-  // Função para fazer logout
   const logout = useCallback(() => {
     setIsAuthenticated(false);
     setSessionToken(null);
@@ -222,24 +229,26 @@ export function usePersistedAuth() {
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
 
+    const storage = getStorage();
+    if (storage) {
+      storage.removeItem(AUTH_STORAGE_KEY);
+    }
+    // Also clear any stale localStorage data
     if (typeof window !== 'undefined') {
       localStorage.removeItem(AUTH_STORAGE_KEY);
     }
   }, []);
 
-  // Função para atualizar apenas o token de sessão (usado pelo token refresh)
   const updateSessionToken = useCallback((newToken: string) => {
     setSessionToken(newToken);
     saveToStorage({ sessionToken: newToken });
   }, [saveToStorage]);
 
-  // Função para atualizar unidade selecionada
   const updateSelectedUnidade = useCallback((unidadeId: string | undefined) => {
     setSelectedUnidadeFiltro(unidadeId);
     saveToStorage({ selectedUnidadeFiltro: unidadeId });
   }, [saveToStorage]);
 
-  // Função para forçar logout e limpeza
   const forceLogout = useCallback(() => {
     setIsAuthenticated(false);
     setSessionToken(null);
@@ -253,12 +262,16 @@ export function usePersistedAuth() {
     setIdPessoa(null);
     setUnidadesFiltroList([]);
     setSelectedUnidadeFiltro(undefined);
+    const storage = getStorage();
+    if (storage) {
+      storage.removeItem(AUTH_STORAGE_KEY);
+    }
     if (typeof window !== 'undefined') {
       localStorage.removeItem(AUTH_STORAGE_KEY);
     }
   }, []);
 
-  // Função para limpar dados expirados na inicialização
+  // Limpar dados expirados na inicialização
   useEffect(() => {
     loadFromStorage();
 

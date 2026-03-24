@@ -7,13 +7,13 @@ export interface PermissionsResponse {
   papel_slug: string;
 }
 
-export async function fetchPermissions(
-  idPessoa: number
+export async function fetchPermissionsByEmail(
+  usuarioSei: string
 ): Promise<PermissionsResponse | ApiError> {
   const base = getApiBaseUrl();
   return fetchWithErrorHandling<PermissionsResponse>(
-    `${base}/credenciais/permissions/${idPessoa}`,
+    `${base}/credenciais/permissions-by-email?usuario_sei=${encodeURIComponent(usuarioSei)}`,
     { method: 'GET' },
-    'buscar permissões',
+    'buscar permissões por email',
   );
 }

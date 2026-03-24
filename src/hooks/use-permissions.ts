@@ -7,11 +7,15 @@ import type { ModuloKey } from "@/config/modules";
 
 /**
  * Hook that provides permission checking based on the RBAC system.
- * Fetches permissions from the backend (DB-backed, not cached in localStorage).
+ * Fetches permissions from the backend by usuario_sei (email).
  */
 export function usePermissions() {
-  const { idPessoa } = usePersistedAuth();
-  const { data, isLoading, error } = usePermissionsQuery(idPessoa);
+  const { usuario } = usePersistedAuth();
+  const { data, isLoading, error } = usePermissionsQuery(usuario);
+
+  if (typeof window !== 'undefined') {
+    console.log('[usePermissions] usuario:', usuario, '| isLoading:', isLoading, '| error:', error?.message ?? null, '| papel_nome:', data?.papel_nome ?? null);
+  }
 
   const modulos = useMemo(() => data?.modulos ?? [], [data]);
 

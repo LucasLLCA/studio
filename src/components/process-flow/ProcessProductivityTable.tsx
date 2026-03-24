@@ -60,10 +60,12 @@ export function ProcessProductivityUnitFilter({
   andamentos,
   value,
   onChange,
+  triggerClassName,
 }: {
   andamentos: Andamento[];
   value: string;
   onChange: (value: string) => void;
+  triggerClassName?: string;
 }) {
   const units = useMemo(() => {
     const map = new Map<string, string>();
@@ -77,7 +79,7 @@ export function ProcessProductivityUnitFilter({
 
   return (
     <Select value={value} onValueChange={(v) => onChange(v === '__all__' ? '' : v)}>
-      <SelectTrigger className="h-8 w-48 text-sm text-foreground font-medium">
+      <SelectTrigger className={triggerClassName || "h-8 w-48 text-sm text-foreground font-medium"}>
         <SelectValue placeholder="Todas unidades" />
       </SelectTrigger>
       <SelectContent>

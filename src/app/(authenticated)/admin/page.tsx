@@ -24,8 +24,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Search, Shield, Clock, Save, RefreshCw, BarChart3, CheckCircle2, XCircle, Clock4, Play, Cog, Plus, Pencil, Trash2, KeyRound } from 'lucide-react';
-import { useBiTasks } from '@/lib/react-query/queries/useBiQueries';
-import { refreshEstoque } from '@/lib/api/bi-api-client';
+import { useBiTasks, useRotinas } from '@/lib/react-query/queries/useBiQueries';
+import { triggerRotina } from '@/lib/api/bi-api-client';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -45,7 +45,7 @@ const ALL_GROUPS = [
 
 export default function AdminPage() {
   const router = useRouter();
-  const { idPessoa, orgao: userOrgao } = usePersistedAuth();
+  const { usuario, orgao: userOrgao } = usePersistedAuth();
   const { hasModulo, isLoading: permissionsLoading } = usePermissions();
   const [mounted, setMounted] = useState(false);
 
@@ -79,13 +79,13 @@ export default function AdminPage() {
           <TabsTrigger value="rotinas">Rotinas</TabsTrigger>
         </TabsList>
         <TabsContent value="usuarios">
-          <UsuariosTab idPessoa={idPessoa} />
+          <UsuariosTab usuario={usuario} />
         </TabsContent>
         <TabsContent value="papeis">
-          <PapeisTab idPessoa={idPessoa} />
+          <PapeisTab usuario={usuario} />
         </TabsContent>
         <TabsContent value="horas">
-          <HorasTab idPessoa={idPessoa} defaultOrgao={userOrgao} />
+          <HorasTab usuario={usuario} defaultOrgao={userOrgao} />
         </TabsContent>
         <TabsContent value="rotinas">
           <RotinasTab />
@@ -97,23 +97,32 @@ export default function AdminPage() {
 
 // --------------- Usuários Tab (RBAC-based) ---------------
 
-function UsuariosTab({ idPessoa }: { idPessoa: number | null }) {
+function UsuariosTab({ usuario }: { usuario: string | null }) {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { data: usuarios, isLoading } = useUsuarios(idPessoa, debouncedSearch);
-  const { data: papeis } = usePapeis(idPessoa);
+  const { data, isLoading } = useUsuarios(usuario, debouncedSearch, page, pageSize);
+  const { data: papeis } = usePapeis(usuario);
+
+  const usuarios = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / pageSize);
 
   const handleRoleChange = async (usuarioSei: string, papelId: string) => {
-    if (!idPessoa) return;
-    const res = await assignUsuarioPapel(idPessoa, { usuario_sei: usuarioSei, papel_id: papelId });
+    if (!usuario) return;
+    const res = await assignUsuarioPapel(usuario, { usuario_sei: usuarioSei, papel_id: papelId });
     if ('error' in res) {
       toast({ title: 'Erro', description: res.error, variant: 'destructive' });
     } else {
@@ -133,7 +142,7 @@ function UsuariosTab({ idPessoa }: { idPessoa: number | null }) {
         <div className="mb-4 relative w-80">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Buscar por login ou órgão..."
+            placeholder="Buscar por email ou órgão..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="pl-8"
@@ -145,54 +154,79 @@ function UsuariosTab({ idPessoa }: { idPessoa: number | null }) {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/60">
-                <tr className="border-b">
-                  <th className="px-4 py-3 text-left font-semibold">Usuário</th>
-                  <th className="px-4 py-3 text-left font-semibold">Órgão</th>
-                  <th className="px-4 py-3 text-left font-semibold">Papel</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(!usuarios || usuarios.length === 0) && (
-                  <tr>
-                    <td colSpan={3} className="px-4 py-6 text-center text-muted-foreground">
-                      Nenhum usuário encontrado.
-                    </td>
+          <>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/60">
+                  <tr className="border-b">
+                    <th className="px-4 py-3 text-left font-semibold">Email SEI</th>
+                    <th className="px-4 py-3 text-left font-semibold">Órgão</th>
+                    <th className="px-4 py-3 text-left font-semibold">Papel</th>
                   </tr>
-                )}
-                {usuarios?.map((u) => (
-                  <tr key={u.id_pessoa} className="border-b last:border-b-0">
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{u.usuario_sei}</div>
-                      <div className="text-xs text-muted-foreground">ID: {u.id_pessoa}</div>
-                    </td>
-                    <td className="px-4 py-3">{u.orgao}</td>
-                    <td className="px-4 py-3 w-48">
-                      {papeis && papeis.length > 0 ? (
-                        <Select
-                          value={u.papel_id ?? ''}
-                          onValueChange={(v) => handleRoleChange(u.usuario_sei, v)}
-                        >
-                          <SelectTrigger className="h-8 w-40">
-                            <SelectValue placeholder={u.papel_nome || 'Sem papel'} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {papeis.map(p => (
-                              <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-muted-foreground">{u.papel_nome || 'Sem papel'}</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {usuarios.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-6 text-center text-muted-foreground">
+                        Nenhum usuário encontrado.
+                      </td>
+                    </tr>
+                  )}
+                  {usuarios.map((u) => (
+                    <tr key={u.usuario_sei} className="border-b last:border-b-0">
+                      <td className="px-4 py-3 font-medium">{u.usuario_sei}</td>
+                      <td className="px-4 py-3">{u.orgao}</td>
+                      <td className="px-4 py-3 w-48">
+                        {papeis && papeis.length > 0 ? (
+                          <Select
+                            value={u.papel_id ?? ''}
+                            onValueChange={(v) => handleRoleChange(u.usuario_sei, v)}
+                          >
+                            <SelectTrigger className="h-8 w-40">
+                              <SelectValue placeholder={u.papel_nome || 'Sem papel'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {papeis.map(p => (
+                                <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="text-muted-foreground">{u.papel_nome || 'Sem papel'}</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <span className="text-sm text-muted-foreground">
+                  {total} usuário{total !== 1 ? 's' : ''} — página {page} de {totalPages}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage(p => p - 1)}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage(p => p + 1)}
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -201,11 +235,11 @@ function UsuariosTab({ idPessoa }: { idPessoa: number | null }) {
 
 // --------------- Papéis Tab ---------------
 
-function PapeisTab({ idPessoa }: { idPessoa: number | null }) {
+function PapeisTab({ usuario }: { usuario: string | null }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: papeis, isLoading } = usePapeis(idPessoa);
-  const { data: modulosList } = useModulosList(idPessoa);
+  const { data: papeis, isLoading } = usePapeis(usuario);
+  const { data: modulosList } = useModulosList(usuario);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPapel, setEditingPapel] = useState<PapelAdmin | null>(null);
@@ -240,11 +274,11 @@ function PapeisTab({ idPessoa }: { idPessoa: number | null }) {
   };
 
   const handleSave = async () => {
-    if (!idPessoa) return;
+    if (!usuario) return;
     setIsSaving(true);
 
     if (editingPapel) {
-      const res = await updatePapel(idPessoa, editingPapel.id, {
+      const res = await updatePapel(usuario, editingPapel.id, {
         nome: formNome,
         descricao: formDescricao,
         modulos: formModulos,
@@ -263,7 +297,7 @@ function PapeisTab({ idPessoa }: { idPessoa: number | null }) {
         setIsSaving(false);
         return;
       }
-      const res = await createPapel(idPessoa, {
+      const res = await createPapel(usuario, {
         nome: formNome,
         slug: formSlug,
         descricao: formDescricao || undefined,
@@ -281,8 +315,8 @@ function PapeisTab({ idPessoa }: { idPessoa: number | null }) {
   };
 
   const handleDelete = async (papel: PapelAdmin) => {
-    if (!idPessoa) return;
-    const res = await deletePapel(idPessoa, papel.id);
+    if (!usuario) return;
+    const res = await deletePapel(usuario, papel.id);
     if ('error' in res) {
       toast({ title: 'Erro', description: res.error, variant: 'destructive' });
     } else {
@@ -455,11 +489,11 @@ function PapeisTab({ idPessoa }: { idPessoa: number | null }) {
 
 // --------------- Horas Tab ---------------
 
-function HorasTab({ idPessoa, defaultOrgao }: { idPessoa: number | null; defaultOrgao: string | null }) {
+function HorasTab({ usuario, defaultOrgao }: { usuario: string | null; defaultOrgao: string | null }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: orgaos, isLoading: orgaosLoading } = useOrgaos(idPessoa);
+  const { data: orgaos, isLoading: orgaosLoading } = useOrgaos(usuario);
   const [selectedOrgao, setSelectedOrgao] = useState<string>('');
 
   // Set default orgao
@@ -472,7 +506,7 @@ function HorasTab({ idPessoa, defaultOrgao }: { idPessoa: number | null; default
   }, [orgaos, defaultOrgao, selectedOrgao]);
 
   const { data: horasData, isLoading: horasLoading } = useConfiguracaoHoras(
-    idPessoa,
+    usuario,
     selectedOrgao,
   );
 
@@ -496,13 +530,13 @@ function HorasTab({ idPessoa, defaultOrgao }: { idPessoa: number | null; default
   }, [localHoras, horasData]);
 
   const handleSave = async () => {
-    if (!idPessoa || !selectedOrgao) return;
+    if (!usuario || !selectedOrgao) return;
     setIsSaving(true);
     const items = ALL_GROUPS.map(g => ({
       grupo_key: g.key,
       horas: localHoras[g.key] ?? 0,
     }));
-    const res = await saveConfiguracaoHoras(idPessoa, selectedOrgao, items);
+    const res = await saveConfiguracaoHoras(usuario, selectedOrgao, items);
     setIsSaving(false);
     if ('error' in res) {
       toast({ title: 'Erro', description: res.error, variant: 'destructive' });
@@ -601,39 +635,20 @@ function HorasTab({ idPessoa, defaultOrgao }: { idPessoa: number | null; default
   );
 }
 
-// --------------- Rotinas Tab ---------------
-
-interface RotinaDefinition {
-  key: string;
-  name: string;
-  description: string;
-  schedule: string;
-  category: 'BI' | 'Sistema';
-  taskName: string; // matches task_name in bi_task_history
-  onTrigger: () => Promise<{ task_id: string } | { error: string }>;
-}
-
-const ROTINAS: RotinaDefinition[] = [
-  {
-    key: 'estoque-processos',
-    name: 'Estoque de Processos',
-    description: 'Calcula o estoque de processos abertos por unidade a partir dos andamentos no banco D-1.',
-    schedule: 'A cada 6 horas',
-    category: 'BI',
-    taskName: 'compute_estoque',
-    onTrigger: refreshEstoque,
-  },
-];
+// --------------- Rotinas Tab (auto-discovery from backend) ---------------
 
 function RotinasTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: tasks, isLoading } = useBiTasks();
+  const { data: rotinas, isLoading: rotinasLoading } = useRotinas();
+  const { data: tasks, isLoading: tasksLoading } = useBiTasks();
   const [triggeringKey, setTriggeringKey] = useState<string | null>(null);
 
-  const handleTrigger = async (rotina: RotinaDefinition) => {
+  const isLoading = rotinasLoading || tasksLoading;
+
+  const handleTrigger = async (rotina: { key: string; name: string; refresh_endpoint: string }) => {
     setTriggeringKey(rotina.key);
-    const result = await rotina.onTrigger();
+    const result = await triggerRotina(rotina.refresh_endpoint);
     if ('error' in result) {
       toast({ title: 'Erro', description: result.error, variant: 'destructive' });
     } else {
@@ -643,10 +658,9 @@ function RotinasTab() {
     setTriggeringKey(null);
   };
 
-  // Derive per-rotina status from task history
-  const rotinaStatus = (rotina: RotinaDefinition) => {
-    if (!tasks) return { lastRun: null, isRunning: false, lastStatus: null as string | null, lastDuration: null as number | null, lastResult: null as { total_processos: number; total_abertos: number } | null, lastError: null as string | null };
-    const matching = tasks.filter(t => t.task_name === rotina.taskName);
+  const rotinaStatus = (taskName: string) => {
+    if (!tasks) return { lastRun: null, isRunning: false, lastStatus: null as string | null, lastDuration: null as number | null, lastResult: null as Record<string, unknown> | null, lastError: null as string | null };
+    const matching = tasks.filter(t => t.task_name === taskName);
     const running = matching.find(t => t.status === 'STARTED');
     const lastFinished = matching.find(t => t.status === 'SUCCESS' || t.status === 'FAILURE');
     const last = running ?? lastFinished ?? matching[0];
@@ -655,9 +669,16 @@ function RotinasTab() {
       isRunning: !!running,
       lastStatus: lastFinished?.status ?? null,
       lastDuration: lastFinished?.duration_s ?? null,
-      lastResult: lastFinished?.result_summary ?? null,
+      lastResult: (lastFinished?.result_summary as Record<string, unknown>) ?? null,
       lastError: lastFinished?.error_message ?? null,
     };
+  };
+
+  const formatResultSummary = (result: Record<string, unknown> | null) => {
+    if (!result) return null;
+    return Object.entries(result)
+      .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)
+      .join(', ');
   };
 
   return (
@@ -667,7 +688,7 @@ function RotinasTab() {
           <Cog className="h-5 w-5" /> Rotinas
         </CardTitle>
         <CardDescription>
-          Rotinas agendadas de pré-computação e manutenção do sistema
+          Rotinas agendadas de pré-computação e manutenção do sistema (descoberta automática)
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -675,10 +696,14 @@ function RotinasTab() {
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
+        ) : !rotinas?.length ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            Nenhuma rotina registrada no backend.
+          </p>
         ) : (
           <div className="space-y-3">
-            {ROTINAS.map(rotina => {
-              const status = rotinaStatus(rotina);
+            {rotinas.map(rotina => {
+              const status = rotinaStatus(rotina.task_name);
               const isTriggering = triggeringKey === rotina.key;
 
               return (
@@ -719,9 +744,7 @@ function RotinasTab() {
                           </span>
                         )}
                         {status.lastResult && (
-                          <span>
-                            {status.lastResult.total_processos} processos, {status.lastResult.total_abertos} abertos
-                          </span>
+                          <span>{formatResultSummary(status.lastResult)}</span>
                         )}
                         {status.lastError && (
                           <span className="text-red-500 truncate max-w-[300px]" title={status.lastError}>
