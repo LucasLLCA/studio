@@ -25,6 +25,7 @@ import {
 import { AlertBox } from "@/components/ui/alert-box";
 import { Button } from "@/components/ui/button";
 import { usePersistedAuth } from "@/hooks/use-persisted-auth";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useRouter, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useLastViewedProcess } from "@/contexts/last-viewed-process-context";
@@ -60,7 +61,8 @@ export default function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
-  const { isAuthenticated, papelGlobal, usuario, logout: persistLogout } = usePersistedAuth();
+  const { isAuthenticated, usuario, logout: persistLogout } = usePersistedAuth();
+  const { hasModulo } = usePermissions();
   const { lastViewedProcess, clearLastViewedProcess, recentProcesses, removeRecentProcess } = useLastViewedProcess();
 
   const [isFeedOpen, setIsFeedOpen] = useState(false);
@@ -180,7 +182,7 @@ export default function AppHeader() {
               </DropdownMenu>
 
               {/* Fluxos — admin/beta only */}
-              {mounted && (papelGlobal === 'admin' || papelGlobal === 'beta') && (
+              {mounted && hasModulo('fluxos') && (
                 <Button
                   className={tabClass(isOnFluxos)}
                   variant="outline"
@@ -257,7 +259,7 @@ export default function AppHeader() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {mounted && papelGlobal === 'admin' && (
+                  {mounted && hasModulo('admin') && (
                     <DropdownMenuItem onClick={() => router.push('/admin')}>
                       <Shield className="h-4 w-4 mr-2" />
                       Admin
@@ -267,7 +269,7 @@ export default function AppHeader() {
                     <Newspaper className="h-4 w-4 mr-2" />
                     Atualizações
                   </DropdownMenuItem>
-                  {mounted && papelGlobal === 'admin' && <DropdownMenuSeparator />}
+                  {mounted && hasModulo('admin') && <DropdownMenuSeparator />}
                   {mounted && isAuthenticated && !isEmbedMode && (
                     <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
                       <LogOut className="h-4 w-4 mr-2" />
@@ -313,7 +315,7 @@ export default function AppHeader() {
                         Pessoal
                       </Button>
 
-                      {mounted && (papelGlobal === 'admin' || papelGlobal === 'beta') && (
+                      {mounted && hasModulo('fluxos') && (
                         <Button variant="ghost" className="justify-start" onClick={() => { router.push('/fluxos'); setIsMobileMenuOpen(false); }}>
                           <GitBranch className="mr-2 h-4 w-4" />
                           Fluxos
@@ -336,7 +338,7 @@ export default function AppHeader() {
 
                       <div className="border-t my-2" />
 
-                      {mounted && papelGlobal === 'admin' && (
+                      {mounted && hasModulo('admin') && (
                         <Button variant="ghost" className="justify-start" onClick={() => { router.push('/admin'); setIsMobileMenuOpen(false); }}>
                           <Shield className="mr-2 h-4 w-4" />
                           Admin

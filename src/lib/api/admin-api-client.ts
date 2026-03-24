@@ -5,8 +5,21 @@ export interface UsuarioAdmin {
   id_pessoa: number;
   usuario_sei: string;
   orgao: string;
-  papel_global: string;
   cpf?: string | null;
+  papel_nome?: string | null;
+  papel_slug?: string | null;
+  papel_id?: string | null;
+}
+
+export interface PapelAdmin {
+  id: string;
+  nome: string;
+  slug: string;
+  descricao: string | null;
+  modulos: string[];
+  is_default: boolean;
+  criado_em?: string | null;
+  atualizado_em?: string | null;
 }
 
 export interface HorasItem {
@@ -31,22 +44,6 @@ export async function fetchUsuarios(
     adminUrl(`/usuarios${searchParam}`, idPessoa),
     { method: 'GET' },
     'buscar usuários',
-  );
-}
-
-export async function updateUsuarioPapel(
-  idPessoa: number,
-  targetIdPessoa: number,
-  papel: string,
-): Promise<{ status: string } | ApiError> {
-  return fetchWithErrorHandling<{ status: string }>(
-    adminUrl(`/usuarios/${targetIdPessoa}/papel`, idPessoa),
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ papel_global: papel }),
-    },
-    'atualizar papel do usuário',
   );
 }
 
@@ -95,5 +92,96 @@ export async function fetchConfiguracaoHorasPublic(
     `${base}/sei/configuracao-horas?orgao=${encodeURIComponent(orgao)}`,
     { method: 'GET' },
     'buscar configuração de horas',
+  );
+}
+
+
+// --------------- Papeis (Roles) CRUD ---------------
+
+export async function fetchPapeis(
+  idPessoa: number,
+): Promise<PapelAdmin[] | ApiError> {
+  return fetchWithErrorHandling<PapelAdmin[]>(
+    adminUrl('/papeis', idPessoa),
+    { method: 'GET' },
+    'buscar papéis',
+  );
+}
+
+export async function createPapel(
+  idPessoa: number,
+  body: { nome: string; slug: string; descricao?: string; modulos: string[] },
+): Promise<PapelAdmin | ApiError> {
+  return fetchWithErrorHandling<PapelAdmin>(
+    adminUrl('/papeis', idPessoa),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    'criar papel',
+  );
+}
+
+export async function updatePapel(
+  idPessoa: number,
+  papelId: string,
+  body: { nome?: string; descricao?: string; modulos?: string[] },
+): Promise<PapelAdmin | ApiError> {
+  return fetchWithErrorHandling<PapelAdmin>(
+    adminUrl(`/papeis/${papelId}`, idPessoa),
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    'atualizar papel',
+  );
+}
+
+export async function deletePapel(
+  idPessoa: number,
+  papelId: string,
+): Promise<{ status: string } | ApiError> {
+  return fetchWithErrorHandling<{ status: string }>(
+    adminUrl(`/papeis/${papelId}`, idPessoa),
+    { method: 'DELETE' },
+    'deletar papel',
+  );
+}
+
+export async function fetchModulosList(
+  idPessoa: number,
+): Promise<Record<string, string> | ApiError> {
+  return fetchWithErrorHandling<Record<string, string>>(
+    adminUrl('/papeis/modulos', idPessoa),
+    { method: 'GET' },
+    'buscar módulos',
+  );
+}
+
+export async function assignUsuarioPapel(
+  idPessoa: number,
+  body: { usuario_sei: string; papel_id: string },
+): Promise<{ status: string; usuario_sei: string; papel_slug: string; papel_nome: string } | ApiError> {
+  return fetchWithErrorHandling(
+    adminUrl('/usuario-papel', idPessoa),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    'atribuir papel ao usuário',
+  );
+}
+
+export async function removeUsuarioPapel(
+  idPessoa: number,
+  usuarioSei: string,
+): Promise<{ status: string } | ApiError> {
+  return fetchWithErrorHandling<{ status: string }>(
+    adminUrl(`/usuario-papel/${encodeURIComponent(usuarioSei)}`, idPessoa),
+    { method: 'DELETE' },
+    'remover papel do usuário',
   );
 }

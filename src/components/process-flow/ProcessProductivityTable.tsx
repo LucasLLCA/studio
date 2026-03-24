@@ -24,7 +24,7 @@ interface ProcessProductivityTableProps {
   activeTab?: ProductivityTab;
   onActiveTabChange?: (value: ProductivityTab) => void;
   hideInternalTabs?: boolean;
-  papelGlobal?: string | null;
+  canViewFinanceiro?: boolean;
 }
 
 interface UserRow {
@@ -102,11 +102,10 @@ export function ProcessProductivityTable({
   activeTab,
   onActiveTabChange,
   hideInternalTabs = false,
-  papelGlobal,
+  canViewFinanceiro = false,
 }: ProcessProductivityTableProps) {
   const [internalActiveTab, setInternalActiveTab] = useState<ProductivityTab>('tarefas');
   const hasHorasConfig = !!horasConfig && Object.values(horasConfig).some(v => v > 0);
-  const canViewFinanceiro = papelGlobal === 'admin' || papelGlobal === 'beta';
   const resolvedActiveTab = hasHorasConfig && canViewFinanceiro ? (activeTab ?? internalActiveTab) : 'tarefas';
 
   const handleTabChange = (value: string) => {

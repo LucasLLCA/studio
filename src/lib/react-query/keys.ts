@@ -108,12 +108,20 @@ export const queryKeys = {
     processos: (fluxoId: string) => ['fluxos', 'processos', fluxoId] as const,
   },
 
+  // Permissions (RBAC)
+  permissions: {
+    all: ['permissions'] as const,
+    byUser: (idPessoa: number) => ['permissions', idPessoa] as const,
+  },
+
   // Admin
   admin: {
     usuarios: (search?: string) => ['admin', 'usuarios', search ?? ''] as const,
     configuracaoHoras: (orgao: string) => ['admin', 'configuracaoHoras', orgao] as const,
     orgaos: ['admin', 'orgaos'] as const,
     configuracaoHorasPublic: (orgao: string) => ['configuracaoHoras', orgao] as const,
+    papeis: ['admin', 'papeis'] as const,
+    modulosList: ['admin', 'modulosList'] as const,
   },
 
   // BI

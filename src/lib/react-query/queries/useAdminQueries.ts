@@ -7,8 +7,11 @@ import {
   fetchConfiguracaoHoras,
   fetchOrgaos,
   fetchConfiguracaoHorasPublic,
+  fetchPapeis,
+  fetchModulosList,
   type UsuarioAdmin,
   type HorasItem,
+  type PapelAdmin,
 } from '@/lib/api/admin-api-client';
 
 function isError(v: unknown): v is { error: string } {
@@ -68,5 +71,33 @@ export function useConfiguracaoHorasPublic(orgao: string | null) {
     },
     enabled: !!orgao,
     staleTime: 5 * 60_000,
+  });
+}
+
+export function usePapeis(idPessoa: number | null) {
+  return useQuery<PapelAdmin[]>({
+    queryKey: queryKeys.admin.papeis,
+    queryFn: async () => {
+      if (!idPessoa) throw new Error('Não autenticado');
+      const res = await fetchPapeis(idPessoa);
+      if (isError(res)) throw new Error(res.error);
+      return res;
+    },
+    enabled: !!idPessoa,
+    staleTime: 30_000,
+  });
+}
+
+export function useModulosList(idPessoa: number | null) {
+  return useQuery<Record<string, string>>({
+    queryKey: queryKeys.admin.modulosList,
+    queryFn: async () => {
+      if (!idPessoa) throw new Error('Não autenticado');
+      const res = await fetchModulosList(idPessoa);
+      if (isError(res)) throw new Error(res.error);
+      return res;
+    },
+    enabled: !!idPessoa,
+    staleTime: 10 * 60_000,
   });
 }

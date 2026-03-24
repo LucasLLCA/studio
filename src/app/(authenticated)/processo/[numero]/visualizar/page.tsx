@@ -16,6 +16,7 @@ import React, { Suspense, useState, useEffect, useMemo, useCallback } from 'reac
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
+import { usePermissions } from '@/hooks/use-permissions';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import {
   Dialog,
@@ -93,10 +94,10 @@ function VisualizarProcessoContent() {
     idUnidadeAtual,
     orgao: userOrgao,
     usuario,
-    papelGlobal,
     unidadesFiltroList,
     logout: persistLogout,
   } = usePersistedAuth();
+  const { hasModulo } = usePermissions();
 
   // Use selected unit or fall back to user's default unit
   const unidadeParaConsulta = selectedUnidadeFiltro || idUnidadeAtual || '';
@@ -685,7 +686,7 @@ function VisualizarProcessoContent() {
                           value={prodActiveTab}
                           onValueChange={(value) => setProdActiveTab(value as ProductivityTab)}
                           hasHorasConfig={hasHorasConfig}
-                          canViewFinanceiro={papelGlobal === 'admin' || papelGlobal === 'beta'}
+                          canViewFinanceiro={hasModulo('financeiro')}
                         />
                       </div>
                       {/* RIGHT: search + filter */}
@@ -718,7 +719,7 @@ function VisualizarProcessoContent() {
                       activeTab={prodActiveTab}
                       onActiveTabChange={setProdActiveTab}
                       hideInternalTabs
-                      papelGlobal={papelGlobal}
+                      canViewFinanceiro={hasModulo('financeiro')}
                       processStartDate={rawProcessData?.Info?.DataAutuacao || processCreationInfo?.dataCriacao}
                       processEndDate={rawProcessData?.Info?.DataConclusao}
                       numeroProcesso={numeroProcesso}
