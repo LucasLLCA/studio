@@ -48,11 +48,11 @@ export default function FlowProcessesList({
         const badge = STATUS_BADGES[proc.status] || STATUS_BADGES.em_andamento;
         return (
           <div key={proc.id} className="p-3 space-y-1">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1">
               <span className="text-sm font-medium">
                 {proc.numero_processo_formatado || proc.numero_processo}
               </span>
-              <Badge variant={badge.variant}>{badge.label}</Badge>
+              <Badge variant={badge.variant} className="w-fit">{badge.label}</Badge>
             </div>
             <div className="text-xs text-muted-foreground">
               Etapa atual: <strong>{getNodeName(proc.node_atual_id)}</strong>
@@ -63,18 +63,18 @@ export default function FlowProcessesList({
             {proc.notas && (
               <div className="text-xs text-muted-foreground italic">{proc.notas}</div>
             )}
-            {!readOnly && onRemove && (
-              <div className="flex items-center gap-1 pt-1">
-                <Button variant="ghost" size="sm" asChild>
-                  <a
-                    href={`/processo/${encodeURIComponent(proc.numero_processo)}/visualizar`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Ver
-                  </a>
-                </Button>
+            <div className="flex items-center gap-1 pt-1">
+              <Button variant="ghost" size="sm" asChild>
+                <a
+                  href={`/processo/${encodeURIComponent(proc.numero_processo_formatado || proc.numero_processo)}/visualizar`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Ver
+                </a>
+              </Button>
+              {!readOnly && onRemove && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -84,8 +84,8 @@ export default function FlowProcessesList({
                   <Trash2 className="h-3 w-3 mr-1" />
                   Remover
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         );
       })}
