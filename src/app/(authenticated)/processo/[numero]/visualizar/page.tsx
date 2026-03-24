@@ -150,6 +150,8 @@ function VisualizarProcessoContent() {
     loadingTasks,
     refresh,
     andamentosFailed,
+    d1Failed,
+    d1Error,
     resumoFailed,
     resumoError,
     retryResumo,
@@ -353,8 +355,30 @@ function VisualizarProcessoContent() {
           />
         )}
 
-        {/* Error card when andamentos failed */}
-        {andamentosFailed && !rawProcessData && !hasBackgroundLoading && (
+        {/* Error card when D-1 data source failed */}
+        {d1Failed && !rawProcessData && !hasBackgroundLoading && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardContent className="flex flex-col items-center gap-4 py-10">
+              <AlertTriangle className="h-10 w-10 text-destructive" />
+              <div className="text-center space-y-1">
+                <h2 className="text-lg font-semibold">Falha ao carregar dados do processo</h2>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  O serviço de dados pré-armazenados (D-1) não está disponível no momento.
+                  Não foi possível carregar os andamentos do processo {formatProcessNumber(numeroProcesso)}.
+                </p>
+                {d1Error && (
+                  <p className="text-xs text-muted-foreground/70 mt-1">{d1Error}</p>
+                )}
+              </div>
+              <Button onClick={refresh} variant="outline">
+                <RefreshCw className="mr-2 h-4 w-4" /> Tentar novamente
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error card when SEI sync failed (D-1 loaded but SEI errored) */}
+        {andamentosFailed && !d1Failed && !rawProcessData && !hasBackgroundLoading && (
           <Card className="border-destructive/50 bg-destructive/5">
             <CardContent className="flex flex-col items-center gap-4 py-10">
               <AlertTriangle className="h-10 w-10 text-destructive" />

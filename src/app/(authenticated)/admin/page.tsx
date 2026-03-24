@@ -15,7 +15,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Search, Shield, Clock, Save } from 'lucide-react';
+import { Loader2, Search, Shield, Clock, Save, RefreshCw, BarChart3, CheckCircle2, XCircle, Clock4, Play, Cog } from 'lucide-react';
+import { useBiTasks } from '@/lib/react-query/queries/useBiQueries';
+import { refreshEstoque } from '@/lib/api/bi-api-client';
+import { Badge } from '@/components/ui/badge';
 
 const ALL_GROUPS = [
   ...TASK_GROUPS,
@@ -25,15 +28,18 @@ const ALL_GROUPS = [
 export default function AdminPage() {
   const router = useRouter();
   const { papelGlobal, idPessoa, orgao: userOrgao } = usePersistedAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   // Guard: redirect non-admin users
   useEffect(() => {
-    if (papelGlobal !== 'admin') {
+    if (mounted && papelGlobal !== 'admin') {
       router.push('/home');
     }
-  }, [papelGlobal, router]);
+  }, [mounted, papelGlobal, router]);
 
-  if (papelGlobal !== 'admin') {
+  if (!mounted || papelGlobal !== 'admin') {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -50,12 +56,16 @@ export default function AdminPage() {
         <TabsList className="mb-4">
           <TabsTrigger value="usuarios">Usuários e Papéis</TabsTrigger>
           <TabsTrigger value="horas">Horas por Andamento</TabsTrigger>
+          <TabsTrigger value="rotinas">Rotinas</TabsTrigger>
         </TabsList>
         <TabsContent value="usuarios">
           <UsuariosTab idPessoa={idPessoa} />
         </TabsContent>
         <TabsContent value="horas">
           <HorasTab idPessoa={idPessoa} defaultOrgao={userOrgao} />
+        </TabsContent>
+        <TabsContent value="rotinas">
+          <RotinasTab />
         </TabsContent>
       </Tabs>
     </div>
@@ -302,6 +312,163 @@ function HorasTab({ idPessoa, defaultOrgao }: { idPessoa: number | null; default
               </Button>
             </div>
           </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// --------------- Rotinas Tab ---------------
+
+interface RotinaDefinition {
+  key: string;
+  name: string;
+  description: string;
+  schedule: string;
+  category: 'BI' | 'Sistema';
+  taskName: string; // matches task_name in bi_task_history
+  onTrigger: () => Promise<{ task_id: string } | { error: string }>;
+}
+
+const ROTINAS: RotinaDefinition[] = [
+  {
+    key: 'estoque-processos',
+    name: 'Estoque de Processos',
+    description: 'Calcula o estoque de processos abertos por unidade a partir dos andamentos no banco D-1.',
+    schedule: 'A cada 6 horas',
+    category: 'BI',
+    taskName: 'compute_estoque',
+    onTrigger: refreshEstoque,
+  },
+];
+
+function RotinasTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: tasks, isLoading } = useBiTasks();
+  const [triggeringKey, setTriggeringKey] = useState<string | null>(null);
+
+  const handleTrigger = async (rotina: RotinaDefinition) => {
+    setTriggeringKey(rotina.key);
+    const result = await rotina.onTrigger();
+    if ('error' in result) {
+      toast({ title: 'Erro', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: `${rotina.name} iniciada` });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bi.tasks });
+    }
+    setTriggeringKey(null);
+  };
+
+  // Derive per-rotina status from task history
+  const rotinaStatus = (rotina: RotinaDefinition) => {
+    if (!tasks) return { lastRun: null, isRunning: false, lastStatus: null as string | null, lastDuration: null as number | null, lastResult: null as { total_processos: number; total_abertos: number } | null, lastError: null as string | null };
+    const matching = tasks.filter(t => t.task_name === rotina.taskName);
+    const running = matching.find(t => t.status === 'STARTED');
+    const lastFinished = matching.find(t => t.status === 'SUCCESS' || t.status === 'FAILURE');
+    const last = running ?? lastFinished ?? matching[0];
+    return {
+      lastRun: last?.started_at ? new Date(last.started_at) : null,
+      isRunning: !!running,
+      lastStatus: lastFinished?.status ?? null,
+      lastDuration: lastFinished?.duration_s ?? null,
+      lastResult: lastFinished?.result_summary ?? null,
+      lastError: lastFinished?.error_message ?? null,
+    };
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Cog className="h-5 w-5" /> Rotinas
+        </CardTitle>
+        <CardDescription>
+          Rotinas agendadas de pré-computação e manutenção do sistema
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {ROTINAS.map(rotina => {
+              const status = rotinaStatus(rotina);
+              const isTriggering = triggeringKey === rotina.key;
+
+              return (
+                <div key={rotina.key} className="border rounded-lg p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold">{rotina.name}</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {rotina.category}
+                        </Badge>
+                        {status.isRunning && (
+                          <Badge variant="secondary" className="gap-1">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Executando
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">{rotina.description}</p>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock4 className="h-3 w-3" />
+                          {rotina.schedule}
+                        </span>
+                        {status.lastRun && (
+                          <span className="flex items-center gap-1">
+                            {status.lastStatus === 'SUCCESS' ? (
+                              <CheckCircle2 className="h-3 w-3 text-green-500" />
+                            ) : status.lastStatus === 'FAILURE' ? (
+                              <XCircle className="h-3 w-3 text-red-500" />
+                            ) : (
+                              <Clock className="h-3 w-3" />
+                            )}
+                            Última: {status.lastRun.toLocaleString('pt-BR')}
+                            {status.lastDuration != null && (
+                              <span>({status.lastDuration.toFixed(1)}s)</span>
+                            )}
+                          </span>
+                        )}
+                        {status.lastResult && (
+                          <span>
+                            {status.lastResult.total_processos} processos, {status.lastResult.total_abertos} abertos
+                          </span>
+                        )}
+                        {status.lastError && (
+                          <span className="text-red-500 truncate max-w-[300px]" title={status.lastError}>
+                            Erro: {status.lastError}
+                          </span>
+                        )}
+                        {!status.lastRun && (
+                          <span className="italic">Nunca executada</span>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleTrigger(rotina)}
+                      disabled={isTriggering || status.isRunning}
+                      className="shrink-0"
+                    >
+                      {isTriggering ? (
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <Play className="h-4 w-4 mr-1.5" />
+                      )}
+                      Executar
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </CardContent>
     </Card>
