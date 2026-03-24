@@ -21,6 +21,7 @@ import {
   Compass,
   X,
   Bell,
+  ChevronUp,
 } from "lucide-react";
 import { AlertBox } from "@/components/ui/alert-box";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,7 @@ export default function AppHeader() {
   const { toast } = useToast();
   const { isAuthenticated, usuario, logout: persistLogout } = usePersistedAuth();
   const { hasModulo, papelNome } = usePermissions();
-  const { lastViewedProcess, clearLastViewedProcess, recentProcesses, removeRecentProcess } = useLastViewedProcess();
+  const { lastViewedProcess, clearLastViewedProcess, recentProcesses, removeRecentProcess, isSubheaderCollapsed, toggleSubheaderCollapsed } = useLastViewedProcess();
 
   const [isFeedOpen, setIsFeedOpen] = useState(false);
   const { data: badgeData } = useFeedBadge(usuario ?? undefined);
@@ -118,6 +119,10 @@ export default function AppHeader() {
     `bg-transparent border-0 rounded-b-none ${active ? "border-b-2 border-primary text-primary" : ""}`;
 
   const showSubheader = mounted && isAuthenticated && recentProcesses.length > 0;
+
+  // Active process comparison uses normalized numbers
+  const normalizeNum = (n: string) => n.replace(/\D/g, '');
+  const currentProcessoNorm = currentProcesso ? normalizeNum(currentProcesso) : null;
 
   return (
     <>
@@ -409,41 +414,64 @@ export default function AppHeader() {
 
         {/* ── Subheader: Recent process tabs ───────────────────── */}
         {showSubheader && (
-          <div className="border-t border-border/50 bg-muted/30 px-3">
-            <ScrollArea className="w-full">
-              <div className="flex items-center gap-0.5 py-1">
-                <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mr-1" />
-                {recentProcesses.map(numero => {
-                  const isActive = currentProcesso === numero;
-                  return (
-                    <div
-                      key={numero}
-                      className={cn(
-                        'group flex items-center gap-1 px-2.5 py-1 rounded-t text-xs transition-colors shrink-0 cursor-pointer border-b-2',
-                        isActive
-                          ? 'bg-card text-primary border-primary font-medium shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-card/50 border-transparent',
-                      )}
-                      onClick={() => goToProcess(numero)}
-                      title={formatProcessNumber(numero)}
+          <div className="border-t border-border/50 bg-muted/30">
+            <div className="container mx-auto max-w-full px-3">
+              {isSubheaderCollapsed ? (
+                <div className="flex items-center justify-center py-0.5">
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-0.5 rounded transition-colors"
+                    onClick={toggleSubheaderCollapsed}
+                    title="Expandir processos recentes"
+                  >
+                    <FileText className="h-3 w-3" />
+                    <span>{recentProcesses.length} processo{recentProcesses.length > 1 ? 's' : ''}</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <ScrollArea className="w-full">
+                  <div className="flex items-center gap-0.5 py-1">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mr-1" />
+                    {recentProcesses.map(numero => {
+                      const isActive = currentProcessoNorm === normalizeNum(numero);
+                      return (
+                        <div
+                          key={normalizeNum(numero)}
+                          className={cn(
+                            'group flex items-center gap-1 px-2.5 py-1 rounded-t text-xs transition-colors shrink-0 cursor-pointer border-b-2',
+                            isActive
+                              ? 'bg-card text-primary border-primary font-medium shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-card/50 border-transparent',
+                          )}
+                          onClick={() => goToProcess(numero)}
+                          title={formatProcessNumber(numero)}
+                        >
+                          <span className="max-w-[160px] truncate">{formatProcessNumber(numero)}</span>
+                          <button
+                            className={cn(
+                              'rounded-sm p-0.5 transition-opacity',
+                              isActive ? 'opacity-60 hover:opacity-100' : 'opacity-0 group-hover:opacity-60 hover:!opacity-100',
+                            )}
+                            onClick={(e) => { e.stopPropagation(); removeRecentProcess(numero); }}
+                            title="Fechar aba"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    <button
+                      className="rounded-sm p-1 text-muted-foreground hover:text-foreground transition-colors shrink-0 ml-auto"
+                      onClick={toggleSubheaderCollapsed}
+                      title="Recolher processos recentes"
                     >
-                      <span className="max-w-[160px] truncate">{formatProcessNumber(numero)}</span>
-                      <button
-                        className={cn(
-                          'rounded-sm p-0.5 transition-opacity',
-                          isActive ? 'opacity-60 hover:opacity-100' : 'opacity-0 group-hover:opacity-60 hover:!opacity-100',
-                        )}
-                        onClick={(e) => { e.stopPropagation(); removeRecentProcess(numero); }}
-                        title="Fechar aba"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              )}
+            </div>
           </div>
         )}
       </div>

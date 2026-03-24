@@ -294,109 +294,165 @@ export function ProcessProductivityTable({
         )}
 
         {resolvedActiveTab === 'tarefas' || resolvedActiveTab === 'horas' ? (
-          <ScrollArea className="h-[400px] w-full">
-            <div className="w-max min-w-full">
-              <table className="border-collapse text-sm">
-              <thead className="sticky top-0 z-10 bg-slate-400 dark:bg-slate-600">
-                <tr className="border-b">
-                  <th className="px-4 py-3 text-left font-semibold text-slate-50 min-w-[200px]">
-                    Unidade / Usuário
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold text-slate-50 min-w-[80px]">
-                    Total
-                  </th>
-                  {activeGroups.map((group) => (
-                    <th
-                      key={group.key}
-                      className="px-3 py-3 text-center font-semibold text-slate-50 min-w-[140px]"
-                    >
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex items-center gap-1 cursor-help">
-                            <span className="line-clamp-2">{group.label}</span>
-                            <Info className="h-3 w-3 flex-shrink-0 opacity-70" />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="max-w-xs">
-                          <p className="font-semibold mb-1">{group.label}</p>
-                          <ul className="text-xs space-y-0.5">
-                            {group.tasks.length > 0 ? group.tasks.map(t => (
-                              <li key={t} className="font-mono">{t}</li>
-                            )) : (
-                              <li className="italic">Tarefas não classificadas</li>
-                            )}
-                          </ul>
-                        </TooltipContent>
-                      </Tooltip>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredGroups.length === 0 && (
-                  <tr>
-                    <td colSpan={activeGroups.length + 2} className="px-4 py-6 text-center text-muted-foreground">
-                      Nenhum andamento disponível para cálculo de produtividade.
-                    </td>
-                  </tr>
-                )}
-
-                {filteredGroups.map((group) => (
-                  <React.Fragment key={`unit-${group.unitId}`}>
-                    {/* Unit header row */}
-                    <tr className="bg-muted/60 border-b">
-                      <td className="px-4 py-2.5">
-                        <div className="font-semibold text-foreground">{group.unitSigla}</div>
-                        <div className="text-xs text-muted-foreground truncate" title={group.unitDescricao}>
-                          {group.unitDescricao}
+          <>
+            {/* ── MOBILE: Card view ── */}
+            <div className="lg:hidden max-h-[400px] overflow-y-auto">
+              {filteredGroups.length === 0 ? (
+                <p className="px-4 py-6 text-center text-muted-foreground text-sm">
+                  Nenhum andamento disponível para cálculo de produtividade.
+                </p>
+              ) : (
+                <div className="p-3 space-y-3">
+                  {filteredGroups.map((group) => (
+                    <div key={`card-unit-${group.unitId}`} className="border rounded-lg overflow-hidden">
+                      {/* Unit header */}
+                      <div className="bg-muted/60 px-3 py-2 flex items-center justify-between">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-sm text-foreground">{group.unitSigla}</div>
+                          <div className="text-xs text-muted-foreground truncate">{group.unitDescricao}</div>
                         </div>
-                      </td>
-                      <td className="px-4 py-2.5 text-center">
-                        <span className="font-bold text-foreground">{formatTotal(group.groupTotals)}</span>
-                      </td>
-                      {activeGroups.map((ag) => (
-                        <td key={`${group.unitId}-${ag.key}`} className="px-3 py-2.5 text-center">
-                          <span className="font-semibold text-foreground">
-                            {formatValue(group.groupTotals[ag.key] || 0, ag.key)}
-                          </span>
-                        </td>
-                      ))}
-                    </tr>
+                        <span className="text-sm font-bold text-foreground shrink-0 ml-2">
+                          {formatTotal(group.groupTotals)}
+                        </span>
+                      </div>
+                      {/* Task group breakdown */}
+                      <div className="px-3 py-2 flex flex-wrap gap-1.5">
+                        {activeGroups.map((ag) => {
+                          const val = group.groupTotals[ag.key] || 0;
+                          if (val === 0) return null;
+                          return (
+                            <span key={ag.key} className="inline-flex items-center gap-1 text-xs bg-muted/50 rounded px-1.5 py-0.5">
+                              <span className="text-muted-foreground">{ag.label}:</span>
+                              <span className="font-medium">{formatValue(val, ag.key)}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                      {/* Users */}
+                      <div className="border-t divide-y">
+                        {group.users.map((row) => (
+                          <div key={`${group.unitId}-${row.userId}`} className="px-3 py-2 flex items-center justify-between">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-foreground">{row.userSigla}</div>
+                              <div className="text-xs text-muted-foreground truncate">{row.userName}</div>
+                            </div>
+                            <span className="text-sm font-semibold text-foreground shrink-0 ml-2">
+                              {formatTotal(row.groupCounts)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-                    {/* User rows within the unit */}
-                    {group.users.map((row, userIndex) => (
-                      <tr
-                        key={`${group.unitId}-${row.userId}`}
-                        className={`border-b last:border-b-0 ${
-                          userIndex % 2 === 0 ? 'bg-background' : 'bg-muted/20'
-                        }`}
+            {/* ── DESKTOP: Table view ── */}
+            <ScrollArea className="h-[400px] w-full hidden lg:block">
+              <div className="w-max min-w-full">
+                <table className="border-collapse text-sm">
+                <thead className="sticky top-0 z-10 bg-slate-400 dark:bg-slate-600">
+                  <tr className="border-b">
+                    <th className="px-4 py-3 text-left font-semibold text-slate-50 min-w-[200px]">
+                      Unidade / Usuário
+                    </th>
+                    <th className="px-4 py-3 text-center font-semibold text-slate-50 min-w-[80px]">
+                      Total
+                    </th>
+                    {activeGroups.map((group) => (
+                      <th
+                        key={group.key}
+                        className="px-3 py-3 text-center font-semibold text-slate-50 min-w-[140px]"
                       >
-                        <td className="px-4 py-2.5 pl-8">
-                          <div className="font-medium text-foreground">{row.userSigla}</div>
-                          <div className="text-xs text-slate-400 dark:text-slate-500 truncate" title={row.userName}>
-                            {row.userName}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center gap-1 cursor-help">
+                              <span className="line-clamp-2">{group.label}</span>
+                              <Info className="h-3 w-3 flex-shrink-0 opacity-70" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-xs">
+                            <p className="font-semibold mb-1">{group.label}</p>
+                            <ul className="text-xs space-y-0.5">
+                              {group.tasks.length > 0 ? group.tasks.map(t => (
+                                <li key={t} className="font-mono">{t}</li>
+                              )) : (
+                                <li className="italic">Tarefas não classificadas</li>
+                              )}
+                            </ul>
+                          </TooltipContent>
+                        </Tooltip>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredGroups.length === 0 && (
+                    <tr>
+                      <td colSpan={activeGroups.length + 2} className="px-4 py-6 text-center text-muted-foreground">
+                        Nenhum andamento disponível para cálculo de produtividade.
+                      </td>
+                    </tr>
+                  )}
+
+                  {filteredGroups.map((group) => (
+                    <React.Fragment key={`unit-${group.unitId}`}>
+                      {/* Unit header row */}
+                      <tr className="bg-muted/60 border-b">
+                        <td className="px-4 py-2.5">
+                          <div className="font-semibold text-foreground">{group.unitSigla}</div>
+                          <div className="text-xs text-muted-foreground truncate" title={group.unitDescricao}>
+                            {group.unitDescricao}
                           </div>
                         </td>
                         <td className="px-4 py-2.5 text-center">
-                          <span className="font-semibold text-foreground">{formatTotal(row.groupCounts)}</span>
+                          <span className="font-bold text-foreground">{formatTotal(group.groupTotals)}</span>
                         </td>
                         {activeGroups.map((ag) => (
-                          <td key={`${group.unitId}-${row.userId}-${ag.key}`} className="px-3 py-2.5 text-center">
-                            <span className="font-medium text-foreground">
-                              {formatValue(row.groupCounts[ag.key] || 0, ag.key)}
+                          <td key={`${group.unitId}-${ag.key}`} className="px-3 py-2.5 text-center">
+                            <span className="font-semibold text-foreground">
+                              {formatValue(group.groupTotals[ag.key] || 0, ag.key)}
                             </span>
                           </td>
                         ))}
                       </tr>
-                    ))}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <ScrollBar orientation="horizontal" />
-          <ScrollBar orientation="vertical" />
-          </ScrollArea>
+
+                      {/* User rows within the unit */}
+                      {group.users.map((row, userIndex) => (
+                        <tr
+                          key={`${group.unitId}-${row.userId}`}
+                          className={`border-b last:border-b-0 ${
+                            userIndex % 2 === 0 ? 'bg-background' : 'bg-muted/20'
+                          }`}
+                        >
+                          <td className="px-4 py-2.5 pl-8">
+                            <div className="font-medium text-foreground">{row.userSigla}</div>
+                            <div className="text-xs text-slate-400 dark:text-slate-500 truncate" title={row.userName}>
+                              {row.userName}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 text-center">
+                            <span className="font-semibold text-foreground">{formatTotal(row.groupCounts)}</span>
+                          </td>
+                          {activeGroups.map((ag) => (
+                            <td key={`${group.unitId}-${row.userId}-${ag.key}`} className="px-3 py-2.5 text-center">
+                              <span className="font-medium text-foreground">
+                                {formatValue(row.groupCounts[ag.key] || 0, ag.key)}
+                              </span>
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <ScrollBar orientation="horizontal" />
+            <ScrollBar orientation="vertical" />
+            </ScrollArea>
+          </>
         ) : (
           <div className="overflow-hidden p-0 px-6 pb-6 pt-4">
             {/* Financeiro tab content */}
