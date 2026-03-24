@@ -21,6 +21,7 @@ import NodePropertiesPanel from '@/components/flow-builder/NodePropertiesPanel';
 import ValidationPanel from '@/components/flow-builder/ValidationPanel';
 import ProcessAssignmentDialog from '@/components/flow-builder/ProcessAssignmentDialog';
 import FlowProcessesList from '@/components/flow-builder/FlowProcessesList';
+import FlowSummaryPanel from '@/components/flow-builder/FlowSummaryPanel';
 import { Loader2 } from 'lucide-react';
 import type { Node, Edge } from '@xyflow/react';
 import type { FluxoSaveCanvasPayload } from '@/types/fluxos';
@@ -58,6 +59,7 @@ function FluxoEditorContent() {
   const [hasUnsaved, setHasUnsaved] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [warningDialogOpen, setWarningDialogOpen] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const { errors, warnings, validate, clear } = useFlowValidation();
 
   useEffect(() => { setMounted(true); }, []);
@@ -215,10 +217,12 @@ function FluxoEditorContent() {
         status={fluxo.status}
         isSaving={canvasMutation.isPending}
         hasUnsavedChanges={hasUnsaved}
+        showSummary={showSummary}
         onNameChange={handleNameChange}
         onStatusChange={handleStatusChange}
         onSave={handleSave}
         onAssignProcess={() => setAssignDialogOpen(true)}
+        onToggleSummary={() => setShowSummary((v) => !v)}
       />
 
       <div className="flex flex-1 overflow-hidden relative">
@@ -238,6 +242,13 @@ function FluxoEditorContent() {
             />
           )}
         </div>
+
+        {showSummary && (
+          <FlowSummaryPanel
+            nodes={rfNodes}
+            onClose={() => setShowSummary(false)}
+          />
+        )}
 
         {selectedNode ? (
           <NodePropertiesPanel

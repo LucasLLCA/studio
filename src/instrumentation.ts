@@ -4,27 +4,19 @@
  * all fetch() calls in API routes (proxy, SSE proxy) and propagates
  * W3C Trace Context headers to the Python backend.
  */
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { Resource } from "@opentelemetry/resources";
+import {
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_VERSION,
+} from "@opentelemetry/semantic-conventions";
+import { SimpleLogRecordProcessor } from "@opentelemetry/sdk-logs";
+
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { NodeSDK } = await import("@opentelemetry/sdk-node");
-    const { OTLPTraceExporter } = await import(
-      "@opentelemetry/exporter-trace-otlp-http"
-    );
-    const { OTLPLogExporter } = await import(
-      "@opentelemetry/exporter-logs-otlp-http"
-    );
-    const {
-      getNodeAutoInstrumentations,
-    } = await import("@opentelemetry/auto-instrumentations-node");
-    const { Resource } = await import("@opentelemetry/resources");
-    const {
-      ATTR_SERVICE_NAME,
-      ATTR_SERVICE_VERSION,
-    } = await import("@opentelemetry/semantic-conventions");
-    const {
-      SimpleLogRecordProcessor,
-    } = await import("@opentelemetry/sdk-logs");
-
     const endpoint =
       process.env.OTEL_EXPORTER_OTLP_ENDPOINT ||
       "http://otelcollectorhttp.10.0.122.91.sslip.io";
