@@ -98,11 +98,6 @@ export const queryKeys = {
       ['situacaoAtual', stripProcessNumber(processo), unidade] as const,
   },
 
-  // Health checks
-  health: {
-    seiApi: ['health', 'sei-api'] as const,
-    summaryApi: ['health', 'summary-api'] as const,
-  },
 
   // Fluxos de Processos
   fluxos: {
@@ -113,12 +108,42 @@ export const queryKeys = {
     processos: (fluxoId: string) => ['fluxos', 'processos', fluxoId] as const,
   },
 
+  // Permissions (RBAC)
+  permissions: {
+    all: ['permissions'] as const,
+    byUser: (idPessoa: number) => ['permissions', idPessoa] as const,
+  },
+
   // Admin
   admin: {
     usuarios: (search?: string) => ['admin', 'usuarios', search ?? ''] as const,
     configuracaoHoras: (orgao: string) => ['admin', 'configuracaoHoras', orgao] as const,
     orgaos: ['admin', 'orgaos'] as const,
     configuracaoHorasPublic: (orgao: string) => ['configuracaoHoras', orgao] as const,
+    papeis: ['admin', 'papeis'] as const,
+    modulosList: ['admin', 'modulosList'] as const,
+  },
+
+  // BI
+  bi: {
+    all: ['bi'] as const,
+    estoque: (origem?: string, passagem?: string, aberta?: string, orgOrigem?: string, orgPassagem?: string, orgAberta?: string) =>
+      ['bi', 'estoque', origem ?? '', passagem ?? '', aberta ?? '', orgOrigem ?? '', orgPassagem ?? '', orgAberta ?? ''] as const,
+    estoqueList: (page: number, search?: string, origem?: string, passagem?: string, aberta?: string, orgOrigem?: string, orgPassagem?: string, orgAberta?: string) =>
+      ['bi', 'estoqueList', page, search ?? '', origem ?? '', passagem ?? '', aberta ?? '', orgOrigem ?? '', orgPassagem ?? '', orgAberta ?? ''] as const,
+    unidades: ['bi', 'unidades'] as const,
+    tasks: ['bi', 'tasks'] as const,
+    prodUnidade: (orgao?: string, unidade?: string) =>
+      ['bi', 'prodUnidade', orgao ?? '', unidade ?? ''] as const,
+    prodUnidadeMensal: (orgao?: string, unidade?: string, ano_mes?: string) =>
+      ['bi', 'prodUnidadeMensal', orgao ?? '', unidade ?? '', ano_mes ?? ''] as const,
+    prodUsuario: (orgao?: string, unidade?: string) =>
+      ['bi', 'prodUsuario', orgao ?? '', unidade ?? ''] as const,
+    prodUsuarioMensal: (orgao?: string, unidade?: string, ano_mes?: string) =>
+      ['bi', 'prodUsuarioMensal', orgao ?? '', unidade ?? '', ano_mes ?? ''] as const,
+    feed: (usuario: string) => ['bi', 'feed', usuario] as const,
+    feedBadge: (usuario: string) => ['bi', 'feedBadge', usuario] as const,
+    processosComAtividade: (usuario: string) => ['bi', 'processosComAtividade', usuario] as const,
   },
 } as const;
 

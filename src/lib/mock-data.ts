@@ -10,7 +10,6 @@ import type {
   UnidadeAberta,
   ProcessSummaryResponse,
 } from '@/types/process-flow';
-import type { HealthCheckResponse } from '@/lib/sei-api-client';
 
 // ── Document IDs (referenced in andamento descriptions) ──────────────────────
 
@@ -271,15 +270,6 @@ export function mockProcessSummary(): ProcessSummaryResponse {
       'O processo foi autuado no Gabinete do Secretário (GAB/SEAD) e encaminhado à Diretoria de Administração e Finanças (DAF/SEAD) ' +
       'para análise técnica e financeira. Atualmente encontra-se na Coordenação de Pagamento (CPAG/SEAD) aguardando empenho. ' +
       'Foram gerados ofícios de encaminhamento, despachos de análise e notas técnicas de fundamentação ao longo da tramitação.',
-  };
-}
-
-export function mockHealthCheck(): HealthCheckResponse {
-  return {
-    isOnline: true,
-    status: 'online',
-    responseTime: 42,
-    timestamp: new Date(),
   };
 }
 

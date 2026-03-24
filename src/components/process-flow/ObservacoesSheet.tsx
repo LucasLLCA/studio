@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2, MessageSquare, Send, Trash2, X, Tag, Plus, Lock, Users, Globe, Reply, Eye, Info, Check } from 'lucide-react';
+import { Loader2, MessageSquare, Send, Trash2, X, Tag, Plus, Lock, Users, Globe, Reply, Eye, Info, Check, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -19,15 +18,26 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { getObservacoes, createObservacao, deleteObservacao, getMencoesNaoLidas, marcarMencaoVista } from '@/lib/api/observacoes-api-client';
+import { getObservacoes, createObservacao, updateObservacao, deleteObservacao, getMencoesNaoLidas, marcarMencaoVista } from '@/lib/api/observacoes-api-client';
 import { getMyTeams, getTeamDetail } from '@/lib/api/teams-api-client';
 import { getTeamGrupos } from '@/lib/api/grupos-api-client';
 import {
   getTags,
   getProcessoTags,
   createTag,
+  updateTag,
+  deleteTag,
   tagProcesso,
   untagProcessoPorNumero,
 } from '@/lib/api/tags-api-client';
@@ -36,11 +46,8 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { Observacao, ObservacaoEscopo, Team, TeamTag, TeamMember } from '@/types/teams';
 
-const TAG_COLORS = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e',
-  '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899',
-  '#6b7280', '#1e293b',
-];
+import { TAG_COLORS } from '@/lib/constants';
+import { EditableTagBadge } from '@/components/ui/editable-tag-badge';
 
 interface ObservacoesSheetProps {
   isOpen: boolean;
@@ -77,7 +84,6 @@ export function ObservacoesSheet({
   const [isSending, setIsSending] = useState(false);
   const [conteudo, setConteudo] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Escopo
   const [escopo, setEscopo] = useState<ObservacaoEscopo>('pessoal');
@@ -97,6 +103,9 @@ export function ObservacoesSheet({
   const [isCreatingTag, setIsCreatingTag] = useState(false);
   const [newTagColor, setNewTagColor] = useState<string>('');
   const [selectedTeamHasGrupos, setSelectedTeamHasGrupos] = useState<boolean>(true);
+  const [editingTag, setEditingTag] = useState<TeamTag | null>(null);
+  const [editTagName, setEditTagName] = useState('');
+  const [editTagColor, setEditTagColor] = useState('');
 
   // @mencao state
   const [membrosEquipe, setMembrosEquipe] = useState<TeamMember[]>([]);
@@ -112,6 +121,11 @@ export function ObservacoesSheet({
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [replyMencaoAtiva, setReplyMencaoAtiva] = useState<string | null>(null);
   const [showReplyMencaoDropdown, setShowReplyMencaoDropdown] = useState(false);
+
+  // Edição de observações
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editConteudo, setEditConteudo] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -307,6 +321,35 @@ export function ObservacoesSheet({
     }
   };
 
+  const handleEditTag = async () => {
+    if (!usuario || !editingTag) return;
+    const updates: { nome?: string; cor?: string } = {};
+    if (editTagName.trim() && editTagName !== editingTag.nome) updates.nome = editTagName.trim();
+    if (editTagColor !== (editingTag.cor ?? '')) updates.cor = editTagColor;
+    if (Object.keys(updates).length === 0) { setEditingTag(null); return; }
+
+    const result = await updateTag(editingTag.id, usuario, updates);
+    if ('error' in result) {
+      toast({ title: "Erro ao editar tag", description: result.error, variant: "destructive" });
+      return;
+    }
+    setTeamTagsList(prev => prev.map(t => t.id === editingTag.id ? { ...t, ...updates } : t));
+    setAppliedTags(prev => prev.map(a => a.tag.id === editingTag.id ? { ...a, tag: { ...a.tag, ...updates } } : a));
+    setEditingTag(null);
+  };
+
+  const handleDeleteTag = async (tag: TeamTag) => {
+    if (!usuario) return;
+    const result = await deleteTag(tag.id, usuario);
+    if ('error' in result) {
+      toast({ title: "Erro ao excluir tag", description: result.error, variant: "destructive" });
+      return;
+    }
+    setTeamTagsList(prev => prev.filter(t => t.id !== tag.id));
+    setAppliedTags(prev => prev.filter(a => a.tag.id !== tag.id));
+    toast({ title: "Tag excluída" });
+  };
+
   const handleApplyCrossTeamTag = async (tag: TeamTag, actualTeamId: string | null, actualTeamName: string) => {
     if (!usuario) return;
     const result = await tagProcesso(tag.id, usuario, numeroProcesso);
@@ -328,17 +371,8 @@ export function ObservacoesSheet({
     return match ? match[1] : null;
   };
 
-  const handleObsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const texto = e.target.value;
-    setConteudo(texto);
-    const cursor = e.target.selectionStart ?? 0;
-    const mencao = detectMencao(texto, cursor);
-    setMencaoAtiva(mencao);
-    setShowMencaoDropdown(mencao !== null);
-  };
-
   const handleSelectMencao = (membro: TeamMember) => {
-    const cursor = textareaRef.current?.selectionStart ?? conteudo.length;
+    const cursor = conteudo.length;
     const textoAteCursor = conteudo.slice(0, cursor);
     const match = textoAteCursor.match(/@([\w.]*)$/);
     if (!match) return;
@@ -347,7 +381,6 @@ export function ObservacoesSheet({
     setConteudo(novo);
     setShowMencaoDropdown(false);
     setMencaoAtiva(null);
-    textareaRef.current?.focus();
   };
 
   const handleReplyChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -451,31 +484,32 @@ export function ObservacoesSheet({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showMencaoDropdown && e.key === 'Escape') {
-      setShowMencaoDropdown(false);
-      return;
-    }
-    if (e.key === 'Enter' && !e.shiftKey && !showMencaoDropdown) {
-      e.preventDefault();
-      handleSend();
+  const handleUpdate = async () => {
+    if (!usuario || !editConteudo.trim() || !editingId || isUpdating) return;
+    setIsUpdating(true);
+    try {
+      const result = await updateObservacao(numeroProcesso, editingId, usuario, editConteudo);
+      if ('error' in result) {
+        toast({ title: "Erro ao atualizar", description: result.error, variant: "destructive" });
+        return;
+      }
+      setObservacoes(prev => prev.map(o => o.id === editingId ? result : o));
+      setEditingId(null);
+      setEditConteudo('');
+      toast({ title: "Observação atualizada", duration: 2000 });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  // Renderiza conteudo com @mencoes destacadas
-  const renderizarConteudo = (texto: string) => {
-    const partes = texto.split(/(@[\w.]+(?:@[\w.]+)*)/g);
-    return partes.map((parte, i) => {
-      if (parte.startsWith('@')) {
-        const isMe = usuario && parte.slice(1) === usuario;
-        return (
-          <span key={i} className={cn('font-semibold', isMe ? 'text-primary' : 'text-blue-600')}>
-            {parte}
-          </span>
-        );
-      }
-      return <span key={i}>{parte}</span>;
-    });
+  // Renderiza conteudo HTML com classes de estilo para listas e formatação
+  const renderizarConteudo = (html: string) => {
+    return (
+      <div
+        className="prose prose-sm max-w-none dark:prose-invert [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_strong]:font-semibold [&_em]:italic [&_code]:bg-muted/60 [&_code]:px-1 [&_code]:rounded [&_pre]:bg-muted/50 [&_pre]:p-2 [&_pre]:rounded [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-3 [&_blockquote]:italic"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
   };
 
   // Config visual de escopo
@@ -604,20 +638,25 @@ export function ObservacoesSheet({
                 {/* Badges das tags */}
                 <div className="flex flex-wrap gap-1">
                   {tags.map((applied) => (
-                    <Badge
+                    <EditableTagBadge
                       key={`${applied.teamId}-${applied.tag.id}`}
-                      variant="secondary"
-                      className="text-xs flex items-center gap-1 pr-1"
-                      style={applied.tag.cor ? { backgroundColor: applied.tag.cor, color: '#fff' } : undefined}
-                    >
-                      {applied.tag.nome}
-                      <button
-                        className="ml-0.5 hover:opacity-70"
-                        onClick={() => handleRemoveTag(applied)}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
+                      tag={applied.tag}
+                      usuario={usuario || ''}
+                      size="sm"
+                      onUpdated={(updated) => {
+                        setAppliedTags(prev => prev.map(a => a.tag.id === updated.id ? { ...a, tag: updated } : a));
+                        setTeamTagsList(prev => prev.map(t => t.id === updated.id ? updated : t));
+                      }}
+                      onDeleted={(id) => {
+                        setAppliedTags(prev => prev.filter(a => a.tag.id !== id));
+                        setTeamTagsList(prev => prev.filter(t => t.id !== id));
+                      }}
+                      suffix={
+                        <button className="ml-0.5 hover:opacity-70" onClick={(e) => { e.stopPropagation(); handleRemoveTag(applied); }}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      }
+                    />
                   ))}
                 </div>
               </div>
@@ -701,18 +740,33 @@ export function ObservacoesSheet({
                     ) : (
                       <div className="max-h-[180px] overflow-y-auto space-y-0.5">
                         {availableTags.map((tag) => (
-                          <button
-                            key={tag.id}
-                            className="w-full text-left px-2 py-1 rounded text-sm hover:bg-accent flex items-center gap-2"
-                            onClick={() => handleAddTag(tag)}
-                          >
-                            {tag.cor ? (
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.cor }} />
-                            ) : (
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted border" />
-                            )}
-                            {tag.nome}
-                          </button>
+                          <div key={tag.id} className="group flex items-center gap-1 rounded hover:bg-accent">
+                            <button
+                              className="flex-1 text-left px-2 py-1 text-sm flex items-center gap-2"
+                              onClick={() => handleAddTag(tag)}
+                            >
+                              {tag.cor ? (
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.cor }} />
+                              ) : (
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted border" />
+                              )}
+                              {tag.nome}
+                            </button>
+                            <button
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:text-primary transition-opacity"
+                              title="Editar tag"
+                              onClick={(e) => { e.stopPropagation(); setEditingTag(tag); setEditTagName(tag.nome); setEditTagColor(tag.cor ?? ''); }}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-opacity"
+                              title="Excluir tag"
+                              onClick={(e) => { e.stopPropagation(); handleDeleteTag(tag); }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
                         ))}
                         {tagFilter.trim() && availableTags.length === 0 && (() => {
                           const existingTag = teamTagsList.find(
@@ -840,6 +894,56 @@ export function ObservacoesSheet({
                 )}
               </PopoverContent>
           </Popover>
+
+          {/* Edit tag dialog */}
+          <Dialog open={!!editingTag} onOpenChange={(open) => { if (!open) setEditingTag(null); }}>
+            <DialogContent className="sm:max-w-xs">
+              <DialogHeader>
+                <DialogTitle className="text-base">Editar tag</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Input
+                  value={editTagName}
+                  onChange={(e) => setEditTagName(e.target.value)}
+                  placeholder="Nome da tag"
+                  className="h-8 text-sm"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleEditTag(); }}
+                />
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">Cor:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {TAG_COLORS.map(cor => (
+                      <button
+                        key={cor}
+                        type="button"
+                        className={cn(
+                          'w-5 h-5 rounded-full border-2 transition-transform hover:scale-110',
+                          editTagColor === cor ? 'border-foreground scale-110' : 'border-transparent'
+                        )}
+                        style={{ backgroundColor: cor }}
+                        onClick={() => setEditTagColor(prev => prev === cor ? '' : cor)}
+                      />
+                    ))}
+                    <button
+                      type="button"
+                      title="Sem cor"
+                      className={cn(
+                        'w-5 h-5 rounded-full border-2 bg-muted flex items-center justify-center transition-transform hover:scale-110',
+                        !editTagColor ? 'border-foreground scale-110' : 'border-transparent'
+                      )}
+                      onClick={() => setEditTagColor('')}
+                    >
+                      <X className="h-2.5 w-2.5 text-muted-foreground" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild><Button variant="outline" size="sm">Cancelar</Button></DialogClose>
+                <Button size="sm" onClick={handleEditTag}>Salvar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Input box */}
@@ -880,14 +984,11 @@ export function ObservacoesSheet({
 
           <div className="relative flex gap-2 items-end">
             <div className="flex-1 relative">
-              <textarea
-                ref={textareaRef}
+              <RichTextEditor
                 value={conteudo}
-                onChange={handleObsChange}
-                onKeyDown={handleKeyDown}
-                placeholder="Escreva uma observacao... use @ para mencionar"
-                rows={2}
-                className="w-full resize-none rounded-md border border-input bg-white dark:bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                onChange={setConteudo}
+                onSubmit={handleSend}
+                placeholder="Escreva uma observação... use @ para mencionar"
               />
               {/* Dropdown @mencao */}
               {showMencaoDropdown && membrosFiltradosMencao(mencaoAtiva ?? '').length > 0 && (
@@ -1012,23 +1113,70 @@ export function ObservacoesSheet({
                           <Reply className="h-3 w-3 text-muted-foreground" />
                         </Button>
                         {usuario === obs.usuario && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                            onClick={() => handleDelete(obs.id)}
-                            aria-label="Excluir observacao"
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                              onClick={() => {
+                                setEditingId(editingId === obs.id ? null : obs.id);
+                                setEditConteudo(obs.conteudo);
+                              }}
+                              title="Editar"
+                            >
+                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                              onClick={() => handleDelete(obs.id)}
+                              aria-label="Excluir observacao"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>
 
-                    {/* Conteudo com @mencoes destacadas */}
-                    <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words mt-0.5">
-                      {renderizarConteudo(obs.conteudo)}
-                    </p>
+                    {/* Edição inline ou conteúdo */}
+                    {editingId === obs.id ? (
+                      <div className="mt-2 space-y-2 p-2 border border-primary/30 rounded bg-primary/5">
+                        <RichTextEditor
+                          value={editConteudo}
+                          onChange={setEditConteudo}
+                          placeholder="Editar observação..."
+                          editorClassName="min-h-[80px]"
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => {
+                              setEditingId(null);
+                              setEditConteudo('');
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="text-xs"
+                            onClick={handleUpdate}
+                            disabled={!editConteudo.trim() || isUpdating}
+                          >
+                            {isUpdating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                            Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-foreground/90 mt-0.5">
+                        {renderizarConteudo(obs.conteudo)}
+                      </div>
+                    )}
 
                     {/* Tag "Visto por X" */}
                     {vistosPor.length > 0 && (
@@ -1074,9 +1222,9 @@ export function ObservacoesSheet({
                                   </Button>
                                 )}
                               </div>
-                              <p className="text-xs text-foreground/90 whitespace-pre-wrap break-words">
+                              <div className="text-xs text-foreground/90">
                                 {renderizarConteudo(resp.conteudo)}
-                              </p>
+                              </div>
                             </div>
                           </div>
                         ))}

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Loader2, Plus, ChevronRight, ChevronDown, Users, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Loader2, Plus, ChevronRight, ChevronDown, Users, Tag, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,39 +15,45 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
-import { getMyGrupos, getGrupoWithProcessos, createGrupo, saveProcessoToGrupo, deleteGrupo, removeProcessoFromGrupo } from '@/lib/api/grupos-api-client';
+import { getMyGrupos, createGrupo, saveProcessoToGrupo, checkProcessoSalvo } from '@/lib/api/grupos-api-client';
 import { getMyTeams } from '@/lib/api/teams-api-client';
-import { getKanbanBoard, salvarProcessoNoKanban } from '@/lib/api/tags-api-client';
-import { formatProcessNumber } from '@/lib/utils';
-import type { GrupoProcesso } from '@/types/teams';
+import { getKanbanBoard, salvarProcessoNoKanban, getTags, tagProcesso, createTag as createTeamTag } from '@/lib/api/tags-api-client';
+import { formatProcessNumber, cn } from '@/lib/utils';
+import { TAG_COLORS } from '@/lib/constants';
+import { EditableTagBadge } from '@/components/ui/editable-tag-badge';
+import type { GrupoProcesso, TeamTag, Team } from '@/types/teams';
+
+// ─── Types ───────────────────────────────────────────────────────────────
 
 type SelectedGroup =
   | { type: 'personal'; tagId: string; tagNome: string }
   | { type: 'team'; tagId: string; tagNome: string; equipeId: string; equipeNome: string };
 
-type ProcessoItem = {
-  id: string;
-  numero_processo: string;
-  numero_processo_formatado: string | null;
-};
-
-type GrupoComProcessos = {
+/** Flat representation of a grupo — only needs to know if our processo is already saved */
+type GrupoItem = {
   type: 'personal' | 'team';
   tagId: string;
   tagNome: string;
   tagCor: string | null;
   equipeId?: string;
   equipeNome?: string;
-  processos: ProcessoItem[];
+  alreadySaved: boolean;
 };
 
-type EquipeComColunas = {
+type EquipeSection = {
   equipeId: string;
   equipeNome: string;
-  colunas: GrupoComProcessos[];
+  grupos: GrupoItem[];
 };
+
+// ─── Component ───────────────────────────────────────────────────────────
 
 interface SaveProcessoModalProps {
   open: boolean;
@@ -67,54 +73,83 @@ export function SaveProcessoModal({
   const { toast } = useToast();
   const { usuario } = usePersistedAuth();
 
-
-  // Grupos pessoais (criados pelo usuário)
-  const [grupos, setGrupos] = useState<GrupoComProcessos[]>([]);
+  // Grupos pessoais
+  const [grupos, setGrupos] = useState<GrupoItem[]>([]);
   // Equipes com suas colunas kanban
-  const [equipes, setEquipes] = useState<EquipeComColunas[]>([]);
+  const [equipes, setEquipes] = useState<EquipeSection[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
-  const [removingProcessoId, setRemovingProcessoId] = useState<string | null>(null);
-  const [confirmDeleteGrupo, setConfirmDeleteGrupo] = useState<{ tagId: string; tagNome: string; totalProcessos: number } | null>(null);
-  const [confirmRemoveProcesso, setConfirmRemoveProcesso] = useState<{ tagId: string; processoId: string; label: string } | null>(null);
-
-  // Chaves de itens expandidos (prefixo: "g-{tagId}" para grupos, "e-{equipeId}" para equipes)
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
   // Seções colapsáveis
   const [gruposOpen, setGruposOpen] = useState(true);
   const [equipesOpen, setEquipesOpen] = useState(true);
+  const [expandedEquipes, setExpandedEquipes] = useState<Set<string>>(new Set());
 
   // Grupo selecionado como destino do save
   const [selectedGroup, setSelectedGroup] = useState<SelectedGroup | null>(null);
-  const [newTagName, setNewTagName] = useState('');
+  const [newGrupoName, setNewGrupoName] = useState('');
+  const [isCreatingGrupo, setIsCreatingGrupo] = useState(false);
+
+  // Tags (rótulos) — scoped to the selected group context
+  const [availableTags, setAvailableTags] = useState<TeamTag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
+  const [tagSearchFilter, setTagSearchFilter] = useState('');
+  const [newTagColor, setNewTagColor] = useState('');
   const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [isLoadingTags, setIsLoadingTags] = useState(false);
+
+  // ─── Reset on close ──────────────────────────────────────────────────
 
   useEffect(() => {
     if (open && usuario) loadData();
     if (!open) {
       setSelectedGroup(null);
-      setNewTagName('');
-      setIsCreatingTag(false);
+      setNewGrupoName('');
+      setIsCreatingGrupo(false);
       setGruposOpen(true);
       setEquipesOpen(true);
-      setExpandedKeys(new Set());
+      setExpandedEquipes(new Set());
       setGrupos([]);
       setEquipes([]);
+      setAvailableTags([]);
+      setSelectedTagIds(new Set());
+      setTagSearchFilter('');
+      setNewTagColor('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, usuario]);
 
-  const toggleExpand = (key: string) => {
-    setExpandedKeys(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
+  // ─── Load tags when group selection changes ──────────────────────────
+
+  const loadTagsForContext = useCallback(async (group: SelectedGroup | null) => {
+    if (!usuario || !group) {
+      setAvailableTags([]);
+      setSelectedTagIds(new Set());
+      return;
+    }
+    setIsLoadingTags(true);
+    setSelectedTagIds(new Set());
+    setTagSearchFilter('');
+    setNewTagColor('');
+    try {
+      const equipeId = group.type === 'team' ? group.equipeId : undefined;
+      const result = await getTags(usuario, equipeId);
+      if (!('error' in result)) {
+        setAvailableTags(result);
+      } else {
+        setAvailableTags([]);
+      }
+    } finally {
+      setIsLoadingTags(false);
+    }
+  }, [usuario]);
+
+  useEffect(() => {
+    loadTagsForContext(selectedGroup);
+  }, [selectedGroup, loadTagsForContext]);
+
+  // ─── Data loading ────────────────────────────────────────────────────
 
   const loadData = async () => {
     if (!usuario) return;
@@ -125,55 +160,48 @@ export function SaveProcessoModal({
         getMyTeams(usuario),
       ]);
 
-      const fetchedGrupos = !('error' in gruposResult) ? gruposResult : [];
-      const fetchedTeams = !('error' in teamsResult) ? teamsResult : [];
+      const fetchedGrupos: GrupoProcesso[] = !('error' in gruposResult) ? gruposResult : [];
+      const fetchedTeams: Team[] = !('error' in teamsResult) ? teamsResult : [];
 
-      const [grupoDetailResults, kanbanResults] = await Promise.all([
-        Promise.all(fetchedGrupos.map((g: GrupoProcesso) => getGrupoWithProcessos(g.id, usuario!))),
-        Promise.all(fetchedTeams.map((team: Team) => getKanbanBoard(team.id, usuario!))),
-      ]);
+      // Fetch kanban boards to check if the processo is already saved
+      const kanbanResults = await Promise.all(
+        fetchedTeams.map((team) => getKanbanBoard(team.id, usuario!)),
+      );
 
-      // Grupos pessoais
-      const personalGrupos: GrupoComProcessos[] = fetchedGrupos.map((g: GrupoProcesso, i: number) => {
-        const result = grupoDetailResults[i];
-        const processos: ProcessoItem[] = !('error' in result)
-          ? result.processos.map((p: any) => ({
-              id: p.id,
-              numero_processo: p.numero_processo,
-              numero_processo_formatado: p.numero_processo_formatado ?? null,
-            }))
-          : [];
-        return {
-          type: 'personal' as const,
-          tagId: g.id,
-          tagNome: g.nome,
-          tagCor: g.cor ?? null,
-          processos,
-        };
-      });
+      // Check which personal grupos already contain this processo
+      const salvoResult = await checkProcessoSalvo(usuario!, numeroProcesso);
+      const salvoTagIds = new Set<string>();
+      if (!('error' in salvoResult)) {
+        for (const t of salvoResult.tags || []) {
+          salvoTagIds.add(t.tag_id);
+        }
+      }
 
-      // Equipes com suas colunas kanban
-      const equipesArray: EquipeComColunas[] = fetchedTeams
-        .map((team: Team, i: number) => {
+      const personalGrupos: GrupoItem[] = fetchedGrupos.map((g) => ({
+        type: 'personal' as const,
+        tagId: g.id,
+        tagNome: g.nome,
+        tagCor: g.cor ?? null,
+        alreadySaved: salvoTagIds.has(g.id),
+      }));
+
+      // Team groups
+      const equipesArray: EquipeSection[] = fetchedTeams
+        .map((team, i) => {
           const result = kanbanResults[i];
           if ('error' in result) return null;
-          const colunas: GrupoComProcessos[] = result.colunas
-            .map((col: any) => ({
-              type: 'team' as const,
-              tagId: col.tag_id,
-              tagNome: col.tag_nome,
-              tagCor: col.tag_cor ?? null,
-              equipeId: team.id,
-              equipeNome: team.nome,
-              processos: (col.processos || []).map((p: any) => ({
-                id: p.id,
-                numero_processo: p.numero_processo,
-                numero_processo_formatado: p.numero_processo_formatado ?? null,
-              })),
-            }));
-          return { equipeId: team.id, equipeNome: team.nome, colunas };
+          const grupoItems: GrupoItem[] = result.colunas.map((col: any) => ({
+            type: 'team' as const,
+            tagId: col.tag_id,
+            tagNome: col.tag_nome,
+            tagCor: col.tag_cor ?? null,
+            equipeId: team.id,
+            equipeNome: team.nome,
+            alreadySaved: (col.processos || []).some((p: any) => p.numero_processo === numeroProcesso),
+          }));
+          return { equipeId: team.id, equipeNome: team.nome, grupos: grupoItems };
         })
-        .filter(Boolean) as EquipeComColunas[];
+        .filter(Boolean) as EquipeSection[];
 
       setGrupos(personalGrupos);
       setEquipes(equipesArray);
@@ -182,70 +210,49 @@ export function SaveProcessoModal({
     }
   };
 
-  const handleCreateTag = async () => {
-    if (!usuario || !newTagName.trim()) return;
-    setIsCreatingTag(true);
+  // ─── Handlers ────────────────────────────────────────────────────────
+
+  const handleCreateGrupo = async () => {
+    if (!usuario || !newGrupoName.trim()) return;
+    setIsCreatingGrupo(true);
     try {
-      const result = await createGrupo(usuario, newTagName.trim());
+      const result = await createGrupo(usuario, newGrupoName.trim());
       if ('error' in result) {
         toast({ title: "Erro ao criar grupo", description: result.error, variant: "destructive" });
         return;
       }
-      const novoGrupo: GrupoComProcessos = {
+      const novoGrupo: GrupoItem = {
         type: 'personal',
         tagId: result.id,
         tagNome: result.nome,
         tagCor: result.cor ?? null,
-        processos: [],
+        alreadySaved: false,
       };
       setGrupos(prev => [novoGrupo, ...prev]);
       setSelectedGroup({ type: 'personal', tagId: result.id, tagNome: result.nome });
-      setNewTagName('');
+      setNewGrupoName('');
       setGruposOpen(true);
     } finally {
+      setIsCreatingGrupo(false);
+    }
+  };
+
+  const handleCreateAndAddTag = async () => {
+    if (!usuario || !tagSearchFilter.trim()) return;
+    setIsCreatingTag(true);
+    try {
+      const equipeId = selectedGroup?.type === 'team' ? selectedGroup.equipeId : undefined;
+      const result = await createTeamTag(usuario, tagSearchFilter.trim(), newTagColor || undefined, equipeId);
+      if ('error' in result) {
+        toast({ title: "Erro ao criar tag", description: result.error, variant: "destructive" });
+        return;
+      }
+      setAvailableTags(prev => [...prev, result]);
+      setSelectedTagIds(prev => new Set(prev).add(result.id));
+      setTagSearchFilter('');
+      setNewTagColor('');
+    } finally {
       setIsCreatingTag(false);
-    }
-  };
-
-  const handleDeleteTagConfirmed = async () => {
-    if (!usuario || !confirmDeleteGrupo) return;
-    const { tagId, tagNome } = confirmDeleteGrupo;
-    setConfirmDeleteGrupo(null);
-    setDeletingTagId(tagId);
-    try {
-      const result = await deleteGrupo(tagId, usuario);
-      if ('error' in result) {
-        const isInUse = result.status === 409;
-        toast({
-          title: isInUse ? "Grupo em uso" : "Erro ao excluir grupo",
-          description: result.error,
-          variant: "destructive",
-        });
-        return;
-      }
-      if (selectedGroup?.type === 'personal' && selectedGroup.tagId === tagId) {
-        setSelectedGroup(null);
-      }
-      toast({ title: "Grupo excluído", description: `"${tagNome}" foi removido.` });
-      await loadData();
-    } finally {
-      setDeletingTagId(null);
-    }
-  };
-
-  const handleRemoveProcesso = async (tagId: string, processoId: string, numeroProcessoLabel: string) => {
-    if (!usuario) return;
-    setRemovingProcessoId(processoId);
-    try {
-      const result = await removeProcessoFromGrupo(tagId, processoId, usuario);
-      if ('error' in result) {
-        toast({ title: "Erro ao remover processo", description: result.error, variant: "destructive" });
-        return;
-      }
-      toast({ title: "Processo removido", description: `"${numeroProcessoLabel}" foi removido do grupo.` });
-      await loadData();
-    } finally {
-      setRemovingProcessoId(null);
     }
   };
 
@@ -284,9 +291,17 @@ export function SaveProcessoModal({
         }
       }
 
+      // Apply selected tags
+      if (selectedTagIds.size > 0) {
+        await Promise.all(
+          [...selectedTagIds].map(tagId => tagProcesso(tagId, usuario, numeroProcesso)),
+        );
+      }
+
+      const tagCount = selectedTagIds.size;
       toast({
         title: "Processo salvo com sucesso!",
-        description: `Salvo no grupo "${selectedGroup.tagNome}"`,
+        description: `Salvo no grupo "${selectedGroup.tagNome}"${tagCount > 0 ? ` com ${tagCount} tag(s)` : ''}`,
       });
       onSaveSuccess?.();
       onOpenChange(false);
@@ -295,18 +310,30 @@ export function SaveProcessoModal({
     }
   };
 
-  // Verifica se o processo já está salvo no grupo selecionado
+  // ─── Derived state ───────────────────────────────────────────────────
+
   const isAlreadySaved = (() => {
     if (!selectedGroup) return false;
     if (selectedGroup.type === 'personal') {
-      const grupo = grupos.find(g => g.tagId === selectedGroup.tagId);
-      return grupo?.processos.some(p => p.numero_processo === numeroProcesso) ?? false;
-    } else {
-      const equipe = equipes.find(e => e.equipeId === selectedGroup.equipeId);
-      const col = equipe?.colunas.find(c => c.tagId === selectedGroup.tagId);
-      return col?.processos.some(p => p.numero_processo === numeroProcesso) ?? false;
+      return grupos.find(g => g.tagId === selectedGroup.tagId)?.alreadySaved ?? false;
     }
+    const equipe = equipes.find(e => e.equipeId === selectedGroup.equipeId);
+    return equipe?.grupos.find(g => g.tagId === selectedGroup.tagId)?.alreadySaved ?? false;
   })();
+
+  const filteredAvailableTags = availableTags.filter(
+    t => !selectedTagIds.has(t.id) &&
+      (!tagSearchFilter.trim() || t.nome.toLowerCase().includes(tagSearchFilter.trim().toLowerCase())),
+  );
+
+  const showCreateTag = tagSearchFilter.trim() &&
+    !availableTags.some(t => t.nome.toLowerCase() === tagSearchFilter.trim().toLowerCase());
+
+  const tagContextLabel = selectedGroup?.type === 'team'
+    ? `equipe "${(selectedGroup as any).equipeNome}"`
+    : 'espaço pessoal';
+
+  // ─── Render ──────────────────────────────────────────────────────────
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -314,7 +341,7 @@ export function SaveProcessoModal({
         <DialogHeader>
           <DialogTitle>Salvar Processo</DialogTitle>
           <DialogDescription>
-            Selecione um grupo para salvar este processo.
+            Selecione um grupo para salvar o processo {formatProcessNumber(numeroProcesso)}.
           </DialogDescription>
         </DialogHeader>
 
@@ -324,45 +351,34 @@ export function SaveProcessoModal({
           </div>
         ) : (
           <div className="space-y-4">
-            <div>
-              <Label>Processo: <span className="font-bold">{formatProcessNumber(numeroProcesso)}</span></Label>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Selecione um grupo ou crie um novo grupo para salvar este processo.
-              </p>
-            </div>
-
             {/* Criar novo grupo pessoal */}
             <div className="flex gap-2">
               <Input
                 placeholder="Nome do novo grupo..."
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && newTagName.trim()) handleCreateTag(); }}
+                value={newGrupoName}
+                onChange={(e) => setNewGrupoName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && newGrupoName.trim()) handleCreateGrupo(); }}
+                className="h-9"
               />
-              <Button size="sm" onClick={handleCreateTag} disabled={!newTagName.trim() || isCreatingTag}>
-                {isCreatingTag ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              <Button size="sm" onClick={handleCreateGrupo} disabled={!newGrupoName.trim() || isCreatingGrupo}>
+                {isCreatingGrupo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               </Button>
             </div>
 
-            <ScrollArea className="h-[320px] border rounded-md p-2 space-y-1">
+            <ScrollArea className="h-[280px] border rounded-md p-2">
 
-              {/* ── MEUS GRUPOS ─────────────────────────────────────── */}
+              {/* ── MEUS GRUPOS ──────────────────────────────────── */}
               <button
                 type="button"
                 onClick={() => setGruposOpen(p => !p)}
-                className="flex items-center justify-between w-full px-1 py-1.5 rounded hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-between w-full px-1 py-1.5 rounded hover:bg-accent transition-colors"
               >
                 <div className="flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Meus Grupos
-                  </span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Meus Grupos</span>
                   <Badge variant="secondary" className="text-xs">{grupos.length}</Badge>
                 </div>
-                {gruposOpen
-                  ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                }
+                {gruposOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
               </button>
 
               {gruposOpen && (
@@ -371,93 +387,27 @@ export function SaveProcessoModal({
                     <p className="text-xs text-muted-foreground text-center py-2">Nenhum grupo criado.</p>
                   ) : (
                     grupos.map(grupo => {
-                      const expandKey = `g-${grupo.tagId}`;
-                      const isExpanded = expandedKeys.has(expandKey);
                       const isSelected = selectedGroup?.type === 'personal' && selectedGroup.tagId === grupo.tagId;
-
                       return (
-                        <div key={grupo.tagId}>
-                          {/* Cabeçalho do grupo pessoal */}
-                          <div className={`flex items-center rounded-md border transition-colors group/grupo ${
-                            isSelected ? 'bg-primary/10 border-primary' : 'hover:bg-gray-50 border-transparent'
-                          }`}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedGroup({ type: 'personal', tagId: grupo.tagId, tagNome: grupo.tagNome });
-                                toggleExpand(expandKey);
-                              }}
-                              className="flex-1 text-left p-2 flex items-center justify-between min-w-0"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                {grupo.tagCor && (
-                                  <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: grupo.tagCor }} />
-                                )}
-                                <span className="text-sm font-medium truncate">{grupo.tagNome}</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                                <span className="text-xs text-muted-foreground">{grupo.processos.length} processo(s)</span>
-                                {isExpanded
-                                  ? <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                                  : <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                                }
-                              </div>
-                            </button>
-                            {/* Botão excluir grupo — só aparece quando o grupo está vazio */}
-                            {grupo.processos.length === 0 && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setConfirmDeleteGrupo({ tagId: grupo.tagId, tagNome: grupo.tagNome, totalProcessos: 0 });
-                                }}
-                                disabled={deletingTagId === grupo.tagId}
-                                className="flex-shrink-0 px-2 py-2 opacity-0 group-hover/grupo:opacity-100 transition-opacity text-muted-foreground hover:text-destructive disabled:opacity-50"
-                                title="Excluir grupo"
-                              >
-                                {deletingTagId === grupo.tagId
-                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  : <Trash2 className="h-3.5 w-3.5" />
-                                }
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Processos do grupo expandido */}
-                          {isExpanded && (
-                            <div className="ml-4 border-l border-border pl-2 mt-0.5 mb-1 space-y-0.5">
-                              {grupo.processos.length === 0 ? (
-                                <p className="text-xs text-muted-foreground py-1">Nenhum processo neste grupo.</p>
-                              ) : (
-                                grupo.processos.map(p => {
-                                  const label = p.numero_processo_formatado || formatProcessNumber(p.numero_processo);
-                                  return (
-                                    <div key={p.id} className="flex items-center gap-2 px-1 py-0.5 rounded group/processo hover:bg-gray-50">
-                                      <span className="text-xs text-muted-foreground flex-1 truncate">
-                                        {label}
-                                      </span>
-                                      <Badge className="text-xs bg-green-100 text-green-700 border border-green-200 hover:bg-green-100 flex-shrink-0">
-                                        Já salvo
-                                      </Badge>
-                                      <button
-                                        type="button"
-                                        onClick={() => setConfirmRemoveProcesso({ tagId: grupo.tagId, processoId: p.id, label })}
-                                        disabled={removingProcessoId === p.id}
-                                        className="flex-shrink-0 opacity-0 group-hover/processo:opacity-100 transition-opacity text-muted-foreground hover:text-destructive disabled:opacity-50"
-                                        title="Remover do grupo"
-                                      >
-                                        {removingProcessoId === p.id
-                                          ? <Loader2 className="h-3 w-3 animate-spin" />
-                                          : <Trash2 className="h-3 w-3" />
-                                        }
-                                      </button>
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
+                        <button
+                          key={grupo.tagId}
+                          type="button"
+                          onClick={() => setSelectedGroup({ type: 'personal', tagId: grupo.tagId, tagNome: grupo.tagNome })}
+                          className={cn(
+                            'w-full text-left px-2 py-1.5 rounded border transition-colors text-sm flex items-center gap-2',
+                            isSelected ? 'bg-primary/10 border-primary' : 'border-transparent hover:bg-accent',
                           )}
-                        </div>
+                        >
+                          {grupo.tagCor && (
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: grupo.tagCor }} />
+                          )}
+                          <span className="truncate flex-1 font-medium">{grupo.tagNome}</span>
+                          {grupo.alreadySaved && (
+                            <Badge className="text-[10px] bg-green-100 text-green-700 border border-green-200 hover:bg-green-100 flex-shrink-0 px-1.5 py-0">
+                              Já salvo
+                            </Badge>
+                          )}
+                        </button>
                       );
                     })
                   )}
@@ -466,23 +416,18 @@ export function SaveProcessoModal({
 
               <div className="border-t my-1" />
 
-              {/* ── MINHAS EQUIPES ───────────────────────────────────── */}
+              {/* ── MINHAS EQUIPES ────────────────────────────────── */}
               <button
                 type="button"
                 onClick={() => setEquipesOpen(p => !p)}
-                className="flex items-center justify-between w-full px-1 py-1.5 rounded hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-between w-full px-1 py-1.5 rounded hover:bg-accent transition-colors"
               >
                 <div className="flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Minhas Equipes
-                  </span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Minhas Equipes</span>
                   <Badge variant="secondary" className="text-xs">{equipes.length}</Badge>
                 </div>
-                {equipesOpen
-                  ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                }
+                {equipesOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
               </button>
 
               {equipesOpen && (
@@ -491,34 +436,31 @@ export function SaveProcessoModal({
                     <p className="text-xs text-muted-foreground text-center py-2">Nenhuma equipe encontrada.</p>
                   ) : (
                     equipes.map(equipe => {
-                      const equipeKey = `e-${equipe.equipeId}`;
-                      const isEquipeExpanded = expandedKeys.has(equipeKey);
-
+                      const isExpanded = expandedEquipes.has(equipe.equipeId);
                       return (
                         <div key={equipe.equipeId}>
-                          {/* Cabeçalho da equipe */}
                           <button
                             type="button"
-                            onClick={() => toggleExpand(equipeKey)}
-                            className="flex items-center justify-between w-full px-2 py-1.5 rounded hover:bg-gray-50 transition-colors"
+                            onClick={() => setExpandedEquipes(prev => {
+                              const next = new Set(prev);
+                              if (next.has(equipe.equipeId)) next.delete(equipe.equipeId);
+                              else next.add(equipe.equipeId);
+                              return next;
+                            })}
+                            className="flex items-center justify-between w-full px-2 py-1.5 rounded hover:bg-accent transition-colors"
                           >
                             <span className="text-sm font-medium text-left truncate">{equipe.equipeNome}</span>
                             <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                              <span className="text-xs text-muted-foreground">{equipe.colunas.length} grupo(s)</span>
-                              {isEquipeExpanded
-                                ? <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                                : <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                              }
+                              <span className="text-xs text-muted-foreground">{equipe.grupos.length}</span>
+                              {isExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
                             </div>
                           </button>
-
-                          {/* Colunas (grupos) da equipe */}
-                          {isEquipeExpanded && (
+                          {isExpanded && (
                             <div className="ml-4 border-l border-border pl-2 mt-0.5 mb-1 space-y-0.5">
-                              {equipe.colunas.length === 0 ? (
-                                <p className="text-xs text-muted-foreground py-1">Nenhum grupo nesta equipe.</p>
+                              {equipe.grupos.length === 0 ? (
+                                <p className="text-xs text-muted-foreground py-1">Nenhum grupo.</p>
                               ) : (
-                                equipe.colunas.map(col => {
+                                equipe.grupos.map(col => {
                                   const isColSelected = selectedGroup?.type === 'team' &&
                                     selectedGroup.tagId === col.tagId &&
                                     selectedGroup.equipeId === equipe.equipeId;
@@ -533,23 +475,20 @@ export function SaveProcessoModal({
                                         equipeId: equipe.equipeId,
                                         equipeNome: equipe.equipeNome,
                                       })}
-                                      className={`w-full text-left px-2 py-1 rounded border transition-colors text-sm ${
-                                        isColSelected
-                                          ? 'bg-primary/10 border-primary'
-                                          : 'border-transparent hover:bg-gray-50'
-                                      }`}
+                                      className={cn(
+                                        'w-full text-left px-2 py-1 rounded border transition-colors text-sm flex items-center gap-2',
+                                        isColSelected ? 'bg-primary/10 border-primary' : 'border-transparent hover:bg-accent',
+                                      )}
                                     >
-                                      <div className="flex items-center gap-2">
-                                        {col.tagCor && (
-                                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: col.tagCor }} />
-                                        )}
-                                        <span className="truncate flex-1">{col.tagNome}</span>
-                                        {col.processos.some(p => p.numero_processo === numeroProcesso) && (
-                                          <Badge className="text-xs bg-green-100 text-green-700 border border-green-200 hover:bg-green-100 flex-shrink-0">
-                                            Já salvo
-                                          </Badge>
-                                        )}
-                                      </div>
+                                      {col.tagCor && (
+                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: col.tagCor }} />
+                                      )}
+                                      <span className="truncate flex-1">{col.tagNome}</span>
+                                      {col.alreadySaved && (
+                                        <Badge className="text-[10px] bg-green-100 text-green-700 border border-green-200 hover:bg-green-100 flex-shrink-0 px-1.5 py-0">
+                                          Já salvo
+                                        </Badge>
+                                      )}
                                     </button>
                                   );
                                 })
@@ -562,52 +501,135 @@ export function SaveProcessoModal({
                   )}
                 </div>
               )}
-
             </ScrollArea>
-          </div>
-        )}
 
-        {/* Confirmação de exclusão de grupo */}
-        {confirmDeleteGrupo && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-2">
-            <p className="text-sm font-medium text-destructive">Excluir grupo "{confirmDeleteGrupo.tagNome}"?</p>
-            {confirmDeleteGrupo.totalProcessos > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Este grupo tem <strong>{confirmDeleteGrupo.totalProcessos} processo(s)</strong> salvos. Ao excluir, eles serão removidos do grupo também.
-              </p>
+            {/* ── TAGS (only after group selected) ──────────────── */}
+            {selectedGroup && (
+              <div className="space-y-2 border-t pt-3">
+                <div className="flex items-center gap-2">
+                  <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Tags ({tagContextLabel})
+                  </span>
+                  {isLoadingTags && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
+                  {[...selectedTagIds].map(tagId => {
+                    const tag = availableTags.find(t => t.id === tagId);
+                    if (!tag) return null;
+                    return (
+                      <EditableTagBadge
+                        key={tag.id}
+                        tag={tag}
+                        usuario={usuario || ''}
+                        size="sm"
+                        onUpdated={(updated) => {
+                          setAvailableTags(prev => prev.map(t => t.id === updated.id ? updated : t));
+                        }}
+                        onDeleted={(id) => {
+                          setAvailableTags(prev => prev.filter(t => t.id !== id));
+                          setSelectedTagIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+                        }}
+                        suffix={
+                          <button className="ml-0.5 hover:opacity-70" onClick={(e) => { e.stopPropagation(); setSelectedTagIds(prev => { const next = new Set(prev); next.delete(tagId); return next; }); }}>
+                            <X className="h-3 w-3" />
+                          </button>
+                        }
+                      />
+                    );
+                  })}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-6 text-xs px-2" disabled={isLoadingTags}>
+                        <Plus className="h-3 w-3 mr-1" /> Tag
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-60 p-2" align="start">
+                      <Input
+                        placeholder="Filtrar ou criar tag..."
+                        value={tagSearchFilter}
+                        onChange={(e) => { setTagSearchFilter(e.target.value); setNewTagColor(''); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && tagSearchFilter.trim()) {
+                            if (filteredAvailableTags.length > 0) {
+                              setSelectedTagIds(prev => new Set(prev).add(filteredAvailableTags[0].id));
+                              setTagSearchFilter('');
+                            } else if (showCreateTag) {
+                              handleCreateAndAddTag();
+                            }
+                          }
+                        }}
+                        className="h-8 text-sm mb-1"
+                        autoFocus
+                      />
+                      <div className="max-h-[180px] overflow-y-auto space-y-0.5">
+                        {filteredAvailableTags.map(tag => (
+                          <button
+                            key={tag.id}
+                            className="w-full text-left px-2 py-1 rounded text-sm hover:bg-accent flex items-center gap-2"
+                            onClick={() => { setSelectedTagIds(prev => new Set(prev).add(tag.id)); setTagSearchFilter(''); }}
+                          >
+                            {tag.cor ? (
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.cor }} />
+                            ) : (
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-muted border" />
+                            )}
+                            {tag.nome}
+                          </button>
+                        ))}
+                        {showCreateTag && (
+                          <div className="space-y-1.5 pt-1">
+                            <p className="text-[10px] text-muted-foreground px-1">Cor (opcional):</p>
+                            <div className="flex flex-wrap gap-1 px-1">
+                              {TAG_COLORS.map(cor => (
+                                <button
+                                  key={cor}
+                                  type="button"
+                                  className={cn(
+                                    'w-5 h-5 rounded-full border-2 transition-transform hover:scale-110',
+                                    newTagColor === cor ? 'border-foreground scale-110' : 'border-transparent',
+                                  )}
+                                  style={{ backgroundColor: cor }}
+                                  onClick={() => setNewTagColor(prev => prev === cor ? '' : cor)}
+                                />
+                              ))}
+                              <button
+                                type="button"
+                                title="Sem cor"
+                                className={cn(
+                                  'w-5 h-5 rounded-full border-2 bg-muted flex items-center justify-center transition-transform hover:scale-110',
+                                  !newTagColor ? 'border-foreground scale-110' : 'border-transparent',
+                                )}
+                                onClick={() => setNewTagColor('')}
+                              >
+                                <X className="h-2.5 w-2.5 text-muted-foreground" />
+                              </button>
+                            </div>
+                            <button
+                              className="w-full text-left px-2 py-1 rounded text-sm hover:bg-accent text-primary flex items-center gap-1.5"
+                              disabled={isCreatingTag}
+                              onClick={handleCreateAndAddTag}
+                            >
+                              {isCreatingTag ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <>
+                                  {newTagColor && (
+                                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: newTagColor }} />
+                                  )}
+                                  <Plus className="h-3 w-3" />
+                                </>
+                              )}
+                              Criar &quot;{tagSearchFilter.trim()}&quot;
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
             )}
-            <div className="flex gap-2">
-              <Button size="sm" variant="destructive" onClick={handleDeleteTagConfirmed}>Confirmar exclusão</Button>
-              <Button size="sm" variant="outline" onClick={() => setConfirmDeleteGrupo(null)}>Cancelar</Button>
-            </div>
-          </div>
-        )}
-
-        {/* Confirmação de remoção de processo do grupo */}
-        {confirmRemoveProcesso && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-2">
-            <p className="text-sm font-medium text-destructive">Remover processo do grupo?</p>
-            <p className="text-xs text-muted-foreground">
-              O processo <strong>{confirmRemoveProcesso.label}</strong> será removido do grupo. O processo não será excluído do sistema.
-            </p>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="destructive"
-                disabled={removingProcessoId === confirmRemoveProcesso.processoId}
-                onClick={async () => {
-                  const { tagId, processoId, label } = confirmRemoveProcesso;
-                  setConfirmRemoveProcesso(null);
-                  await handleRemoveProcesso(tagId, processoId, label);
-                }}
-              >
-                {removingProcessoId ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                Confirmar remoção
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setConfirmRemoveProcesso(null)}>
-                Cancelar
-              </Button>
-            </div>
           </div>
         )}
 

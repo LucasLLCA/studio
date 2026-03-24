@@ -100,7 +100,6 @@ export async function loginToSEI(credentials: LoginCredentials): Promise<ClientL
       idUsuario: data.Login?.IdUsuario,
       idLogin: data.Login?.IdLogin,
       cargoAssinatura: data.Login?.UltimoCargoAssinatura,
-      papelGlobal: typeof extended.papel_global === 'string' ? extended.papel_global : undefined,
       idPessoa: typeof extended.id_pessoa === 'number' ? extended.id_pessoa : undefined,
     };
 

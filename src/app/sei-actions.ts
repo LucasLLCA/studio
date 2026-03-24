@@ -4,7 +4,6 @@
  * Kept only for operations that require server-only resources:
  * - Login (writes cookies)
  * - Embed identity (calls backend to decode JWE)
- * - Health checks (server-only)
  * - Embed login flow (credential check, auto-login, embed-login)
  *
  * Data-fetching functions (andamentos, documents, tags, etc.) have been
@@ -23,15 +22,10 @@ import type {
 
 import {
   loginToSEI as loginToSEIImpl,
-  checkSEIApiHealth as checkSEIApiHealthImpl,
-  checkSummaryApiHealth as checkSummaryApiHealthImpl,
 } from '@/lib/sei-api-client';
-
-import type { HealthCheckResponse } from '@/lib/sei-api-client';
 
 import {
   mockLogin,
-  mockHealthCheck,
 } from '@/lib/mock-data';
 
 import { cookies } from 'next/headers';
@@ -59,22 +53,6 @@ export interface EmbedUserIdentity {
 export async function loginToSEI(credentials: LoginCredentials): Promise<ClientLoginResponse> {
   if (MOCK_MODE) return mockLogin();
   return loginToSEIImpl(credentials);
-}
-
-/**
- * Verifica saúde da API SEI
- */
-export async function checkSEIApiHealth(): Promise<HealthCheckResponse> {
-  if (MOCK_MODE) return mockHealthCheck();
-  return checkSEIApiHealthImpl();
-}
-
-/**
- * Verifica saúde da API de Resumos
- */
-export async function checkSummaryApiHealth(): Promise<HealthCheckResponse> {
-  if (MOCK_MODE) return mockHealthCheck();
-  return checkSummaryApiHealthImpl();
 }
 
 
@@ -207,7 +185,7 @@ function mapSEIResponseToClient(data: SEILoginApiResponse): ClientLoginResponse 
   }));
 
   // Extract email/orgao injected by auto-login/embed-login endpoints
-  const extended = data as Record<string, unknown>;
+  const extended = data as unknown as Record<string, unknown>;
 
   return {
     success: true,
@@ -220,7 +198,6 @@ function mapSEIResponseToClient(data: SEILoginApiResponse): ClientLoginResponse 
     idUsuario: data.Login?.IdUsuario,
     idLogin: data.Login?.IdLogin,
     cargoAssinatura: data.Login?.UltimoCargoAssinatura,
-    papelGlobal: typeof extended.papel_global === 'string' ? extended.papel_global : undefined,
     idPessoa: typeof extended.id_pessoa === 'number' ? extended.id_pessoa : undefined,
   };
 }

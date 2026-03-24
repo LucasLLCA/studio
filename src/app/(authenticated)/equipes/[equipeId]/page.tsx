@@ -80,6 +80,7 @@ export default function EquipeKanbanPage() {
   const [filterNumero, setFilterNumero] = useState('');
   const [filterTagIds, setFilterTagIds] = useState<Set<string>>(new Set());
   const [filterTeamTagIds, setFilterTeamTagIds] = useState<Set<string>>(new Set());
+  const [tagFilterMode, setTagFilterMode] = useState<'and' | 'or'>('and');
 
   // Tags de observação que estão de fato aplicadas em pelo menos um processo do board
   const usedTeamTags = useMemo(() => {
@@ -104,14 +105,18 @@ export default function EquipeKanbanPage() {
       colunas = colunas.filter(c => filterTagIds.has(c.tag_id));
     }
 
-    // Filtro por tag de observação — mantém processos que tenham ao menos uma das tags selecionadas
+    // Filtro por tag de observação — AND: todas as tags selecionadas; OR: qualquer uma
     if (filterTeamTagIds.size > 0) {
       colunas = colunas
         .map(c => ({
           ...c,
-          processos: c.processos.filter(p =>
-            (p.team_tags ?? []).some(t => filterTeamTagIds.has(t.id))
-          ),
+          processos: c.processos.filter(p => {
+            const processoTagIds = new Set((p.team_tags ?? []).map(t => t.id));
+            if (tagFilterMode === 'and') {
+              return [...filterTeamTagIds].every(tagId => processoTagIds.has(tagId));
+            }
+            return [...filterTeamTagIds].some(tagId => processoTagIds.has(tagId));
+          }),
         }))
         .filter(c => c.processos.length > 0);
     }
@@ -131,7 +136,7 @@ export default function EquipeKanbanPage() {
     }
 
     return colunas;
-  }, [board, filterNumero, filterTagIds, filterTeamTagIds]);
+  }, [board, filterNumero, filterTagIds, filterTeamTagIds, tagFilterMode]);
 
   const filtroAtivo = filterNumero.trim() !== '' || filterTagIds.size > 0 || filterTeamTagIds.size > 0;
 
@@ -440,29 +445,40 @@ export default function EquipeKanbanPage() {
       </div>
 
       {/* Barra de filtros */}
-      <div className="flex-shrink-0 border-b px-4 sm:px-6 py-2 flex flex-wrap items-center gap-2 bg-muted/20">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Número Processo..."
-            value={filterNumero}
-            onChange={(e) => setFilterNumero(e.target.value)}
-            className="pl-8 h-8 text-sm w-52"
-          />
-          {filterNumero && (
+      <div className="flex-shrink-0 border-b px-4 sm:px-6 py-2 space-y-2 bg-muted/20">
+        {/* Row 1: Search */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Número Processo..."
+              value={filterNumero}
+              onChange={(e) => setFilterNumero(e.target.value)}
+              className="pl-8 h-8 text-sm"
+            />
+            {filterNumero && (
+              <button
+                onClick={() => setFilterNumero('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <XIcon className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {filtroAtivo && (
             <button
-              onClick={() => setFilterNumero('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); setFilterTeamTagIds(new Set()); }}
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0"
             >
-              <XIcon className="h-3.5 w-3.5" />
+              Limpar filtros
             </button>
           )}
         </div>
 
-        {/* Filtro por grupo (coluna kanban) */}
+        {/* Row 2: Grupos de processos */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs text-muted-foreground">Grupos</span>
+            <span className="text-xs text-muted-foreground font-medium">Grupos</span>
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -496,66 +512,71 @@ export default function EquipeKanbanPage() {
           ))}
         </div>
 
-        {/* Divisor + filtro por tags de observação */}
+        {/* Row 3: Tags de observação */}
         {usedTeamTags.length > 0 && (
-          <>
-            <div className="h-5 w-px bg-border shrink-0" />
+          <div className="flex items-center gap-1.5 flex-wrap">
             <div className="flex items-center gap-1 shrink-0">
-              <span className="text-xs text-muted-foreground">Tags</span>
+              <span className="text-xs text-muted-foreground font-medium">Tags</span>
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Info className="h-3 w-3 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs text-xs">
-                    Filtra processos que possuem esta tag aplicada nas observações.
-                    Apenas tags usadas em algum processo desta equipe aparecem aqui.
+                    Filtra processos que possuem esta tag. Use E/OU para definir se o processo precisa ter todas ou qualquer uma das tags selecionadas.
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {usedTeamTags.map(tag => {
-                const active = filterTeamTagIds.has(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    onClick={() => setFilterTeamTagIds(prev => {
-                      const next = new Set(prev);
-                      if (next.has(tag.id)) next.delete(tag.id);
-                      else next.add(tag.id);
-                      return next;
-                    })}
-                    className={cn(
-                      'text-xs px-2.5 py-0.5 rounded-full border transition-all',
-                      active ? 'opacity-100 ring-2 ring-offset-1' : 'opacity-70 hover:opacity-100'
-                    )}
-                    style={tag.cor
-                      ? {
-                          backgroundColor: active ? tag.cor : 'transparent',
-                          color: active ? '#fff' : tag.cor,
-                          borderColor: tag.cor,
-                          ...(active ? { ringColor: tag.cor } : {}),
-                        }
-                      : undefined
-                    }
-                    title={`Filtrar por tag "${tag.nome}"`}
-                  >
-                    {tag.nome}
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {filtroAtivo && (
-          <button
-            onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); setFilterTeamTagIds(new Set()); }}
-            className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
-          >
-            Limpar filtros
-          </button>
+            {/* AND/OR toggle */}
+            {filterTeamTagIds.size > 1 && (
+              <button
+                onClick={() => setTagFilterMode(prev => prev === 'and' ? 'or' : 'and')}
+                className={cn(
+                  'text-[10px] font-bold px-2 py-0.5 rounded border transition-colors shrink-0',
+                  tagFilterMode === 'and'
+                    ? 'bg-blue-100 text-blue-700 border-blue-300'
+                    : 'bg-amber-100 text-amber-700 border-amber-300',
+                )}
+                title={tagFilterMode === 'and'
+                  ? 'E — processo deve ter TODAS as tags selecionadas'
+                  : 'OU — processo deve ter QUALQUER uma das tags selecionadas'
+                }
+              >
+                {tagFilterMode === 'and' ? 'E' : 'OU'}
+              </button>
+            )}
+            {usedTeamTags.map(tag => {
+              const active = filterTeamTagIds.has(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  onClick={() => setFilterTeamTagIds(prev => {
+                    const next = new Set(prev);
+                    if (next.has(tag.id)) next.delete(tag.id);
+                    else next.add(tag.id);
+                    return next;
+                  })}
+                  className={cn(
+                    'text-xs px-2.5 py-0.5 rounded-full border transition-all',
+                    active ? 'opacity-100 ring-2 ring-offset-1' : 'opacity-70 hover:opacity-100'
+                  )}
+                  style={tag.cor
+                    ? {
+                        backgroundColor: active ? tag.cor : 'transparent',
+                        color: active ? '#fff' : tag.cor,
+                        borderColor: tag.cor,
+                        ...(active ? { ringColor: tag.cor } : {}),
+                      }
+                    : undefined
+                  }
+                  title={`Filtrar por tag "${tag.nome}"`}
+                >
+                  {tag.nome}
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
 

@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, GitBranch, Trash2, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
+import { usePermissions } from '@/hooks/use-permissions';
 import { useToast } from '@/hooks/use-toast';
 import { useFluxos, useCreateFluxo, useDeleteFluxo } from '@/lib/react-query/queries/useFluxos';
 import type { Fluxo } from '@/types/fluxos';
@@ -36,7 +37,8 @@ export default function FluxosPage() {
 function FluxosContent() {
   const router = useRouter();
   const { toast } = useToast();
-  const { isAuthenticated, usuario, papelGlobal } = usePersistedAuth();
+  const { isAuthenticated, usuario } = usePersistedAuth();
+  const { hasModulo, isLoading: permissionsLoading } = usePermissions();
   const [mounted, setMounted] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -47,10 +49,10 @@ function FluxosContent() {
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    if (mounted && (!isAuthenticated || (papelGlobal !== 'admin' && papelGlobal !== 'beta'))) {
+    if (mounted && !permissionsLoading && (!isAuthenticated || !hasModulo('fluxos'))) {
       router.push('/home');
     }
-  }, [mounted, isAuthenticated, papelGlobal, router]);
+  }, [mounted, isAuthenticated, permissionsLoading, hasModulo, router]);
 
   const { data: fluxos = [], isLoading } = useFluxos(
     usuario || '',

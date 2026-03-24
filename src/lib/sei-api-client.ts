@@ -4,6 +4,4 @@
  */
 export { loginToSEI } from './api/auth';
 export { fetchProcessData, fetchAndamentosDelta, fetchProcessSummary, fetchDocumentSummary, fetchDocuments, consultarDocumento, invalidateProcessCache, fetchAndamentosCount } from './api/process';
-export { checkSEIApiHealth, checkSummaryApiHealth } from './api/health';
-export type { HealthCheckResponse } from './api/health';
 export { fetchOpenUnits } from './api/units';

@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from 'react';
-import type { ProcessoData, UnidadeAberta, UnidadeFiltro } from '@/types/process-flow';
+import type { ProcessoData, UnidadeAberta } from '@/types/process-flow';
 import { LinkedText } from '@/lib/linked-text';
 import type { ProcessCreationInfo } from '@/hooks/use-process-creation-info';
-import { Loader2, BookText, Info, CalendarDays, UserCircle, Building, CalendarClock, CheckCircle, Clock, ExternalLink, AlertTriangle, X, Share2, Copy, RefreshCw } from 'lucide-react';
+import { Loader2, BookText, Info, CalendarDays, UserCircle, Building, CalendarClock, CheckCircle, Clock, ExternalLink, AlertTriangle, X, Share2, Copy } from 'lucide-react';
 import { AlertBox } from '@/components/ui/alert-box';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -17,13 +17,6 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { formatProcessNumber } from '@/lib/utils';
 import { parseCustomDateString } from '@/lib/process-flow-utils';
@@ -44,11 +37,6 @@ interface ProcessDetailsSheetProps {
   isExternalProcess: boolean;
   daysOpenInUserOrgao: number | null;
   onNodeNavigate?: (id: string, type: 'andamento' | 'document') => void;
-  resumoFailed?: boolean;
-  resumoError?: string | null;
-  unidadesFiltroList?: UnidadeFiltro[];
-  currentUnidade?: string;
-  onRetryResumoWithUnidade?: (unidadeId: string) => void;
 }
 
 export function ProcessDetailsSheet({
@@ -66,15 +54,9 @@ export function ProcessDetailsSheet({
   isExternalProcess,
   daysOpenInUserOrgao,
   onNodeNavigate,
-  resumoFailed,
-  resumoError,
-  unidadesFiltroList,
-  currentUnidade,
-  onRetryResumoWithUnidade,
 }: ProcessDetailsSheetProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>('entendimento');
-  const [retryUnidade, setRetryUnidade] = useState<string | undefined>(undefined);
 
   const activeTabContent = activeTab === 'entendimento' ? processSummary : situacaoAtual;
 
@@ -207,9 +189,9 @@ export function ProcessDetailsSheet({
                 {/* Processo externo */}
                 {userOrgao && (
                   <div className="flex items-center">
-                    <ExternalLink className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    <ExternalLink className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0"/> 
                     Processo externo:
-                    <span className={`font-medium ml-1 ${isExternalProcess ? 'text-warning' : 'text-success'}`}>
+                    <span className="font-medium ml-1 text-foreground"  /* alterando a cor do Sim ou Não para preto */> 
                       {isExternalProcess ? 'Sim' : 'Não'}
                     </span>
                   </div>
@@ -233,8 +215,8 @@ export function ProcessDetailsSheet({
                       <div className="flex items-center ml-7">
                         <Building className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
                         Chegou em:
-                        <span className="font-medium ml-1 text-primary">
-                          {firstAndamento.Unidade.Sigla}
+                        <span className="font-medium ml-1 text-foreground">
+                          {daysOpenInUserOrgao} {daysOpenInUserOrgao === 1 ? 'dia' : 'dias'} 
                         </span>
                       </div>
                     );
@@ -248,7 +230,7 @@ export function ProcessDetailsSheet({
                   <div className="flex items-center">
                     <Clock className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
                     Dias em aberto no órgão:
-                    <span className="font-medium ml-1 text-destructive">
+                    <span className="font-medium ml-1 text-foreground"  /* alterando a cor dos dias para preto */>
                       {daysOpenInUserOrgao} {daysOpenInUserOrgao === 1 ? 'dia' : 'dias'}
                     </span>
                   </div>
@@ -329,49 +311,6 @@ export function ProcessDetailsSheet({
                     <Loader2 className="h-6 w-6 text-primary animate-spin" />
                     <p className="ml-2 text-lg text-muted-foreground">Gerando resumo...</p>
                   </div>
-                ) : resumoFailed && onRetryResumoWithUnidade ? (
-                  <div className="flex flex-col items-center gap-4 p-6">
-                    <div className="flex items-center text-destructive text-sm">
-                      <AlertTriangle className="mr-2 h-5 w-5 flex-shrink-0" />
-                      <span>
-                        {resumoError?.includes('não encontrado') || resumoError?.includes('422')
-                          ? 'Documento não encontrado na unidade selecionada.'
-                          : resumoError || 'Falha ao gerar o resumo.'}
-                      </span>
-                    </div>
-
-                    {unidadesFiltroList && unidadesFiltroList.length > 0 && (
-                      <div className="w-full space-y-2">
-                        <label className="text-sm text-muted-foreground">
-                          Selecione outra unidade para tentar novamente:
-                        </label>
-                        <Select
-                          value={retryUnidade || currentUnidade || ''}
-                          onValueChange={setRetryUnidade}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Selecione uma unidade" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {unidadesFiltroList.map((u) => (
-                              <SelectItem key={u.Id} value={u.Id}>
-                                {u.Sigla} — {u.Descricao}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onRetryResumoWithUnidade(retryUnidade || currentUnidade || '')}
-                    >
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Tentar novamente
-                    </Button>
-                  </div>
                 ) : (
                   <div className="flex items-center justify-center p-6 text-muted-foreground text-lg">
                     <Info className="mr-2 h-5 w-5" />
@@ -404,11 +343,6 @@ export function ProcessDetailsSheet({
                   <div className="flex items-center justify-center p-6">
                     <Loader2 className="h-6 w-6 text-primary animate-spin" />
                     <p className="ml-2 text-lg text-muted-foreground">Gerando situação atual...</p>
-                  </div>
-                ) : resumoFailed ? (
-                  <div className="flex items-center justify-center p-6 text-muted-foreground text-sm">
-                    <AlertTriangle className="mr-2 h-5 w-5 flex-shrink-0 text-destructive" />
-                    Indisponível — o resumo precisa ser gerado primeiro. Tente novamente na aba Entendimento.
                   </div>
                 ) : situacaoAtual === null ? (
                   <div className="flex items-center justify-center p-6 text-muted-foreground text-lg">

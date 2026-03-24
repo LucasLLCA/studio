@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Trash2, GripVertical } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { EditableTagBadge } from '@/components/ui/editable-tag-badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatProcessNumber } from '@/lib/utils';
@@ -85,14 +85,12 @@ export function KanbanCard({ processo, sourceTagId, onClick, onDelete, isDraggab
             {processo.team_tags && processo.team_tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {processo.team_tags.map((tag) => (
-                  <Badge
+                  <EditableTagBadge
                     key={tag.id}
-                    variant="secondary"
-                    className="text-[10px] px-1.5 py-0"
-                    style={tag.cor ? { backgroundColor: tag.cor, color: '#fff' } : undefined}
-                  >
-                    {tag.nome}
-                  </Badge>
+                    tag={tag}
+                    usuario=""
+                    readOnly
+                  />
                 ))}
               </div>
             )}

@@ -7,6 +7,7 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export interface ProcessCreationInfo {
+  email: string;
   creatorUnit: string;
   creatorUser: string;
   creatorSigla: string;

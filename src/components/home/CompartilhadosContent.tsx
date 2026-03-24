@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronDown, ChevronRight, Users, UserRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { EditableTagBadge } from '@/components/ui/editable-tag-badge';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { getSharedWithMe } from '@/lib/api/sharing-api-client';
@@ -128,14 +129,13 @@ export function CompartilhadosContent({ usuario, contextoMap = {} }: Compartilha
                     {p.team_tags && p.team_tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 ml-2 mt-0.5 mb-1">
                         {p.team_tags.map((tt) => (
-                          <Badge
+                          <EditableTagBadge
                             key={tt.id}
-                            variant="secondary"
-                            className="text-[10px] px-1.5 py-0"
-                            style={tt.cor ? { backgroundColor: tt.cor, color: '#fff' } : undefined}
-                          >
-                            {tt.nome}
-                          </Badge>
+                            tag={tt}
+                            usuario={usuario}
+                            onUpdated={() => loadShared()}
+                            onDeleted={() => loadShared()}
+                          />
                         ))}
                       </div>
                     )}
