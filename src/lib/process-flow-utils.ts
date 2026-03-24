@@ -69,6 +69,30 @@ const buildAutoConclusionSummaryGroupKey = (andamento: AndamentoInternal): strin
   return `${userKey}|${unitKey}|${dateHourMinuteKey}`;
 };
 
+export function getProcessStatusByDays(days: number) { 
+  if (days > 90) {
+    return {
+      label: "crítico",
+      color: "text-foreground",
+      description: "alto tempo em aberto"
+    };
+  }
+
+  if (days > 30) {
+    return {
+      label: "atenção",
+      color: "text-foreground",
+      description: "tempo moderado"
+    };
+  }
+
+  return {
+    label: "normal",
+    color: "text-foreground",
+    description: "dentro do esperado"
+  };
+};
+
 
 export function parseCustomDateString(dateString: string): Date {
   const [datePart, timePart] = dateString.split(' ');
@@ -650,4 +674,6 @@ export function deriveOpenUnitsFromAndamentos(
   }
 
   return openUnits;
+
+  
 }

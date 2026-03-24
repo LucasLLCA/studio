@@ -189,9 +189,9 @@ export function ProcessDetailsSheet({
                 {/* Processo externo */}
                 {userOrgao && (
                   <div className="flex items-center">
-                    <ExternalLink className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    <ExternalLink className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0"/> 
                     Processo externo:
-                    <span className={`font-medium ml-1 ${isExternalProcess ? 'text-warning' : 'text-success'}`}>
+                    <span className="font-medium ml-1 text-foreground"  /* alterando a cor do Sim ou Não para preto */> 
                       {isExternalProcess ? 'Sim' : 'Não'}
                     </span>
                   </div>
@@ -215,8 +215,8 @@ export function ProcessDetailsSheet({
                       <div className="flex items-center ml-7">
                         <Building className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
                         Chegou em:
-                        <span className="font-medium ml-1 text-primary">
-                          {firstAndamento.Unidade.Sigla}
+                        <span className="font-medium ml-1 text-foreground">
+                          {daysOpenInUserOrgao} {daysOpenInUserOrgao === 1 ? 'dia' : 'dias'} 
                         </span>
                       </div>
                     );
@@ -230,7 +230,7 @@ export function ProcessDetailsSheet({
                   <div className="flex items-center">
                     <Clock className="mr-2 h-5 w-5 text-muted-foreground flex-shrink-0" />
                     Dias em aberto no órgão:
-                    <span className="font-medium ml-1 text-destructive">
+                    <span className="font-medium ml-1 text-foreground"  /* alterando a cor dos dias para preto */>
                       {daysOpenInUserOrgao} {daysOpenInUserOrgao === 1 ? 'dia' : 'dias'}
                     </span>
                   </div>

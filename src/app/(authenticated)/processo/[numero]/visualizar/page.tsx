@@ -2,7 +2,23 @@
 
 import { ProcessFlowDiagram } from '@/components/process-flow/ProcessFlowDiagram';
 import type { ProcessedFlowData, ProcessedAndamento } from '@/types/process-flow';
-import { GanttChartSquare, BookText, Info, ChevronsLeft, ChevronsRight, HelpCircle, AlertTriangle, RefreshCw, Search, Table2, Trash2, Download, ChevronDown, FlaskConical } from 'lucide-react';
+import {
+  GanttChartSquare,
+  BookText,
+  Info,
+  ChevronsLeft,
+  ChevronsRight,
+  HelpCircle,
+  AlertTriangle,
+  RefreshCw,
+  Search,
+  Table2,
+  Trash2,
+  Download,
+  ChevronDown,
+  FlaskConical,
+  Menu,
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +52,24 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ProcessFlowLegend } from '@/components/process-flow/ProcessFlowLegend';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 
 // Extracted hooks
 import { useProcessData } from '@/hooks/use-process-data';
@@ -118,6 +152,7 @@ function VisualizarProcessoContent() {
   const [prodUnitFilter, setProdUnitFilter] = useState('');
   const [prodActiveTab, setProdActiveTab] = useState<ProductivityTab>('tarefas');
   const [isClient, setIsClient] = useState(false);
+  const [isMobileAndamentosMenuOpen, setIsMobileAndamentosMenuOpen] = useState(false);
 
   // Hour coefficient config for productivity table
   const { data: horasConfig } = useConfiguracaoHorasPublic(userOrgao);
@@ -461,184 +496,561 @@ function VisualizarProcessoContent() {
 
               {/* Andamentos (Timeline or Table) */}
               <Card className="flex flex-col" data-diagram-card>
-                <CardHeader className="pb-3 flex-shrink-0">
-                  <div className="flex items-center justify-between">
-                    {/* LEFT: title + view toggle */}
-                    <div className="flex items-center gap-3">
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <GanttChartSquare className="h-5 w-5" /> Andamentos
-                      </CardTitle>
-                      <div className="flex items-center border rounded-md overflow-hidden">
-                        <Button
-                          variant={andamentosView === 'timeline' ? 'default' : 'ghost'}
-                          size="sm"
-                          className="rounded-none h-8"
-                          onClick={() => setAndamentosView('timeline')}
+               <CardHeader className="pb-3 flex-shrink-0">
+  {/* DESKTOP */}
+  <div className="hidden lg:flex items-center justify-between gap-4">
+    {/* ESQUERDA: título + troca de visualização */}
+    <div className="flex items-center gap-3 min-w-0">
+      <CardTitle className="flex items-center gap-2 text-lg whitespace-nowrap">
+        <GanttChartSquare className="h-5 w-5" />
+        Andamentos
+      </CardTitle>
+
+      <div className="flex items-center border rounded-md overflow-hidden">
+        <Button
+          variant={andamentosView === "timeline" ? "default" : "ghost"}
+          size="sm"
+          className="rounded-none h-8"
+          onClick={() => setAndamentosView("timeline")}
+        >
+          <GanttChartSquare className="mr-1 h-4 w-4" />
+          <span>Linha do Tempo</span>
+        </Button>
+
+        <Button
+          variant={andamentosView === "table" ? "default" : "ghost"}
+          size="sm"
+          className="rounded-none h-8"
+          onClick={() => setAndamentosView("table")}
+        >
+          <Table2 className="mr-1 h-4 w-4" />
+          <span>Tabela</span>
+        </Button>
+      </div>
+    </div>
+
+    {/* DIREITA: ações desktop */}
+    <div className="flex items-center gap-2 flex-wrap justify-end">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs border-amber-500/50 text-amber-700"
+          >
+            <FlaskConical className="mr-1 h-3 w-3" />
+            Experimental
+            <ChevronDown className="ml-1 h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Cache</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={refreshNoCache}
+            disabled={isRefreshing || hasBackgroundLoading}
+          >
+            <Trash2 className="mr-2 h-3 w-3" />
+            Limpar cache
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {processedFlowData && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 text-xs">
+              <Download className="mr-1 h-3 w-3" />
+              Exportar
+              <ChevronDown className="ml-1 h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent align="end">
+            {andamentosView === "timeline" && (
+              <DropdownMenuItem onClick={handleExportTimeline}>
+                <Download className="mr-2 h-3 w-3" />
+                Exportar SVG
+              </DropdownMenuItem>
+            )}
+
+            <DropdownMenuItem onClick={handleExportTimelineText}>
+              <Download className="mr-2 h-3 w-3" />
+              Exportar TXT (LLM)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      <Separator orientation="vertical" className="h-5" />
+
+      <div className="flex items-center space-x-2">
+        <Switch
+          id="summarize-graph"
+          checked={isSummarizedView}
+          onCheckedChange={setIsSummarizedView}
+          disabled={!rawProcessData || isLoading}
+        />
+        <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">
+          Resumido
+        </Label>
+      </div>
+
+      {andamentosView === "timeline" && (
+        <>
+          <Separator orientation="vertical" className="h-5" />
+
+          <Button
+            onClick={handleScrollToFirstTask}
+            variant="outline"
+            size="sm"
+            disabled={!processedFlowData?.tasks.length}
+          >
+            <ChevronsLeft className="mr-1 h-4 w-4" />
+            Início
+          </Button>
+
+          <Button
+            onClick={handleScrollToLastTask}
+            variant="outline"
+            size="sm"
+            disabled={!processedFlowData?.tasks.length}
+          >
+            <ChevronsRight className="mr-1 h-4 w-4" />
+            Fim
+          </Button>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!processedFlowData?.tasks.length}
+              >
+                <GanttChartSquare className="mr-1 h-4 w-4" />
+                Filtrar Unidades
+                {selectedLaneUnits.length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                    {selectedLaneUnits.length}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+
+            <PopoverContent className="w-80" align="end">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium text-sm mb-2">
+                    Filtrar Raias por Unidade
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Selecione as unidades para reorganizá-las no topo
+                  </p>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedLaneUnits(availableLaneUnits)}
+                  >
+                    Todas
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedLaneUnits([])}
+                  >
+                    Limpar
+                  </Button>
+                </div>
+
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-2">
+                    {availableLaneUnits.map((unit) => (
+                      <div key={unit} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`unit-${unit}`}
+                          checked={selectedLaneUnits.includes(unit)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLaneUnits([...selectedLaneUnits, unit]);
+                            } else {
+                              setSelectedLaneUnits(
+                                selectedLaneUnits.filter((u) => u !== unit)
+                              );
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                        />
+                        <Label
+                          htmlFor={`unit-${unit}`}
+                          className="text-sm cursor-pointer flex-1"
                         >
-                          <GanttChartSquare className="mr-1 h-4 w-4" />
-                          <span className="hidden sm:inline">Linha do Tempo</span>
-                        </Button>
-                        <Button
-                          variant={andamentosView === 'table' ? 'default' : 'ghost'}
-                          size="sm"
-                          className="rounded-none h-8"
-                          onClick={() => setAndamentosView('table')}
-                        >
-                          <Table2 className="mr-1 h-4 w-4" />
-                          <span className="hidden sm:inline">Tabela</span>
-                        </Button>
+                          {unit}
+                        </Label>
                       </div>
-                    </div>
-
-                    {/* RIGHT: filters + actions */}
-                    <div className="flex items-center gap-2 flex-wrap justify-end">
-                      {/* Cache controls */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="h-8 text-xs border-amber-500/50 text-amber-700">
-                            <FlaskConical className="mr-1 h-3 w-3" />
-                            Experimental
-                            <ChevronDown className="ml-1 h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Cache</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={refreshNoCache} disabled={isRefreshing || hasBackgroundLoading}>
-                            <Trash2 className="mr-2 h-3 w-3" /> Limpar cache
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-
-                      {/* Export dropdown */}
-                      {processedFlowData && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 text-xs">
-                              <Download className="mr-1 h-3 w-3" /> Exportar <ChevronDown className="ml-1 h-3 w-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {andamentosView === 'timeline' && (
-                              <DropdownMenuItem onClick={handleExportTimeline}>
-                                <Download className="mr-2 h-3 w-3" /> Exportar SVG
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={handleExportTimelineText}>
-                              <Download className="mr-2 h-3 w-3" /> Exportar TXT (LLM)
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-
-                      <Separator orientation="vertical" className="h-5" />
-
-                      {/* Shared filters (both views) */}
-                      <div className="flex items-center space-x-2">
-                        <Switch id="summarize-graph" checked={isSummarizedView} onCheckedChange={setIsSummarizedView} disabled={!rawProcessData || isLoading} />
-                        <Label htmlFor="summarize-graph" className="text-sm text-muted-foreground">Resumido</Label>
-                      </div>
-
-                      {/* Timeline-only controls */}
-                      {andamentosView === 'timeline' && (
-                        <>
-                          <Separator orientation="vertical" className="h-5" />
-                          <Button onClick={handleScrollToFirstTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
-                            <ChevronsLeft className="mr-1 h-4 w-4" /> Inicio
-                          </Button>
-                          <Button onClick={handleScrollToLastTask} variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
-                            <ChevronsRight className="mr-1 h-4 w-4" /> Fim
-                          </Button>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant="outline" size="sm" disabled={!processedFlowData?.tasks.length}>
-                                <GanttChartSquare className="mr-1 h-4 w-4" />
-                                Filtrar Unidades
-                                {selectedLaneUnits.length > 0 && (
-                                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
-                                    {selectedLaneUnits.length}
-                                  </span>
-                                )}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80" align="end">
-                              <div className="space-y-4">
-                                <div>
-                                  <h4 className="font-medium text-sm mb-2">Filtrar Raias por Unidade</h4>
-                                  <p className="text-xs text-muted-foreground">
-                                    Selecione as unidades para reorganizá-las no topo
-                                  </p>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                  <Button variant="outline" size="sm" onClick={() => setSelectedLaneUnits(availableLaneUnits)}>
-                                    Todas
-                                  </Button>
-                                  <Button variant="outline" size="sm" onClick={() => setSelectedLaneUnits([])}>
-                                    Limpar
-                                  </Button>
-                                </div>
-                                <ScrollArea className="h-[300px]">
-                                  <div className="space-y-2">
-                                    {availableLaneUnits.map((unit) => (
-                                      <div key={unit} className="flex items-center space-x-2">
-                                        <input
-                                          type="checkbox"
-                                          id={`unit-${unit}`}
-                                          checked={selectedLaneUnits.includes(unit)}
-                                          onChange={(e) => {
-                                            if (e.target.checked) {
-                                              setSelectedLaneUnits([...selectedLaneUnits, unit]);
-                                            } else {
-                                              setSelectedLaneUnits(selectedLaneUnits.filter(u => u !== unit));
-                                            }
-                                          }}
-                                          className="h-4 w-4 rounded border-gray-300 cursor-pointer"
-                                        />
-                                        <Label htmlFor={`unit-${unit}`} className="text-sm cursor-pointer flex-1">
-                                          {unit}
-                                        </Label>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </ScrollArea>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                          <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <HelpCircle className="mr-1 h-4 w-4" /> Legenda
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-md">
-                              <DialogHeader>
-                                <DialogTitle className="sr-only">Legenda do Fluxo</DialogTitle>
-                              </DialogHeader>
-                              <ProcessFlowLegend />
-                            </DialogContent>
-                          </Dialog>
-                        </>
-                      )}
-
-                      {/* Table-only: search */}
-                      {andamentosView === 'table' && (
-                        <>
-                          <Separator orientation="vertical" className="h-5" />
-                          <div className="relative w-72">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                            <Input
-                              placeholder="Buscar unidade, usuário ou descrição..."
-                              value={andamentosSearchQuery}
-                              onChange={(e) => setAndamentosSearchQuery(e.target.value)}
-                              className="h-8 pl-8 text-sm text-foreground font-medium"
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
+                    ))}
                   </div>
-                </CardHeader>
+                </ScrollArea>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <HelpCircle className="mr-1 h-4 w-4" />
+                Legenda
+              </Button>
+            </DialogTrigger>
+
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="sr-only">Legenda do Fluxo</DialogTitle>
+              </DialogHeader>
+              <ProcessFlowLegend />
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
+
+      {andamentosView === "table" && (
+        <>
+          <Separator orientation="vertical" className="h-5" />
+
+          <div className="relative w-72">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar unidade, usuário ou descrição..."
+              value={andamentosSearchQuery}
+              onChange={(e) => setAndamentosSearchQuery(e.target.value)}
+              className="h-8 pl-8 text-sm text-foreground font-medium"
+            />
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+
+  {/* MOBILE */}
+  <div className="flex lg:hidden items-center justify-between gap-2">
+    <CardTitle className="flex items-center gap-2 text-lg min-w-0">
+      <GanttChartSquare className="h-5 w-5 shrink-0" />
+      <span className="truncate">Andamentos</span>
+    </CardTitle>
+
+    <Drawer
+      open={isMobileAndamentosMenuOpen}
+      onOpenChange={setIsMobileAndamentosMenuOpen}
+    >
+      <DrawerTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-10 w-10 rounded-xl shrink-0"
+          aria-label="Abrir opções de andamentos"
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
+      </DrawerTrigger>
+
+      <DrawerContent className="rounded-t-3xl">
+        <div className="mx-auto w-full max-w-md">
+          <DrawerHeader className="text-center pb-2">
+            <DrawerTitle className="text-lg font-semibold">
+              Opções de Andamentos
+            </DrawerTitle>
+          </DrawerHeader>
+
+          <div className="px-4 pb-4 space-y-5 max-h-[75vh] overflow-y-auto">
+            {/* Visualização */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-primary">Visualização</p>
+
+              <Button
+                variant={andamentosView === "timeline" ? "default" : "outline"}
+                className="w-full justify-start rounded-xl h-12"
+                onClick={() => {
+                  setAndamentosView("timeline");
+                  setIsMobileAndamentosMenuOpen(false);
+                }}
+              >
+                <GanttChartSquare className="mr-2 h-4 w-4" />
+                Linha do Tempo
+              </Button>
+
+              <Button
+                variant={andamentosView === "table" ? "default" : "outline"}
+                className="w-full justify-start rounded-xl h-12"
+                onClick={() => {
+                  setAndamentosView("table");
+                  setIsMobileAndamentosMenuOpen(false);
+                }}
+              >
+                <Table2 className="mr-2 h-4 w-4" />
+                Tabela
+              </Button>
+            </div>
+
+            {/* Ações */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-primary">Ações</p>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between rounded-xl h-12"
+                  >
+                    <span className="flex items-center">
+                      <FlaskConical className="mr-2 h-4 w-4" />
+                      Experimental
+                    </span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="center" className="w-[260px]">
+                  <DropdownMenuLabel>Cache</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      refreshNoCache();
+                      setIsMobileAndamentosMenuOpen(false);
+                    }}
+                    disabled={isRefreshing || hasBackgroundLoading}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Limpar cache
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {processedFlowData && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between rounded-xl h-12"
+                    >
+                      <span className="flex items-center">
+                        <Download className="mr-2 h-4 w-4" />
+                        Exportar
+                      </span>
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent align="center" className="w-[260px]">
+                    {andamentosView === "timeline" && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          handleExportTimeline();
+                          setIsMobileAndamentosMenuOpen(false);
+                        }}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Exportar SVG
+                      </DropdownMenuItem>
+                    )}
+
+                    <DropdownMenuItem
+                      onClick={() => {
+                        handleExportTimelineText();
+                        setIsMobileAndamentosMenuOpen(false);
+                      }}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Exportar TXT (LLM)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+
+            {/* Exibição */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-primary">Exibição</p>
+
+              <div className="flex items-center justify-between rounded-xl border px-4 py-4">
+                <Label htmlFor="summarize-graph-mobile" className="text-sm font-medium">
+                  Resumido
+                </Label>
+
+                <Switch
+                  id="summarize-graph-mobile"
+                  checked={isSummarizedView}
+                  onCheckedChange={setIsSummarizedView}
+                  disabled={!rawProcessData || isLoading}
+                />
+              </div>
+            </div>
+
+            {/* Timeline */}
+            {andamentosView === "timeline" && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-primary">
+                  Linha do Tempo
+                </p>
+
+                <Button
+                  onClick={() => {
+                    handleScrollToFirstTask();
+                    setIsMobileAndamentosMenuOpen(false);
+                  }}
+                  variant="outline"
+                  className="w-full justify-start rounded-xl h-12"
+                  disabled={!processedFlowData?.tasks.length}
+                >
+                  <ChevronsLeft className="mr-2 h-4 w-4" />
+                  Início
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    handleScrollToLastTask();
+                    setIsMobileAndamentosMenuOpen(false);
+                  }}
+                  variant="outline"
+                  className="w-full justify-start rounded-xl h-12"
+                  disabled={!processedFlowData?.tasks.length}
+                >
+                  <ChevronsRight className="mr-2 h-4 w-4" />
+                  Fim
+                </Button>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start rounded-xl h-12"
+                      disabled={!processedFlowData?.tasks.length}
+                    >
+                      <GanttChartSquare className="mr-2 h-4 w-4" />
+                      Filtrar Unidades
+                      {selectedLaneUnits.length > 0 && (
+                        <span className="ml-auto px-2 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                          {selectedLaneUnits.length}
+                        </span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+
+                  <PopoverContent className="w-80 rounded-2xl" align="center">
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-medium text-sm mb-2">
+                          Filtrar Raias por Unidade
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          Selecione as unidades para reorganizá-las no topo
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedLaneUnits(availableLaneUnits)}
+                        >
+                          Todas
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedLaneUnits([])}
+                        >
+                          Limpar
+                        </Button>
+                      </div>
+
+                      <ScrollArea className="h-[300px]">
+                        <div className="space-y-2">
+                          {availableLaneUnits.map((unit) => (
+                            <div key={unit} className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id={`mobile-unit-${unit}`}
+                                checked={selectedLaneUnits.includes(unit)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedLaneUnits([...selectedLaneUnits, unit]);
+                                  } else {
+                                    setSelectedLaneUnits(
+                                      selectedLaneUnits.filter((u) => u !== unit)
+                                    );
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                              />
+
+                              <Label
+                                htmlFor={`mobile-unit-${unit}`}
+                                className="text-sm cursor-pointer flex-1"
+                              >
+                                {unit}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start rounded-xl h-12"
+                  onClick={() => {
+                    setIsLegendModalOpen(true);
+                    setIsMobileAndamentosMenuOpen(false);
+                  }}
+                >
+                  <HelpCircle className="mr-2 h-4 w-4" />
+                  Legenda
+                </Button>
+              </div>
+            )}
+
+            {/* Busca tabela */}
+            {andamentosView === "table" && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-primary">Busca</p>
+
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
+                  <Input
+                    placeholder="Buscar unidade, usuário ou descrição..."
+                    value={andamentosSearchQuery}
+                    onChange={(e) => setAndamentosSearchQuery(e.target.value)}
+                    className="h-12 pl-9 rounded-xl text-sm text-foreground font-medium"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4">
+            <DrawerClose asChild>
+              <Button variant="outline" className="w-full rounded-xl h-12">
+                Fechar
+              </Button>
+            </DrawerClose>
+          </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  </div>
+</CardHeader>
+
                 <Separator />
+
                 <CardContent className="overflow-hidden p-0 px-6 pb-6 pt-4">
                   {andamentosView === 'timeline' ? (
                     processedFlowData && processedFlowData.tasks.length > 0 ? (
