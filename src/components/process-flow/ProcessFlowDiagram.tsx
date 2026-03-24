@@ -436,6 +436,7 @@ export function ProcessFlowDiagram({
             minHeight: svgHeight,
             position: 'relative',
             cursor: 'grab',
+            touchAction: 'pan-x pan-y',
           }}
           onMouseDown={handleMouseDown}
         >

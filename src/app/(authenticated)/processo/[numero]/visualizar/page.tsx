@@ -1065,7 +1065,10 @@ function VisualizarProcessoContent() {
                 <CardContent className="overflow-hidden p-0 px-6 pb-6 pt-4">
                   {andamentosView === 'timeline' ? (
                     processedFlowData && processedFlowData.tasks.length > 0 ? (
-                      <div className="h-[600px] flex flex-col w-full">
+                      <div
+                        className="flex flex-col w-full"
+                        style={{ height: `${Math.min(processedFlowData.svgHeight + 80, 600)}px` }}
+                      >
                         <ProcessFlowDiagram
                           tasks={processedFlowData.tasks}
                           connections={processedFlowData.connections}
