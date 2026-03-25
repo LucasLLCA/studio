@@ -1117,139 +1117,153 @@ function VisualizarProcessoContent() {
               {/* Productivity Table */}
               {rawProcessData?.Andamentos?.length > 0 && (
                 <Card className="flex flex-col">
-                  <CardHeader className="pb-3 flex-shrink-0">
-                    {/* DESKTOP */}
-                    <div className="hidden lg:flex items-center justify-between">
-                      {/* LEFT: title + tabs */}
-                      <div className="flex items-center gap-3">
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                          <GanttChartSquare className="h-5 w-5" /> Tabela Produtividade
-                        </CardTitle>
-                        <ProcessProductivityTabs
-                          value={prodActiveTab}
-                          onValueChange={(value) => setProdActiveTab(value as ProductivityTab)}
-                          hasHorasConfig={hasHorasConfig}
-                          canViewFinanceiro={hasModulo('financeiro')}
-                        />
-                      </div>
-                      {/* RIGHT: search + filter */}
-                      <div className="flex items-center gap-2">
-                        <div className="relative w-64">
-                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                          <Input
-                            placeholder="Buscar unidade ou usuário..."
-                            value={prodSearchQuery}
-                            onChange={(e) => setProdSearchQuery(e.target.value)}
-                            className="h-8 pl-8 text-sm text-foreground font-medium"
-                          />
-                        </div>
-                        <ProcessProductivityUnitFilter
-                          andamentos={rawProcessData.Andamentos}
-                          value={prodUnitFilter}
-                          onChange={setProdUnitFilter}
-                        />
-                      </div>
+                 <CardHeader className="pb-3 flex-shrink-0">
+                  
+                {/* ================= DESKTOP ================= */}
+                <div className="hidden lg:flex items-center justify-between">
+                  
+                  {/* Título + Tabs */}
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <GanttChartSquare className="h-5 w-5" />
+                      Tabela Produtividade
+                    </CardTitle>
+
+                    <ProcessProductivityTabs
+                      value={prodActiveTab}
+                      onValueChange={(value) => setProdActiveTab(value as ProductivityTab)}
+                      hasHorasConfig={hasHorasConfig}
+                      canViewFinanceiro={hasModulo('financeiro')}
+                    />
+                  </div>
+
+                  {/* Busca + filtro */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative w-64">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+
+                      <Input
+                        placeholder="Buscar unidade ou usuário..."
+                        value={prodSearchQuery}
+                        onChange={(e) => setProdSearchQuery(e.target.value)}
+                        className="h-8 pl-8 text-sm font-medium"
+                      />
                     </div>
 
-                    {/* MOBILE */}
-                    <div className="flex lg:hidden items-center justify-between gap-2">
-                      <CardTitle className="flex items-center gap-2 text-lg min-w-0">
-                        <GanttChartSquare className="h-5 w-5 shrink-0" />
-                        <span className="truncate">Produtividade</span>
-                      </CardTitle>
+                    <ProcessProductivityUnitFilter
+                      andamentos={rawProcessData.Andamentos}
+                      value={prodUnitFilter}
+                      onChange={setProdUnitFilter}
+                    />
+                  </div>
+                </div>
 
-                      <Drawer open={isMobileProdMenuOpen} onOpenChange={setIsMobileProdMenuOpen}>
-                        <DrawerTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-10 w-10 rounded-xl shrink-0"
-                            aria-label="Abrir opções de produtividade"
-                          >
-                            <Menu className="h-4 w-4" />
-                          </Button>
-                        </DrawerTrigger>
+                {/* ================= MOBILE ================= */}
+                <div className="flex lg:hidden items-center justify-between">
 
-                        <DrawerContent className="rounded-t-3xl">
-                          <div className="mx-auto w-full max-w-md">
-                            <DrawerHeader className="text-center pb-2">
-                              <DrawerTitle className="text-lg font-semibold">
-                                Opções de Produtividade
-                              </DrawerTitle>
-                            </DrawerHeader>
+                  {/* Título */}
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <GanttChartSquare className="h-5 w-5" />
+                    Produtividade
+                  </CardTitle>
 
-                            <div className="px-4 pb-4 space-y-5 max-h-[75vh] overflow-y-auto">
-                              {/* Visualização */}
-                              <div className="space-y-2">
-                                <p className="text-sm font-semibold text-primary">Visualização</p>
-                                <Button
-                                  variant={prodActiveTab === 'tarefas' ? 'default' : 'outline'}
-                                  className="w-full justify-start rounded-xl h-12"
-                                  onClick={() => { setProdActiveTab('tarefas'); setIsMobileProdMenuOpen(false); }}
-                                >
-                                  Tarefas
-                                </Button>
-                                {hasHorasConfig && (
-                                  <Button
-                                    variant={prodActiveTab === 'horas' ? 'default' : 'outline'}
-                                    className="w-full justify-start rounded-xl h-12"
-                                    onClick={() => { setProdActiveTab('horas'); setIsMobileProdMenuOpen(false); }}
-                                  >
-                                    Horas
-                                  </Button>
-                                )}
-                                {hasHorasConfig && hasModulo('financeiro') && (
-                                  <Button
-                                    variant={prodActiveTab === 'financeiro' ? 'default' : 'outline'}
-                                    className="w-full justify-start rounded-xl h-12"
-                                    onClick={() => { setProdActiveTab('financeiro'); setIsMobileProdMenuOpen(false); }}
-                                  >
-                                    Financeiro
-                                  </Button>
-                                )}
-                              </div>
+                  {/* Drawer */}
+                  <Drawer
+                    open={isMobileProdMenuOpen}
+                    onOpenChange={setIsMobileProdMenuOpen}
+                  >
+                    <DrawerTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-10 w-10 rounded-xl">
+                        <Menu className="h-4 w-4" />
+                      </Button>
+                    </DrawerTrigger>
 
-                              {/* Filtros */}
-                              <div className="space-y-2">
-                                <p className="text-sm font-semibold text-primary">Filtros</p>
-                                <div className="flex flex-col gap-2">
-                                  <label className="text-xs text-muted-foreground">Unidade</label>
-                                  <ProcessProductivityUnitFilter
-                                    andamentos={rawProcessData.Andamentos}
-                                    value={prodUnitFilter}
-                                    onChange={setProdUnitFilter}
-                                    triggerClassName="w-full h-12 rounded-xl text-sm text-foreground font-medium"
-                                  />
-                                </div>
-                              </div>
+                    <DrawerContent className="rounded-t-3xl">
+                      <div className="mx-auto w-full max-w-md">
 
-                              {/* Busca */}
-                              <div className="space-y-2">
-                                <p className="text-sm font-semibold text-primary">Busca</p>
-                                <div className="relative">
-                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                  <Input
-                                    placeholder="Buscar unidade ou usuário..."
-                                    value={prodSearchQuery}
-                                    onChange={(e) => setProdSearchQuery(e.target.value)}
-                                    className="h-12 pl-9 rounded-xl text-sm text-foreground font-medium"
-                                  />
-                                </div>
-                              </div>
-                            </div>
+                        {/* HEADER */}
+                        <DrawerHeader className="text-center pb-2">
+                          <DrawerTitle>Opções de Produtividade</DrawerTitle>
+                        </DrawerHeader>
 
-                            <div className="p-4">
-                              <DrawerClose asChild>
-                                <Button variant="outline" className="w-full rounded-xl h-12">
-                                  Fechar
-                                </Button>
-                              </DrawerClose>
-                            </div>
+                        {/* CONTEÚDO */}
+                        <div className="px-4 pb-4 space-y-5">
+
+                          {/* ================= TABS ================= */}
+                          <div className="space-y-2">
+                            <p className="text-sm font-semibold text-primary">
+                              Visualização
+                            </p>
+
+                            <Button
+                              className="w-full justify-start rounded-xl h-12"
+                              variant={prodActiveTab === "tarefas" ? "default" : "outline"}
+                              onClick={() => {
+                                setProdActiveTab("tarefas")
+                                setIsMobileProdMenuOpen(false)
+                              }}
+                            >
+                              Tarefas
+                            </Button>
+
+                            <Button
+                              className="w-full justify-start rounded-xl h-12"
+                              variant={prodActiveTab === "horas" ? "default" : "outline"}
+                              onClick={() => {
+                                setProdActiveTab("horas")
+                                setIsMobileProdMenuOpen(false)
+                              }}
+                            >
+                              Horas
+                            </Button>
                           </div>
-                        </DrawerContent>
-                      </Drawer>
-                    </div>
-                  </CardHeader>
+
+                          {/* ================= BUSCA ================= */}
+                          <div className="space-y-2">
+                            <p className="text-sm font-semibold text-primary">
+                              Busca
+                            </p>
+
+                            <Input
+                              placeholder="Buscar unidade ou usuário..."
+                              value={prodSearchQuery}
+                              onChange={(e) => setProdSearchQuery(e.target.value)}
+                              className="h-12 rounded-xl"
+                            />
+                          </div>
+
+                          {/* ================= FILTRO ================= */}
+                          <div className="space-y-2">
+                            <p className="text-sm font-semibold text-primary">
+                              Filtro
+                            </p>
+
+                            <ProcessProductivityUnitFilter
+                              andamentos={rawProcessData.Andamentos}
+                              value={prodUnitFilter}
+                              onChange={(value) => {
+                                setProdUnitFilter(value)
+                              }}
+                            />
+                          </div>
+
+                        </div>
+
+                        {/* BOTÃO FECHAR */}
+                        <div className="p-4">
+                          <DrawerClose asChild>
+                            <Button variant="outline" className="w-full rounded-xl h-12">
+                              Fechar
+                            </Button>
+                          </DrawerClose>
+                        </div>
+
+                      </div>
+                    </DrawerContent>
+                  </Drawer>
+                </div>
+
+              </CardHeader>
                   <Separator />
                   <CardContent className="overflow-hidden p-0 px-6 pb-6 pt-4">
                     <ProcessProductivityTable

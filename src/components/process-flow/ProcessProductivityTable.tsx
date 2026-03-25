@@ -302,43 +302,85 @@ export function ProcessProductivityTable({
                   Nenhum andamento disponível para cálculo de produtividade.
                 </p>
               ) : (
-                <div className="p-3 space-y-3">
+                <div className="p-3 space-y-4">
                   {filteredGroups.map((group) => (
-                    <div key={`card-unit-${group.unitId}`} className="border rounded-lg overflow-hidden">
-                      {/* Unit header */}
-                      <div className="bg-muted/60 px-3 py-2 flex items-center justify-between">
+                    <div
+                      key={`card-unit-${group.unitId}`}
+                      className="overflow-hidden rounded-2xl border bg-card shadow-sm"
+                    >
+                      {/* Header da unidade */}
+                      <div className="bg-muted/50 px-4 py-4 flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="font-semibold text-sm text-foreground">{group.unitSigla}</div>
-                          <div className="text-xs text-muted-foreground truncate">{group.unitDescricao}</div>
+                          <div className="text-sm font-semibold text-foreground line-clamp-3 leading-5">
+                            {group.unitSigla}
+                          </div>
+                          <div
+                            className="mt-1 text-xs text-muted-foreground line-clamp-2"
+                            title={group.unitDescricao}
+                          >
+                            {group.unitDescricao}
+                          </div>
                         </div>
-                        <span className="text-sm font-bold text-foreground shrink-0 ml-2">
-                          {formatTotal(group.groupTotals)}
-                        </span>
+
+                        <div className="shrink-0 rounded-xl border bg-background px-3 py-2 text-center min-w-[72px]">
+                          <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Total
+                          </div>
+                          <div className="text-lg font-bold leading-none text-foreground mt-1">
+                            {formatTotal(group.groupTotals)}
+                          </div>
+                        </div>
                       </div>
-                      {/* Task group breakdown */}
-                      <div className="px-3 py-2 flex flex-wrap gap-1.5">
+
+                      {/* Métricas da unidade */}
+                      <div className="px-4 py-4 grid grid-cols-2 gap-2 border-t bg-background/50">
                         {activeGroups.map((ag) => {
                           const val = group.groupTotals[ag.key] || 0;
                           if (val === 0) return null;
+
                           return (
-                            <span key={ag.key} className="inline-flex items-center gap-1 text-xs bg-muted/50 rounded px-1.5 py-0.5">
-                              <span className="text-muted-foreground">{ag.label}:</span>
-                              <span className="font-medium">{formatValue(val, ag.key)}</span>
-                            </span>
+                            <div
+                              key={ag.key}
+                              className="rounded-xl border bg-background px-3 py-3.5"
+                            >
+                              <div className="text-lg font-bold leading-none text-foreground">
+                                {formatValue(val, ag.key)}
+                              </div>
+                              <div className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                                {ag.label}
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
-                      {/* Users */}
+
+                      {/* Usuários */}
                       <div className="border-t divide-y">
                         {group.users.map((row) => (
-                          <div key={`${group.unitId}-${row.userId}`} className="px-3 py-2 flex items-center justify-between">
+                          <div
+                            key={`${group.unitId}-${row.userId}`}
+                            className="px-4 py-3 flex items-start justify-between gap-3"
+                          >
                             <div className="min-w-0">
-                              <div className="text-sm font-medium text-foreground">{row.userSigla}</div>
-                              <div className="text-xs text-muted-foreground truncate">{row.userName}</div>
+                              <div className="text-sm font-semibold text-foreground break-words">
+                                {row.userSigla}
+                              </div>
+                              <div
+                                className="mt-1 text-xs text-muted-foreground break-words"
+                                title={row.userName}
+                              >
+                                {row.userName}
+                              </div>
                             </div>
-                            <span className="text-sm font-semibold text-foreground shrink-0 ml-2">
-                              {formatTotal(row.groupCounts)}
-                            </span>
+
+                            <div className="shrink-0 rounded-xl bg-primary/10 px-3 py-2 text-center min-w-[64px]">
+                              <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                Total
+                              </div>
+                              <div className="text-base font-bold leading-none text-foreground mt-1">
+                                {formatTotal(row.groupCounts)}
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -348,37 +390,42 @@ export function ProcessProductivityTable({
               )}
             </div>
 
-            {/* ── DESKTOP: Table view ── */}
-            <ScrollArea className="h-[400px] w-full hidden lg:block">
-              <div className="w-max min-w-full">
-                <table className="border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-slate-400 dark:bg-slate-600">
-                  <tr className="border-b">
-                    <th className="px-4 py-3 text-left font-semibold text-slate-50 min-w-[200px]">
+            {/* ── DESKTOP: TABLE VIEW ── */}
+            <ScrollArea className="h-[420px] w-full hidden lg:block">
+            <div className="min-w-max">
+              <table className="w-full border-separate border-spacing-0 text-sm">
+                <thead className="sticky top-0 z-20 bg-background">
+                  <tr className="border-b bg-slate-100/95 backdrop-blur supports-[backdrop-filter]:bg-slate-100/80 dark:bg-slate-800/95 dark:supports-[backdrop-filter]:bg-slate-800/80">
+                    <th className="px-4 py-3 text-left font-semibold text-foreground min-w-[280px] border-b">
                       Unidade / Usuário
                     </th>
-                    <th className="px-4 py-3 text-center font-semibold text-slate-50 min-w-[80px]">
+
+                    <th className="px-4 py-3 text-center font-semibold text-foreground min-w-[100px] border-b">
                       Total
                     </th>
+
                     {activeGroups.map((group) => (
                       <th
                         key={group.key}
-                        className="px-3 py-3 text-center font-semibold text-slate-50 min-w-[140px]"
+                        className="px-3 py-3 text-center font-semibold text-foreground min-w-[160px] border-b"
                       >
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="inline-flex items-center gap-1 cursor-help">
-                              <span className="line-clamp-2">{group.label}</span>
-                              <Info className="h-3 w-3 flex-shrink-0 opacity-70" />
+                            <span className="inline-flex items-center justify-center gap-1 cursor-help">
+                              <span className="line-clamp-2 text-center">{group.label}</span>
+                              <Info className="h-3.5 w-3.5 flex-shrink-0 opacity-70" />
                             </span>
                           </TooltipTrigger>
+
                           <TooltipContent side="bottom" className="max-w-xs">
                             <p className="font-semibold mb-1">{group.label}</p>
                             <ul className="text-xs space-y-0.5">
-                              {group.tasks.length > 0 ? group.tasks.map(t => (
-                                <li key={t} className="font-mono">{t}</li>
-                              )) : (
-                                <li className="italic">Tarefas não classificadas</li>
+                              {group.tasks.length > 0 ? (
+                                group.tasks.map((task) => (
+                                  <li key={task}>• {task}</li>
+                                ))
+                              ) : (
+                                <li>Sem tarefas mapeadas</li>
                               )}
                             </ul>
                           </TooltipContent>
@@ -387,71 +434,105 @@ export function ProcessProductivityTable({
                     ))}
                   </tr>
                 </thead>
+
                 <tbody>
-                  {filteredGroups.length === 0 && (
+                  {filteredGroups.length === 0 ? (
                     <tr>
-                      <td colSpan={activeGroups.length + 2} className="px-4 py-6 text-center text-muted-foreground">
+                      <td
+                        colSpan={2 + activeGroups.length}
+                        className="px-4 py-8 text-center text-muted-foreground"
+                      >
                         Nenhum andamento disponível para cálculo de produtividade.
                       </td>
                     </tr>
-                  )}
-
-                  {filteredGroups.map((group) => (
-                    <React.Fragment key={`unit-${group.unitId}`}>
-                      {/* Unit header row */}
-                      <tr className="bg-muted/60 border-b">
-                        <td className="px-4 py-2.5">
-                          <div className="font-semibold text-foreground">{group.unitSigla}</div>
-                          <div className="text-xs text-muted-foreground truncate" title={group.unitDescricao}>
-                            {group.unitDescricao}
-                          </div>
-                        </td>
-                        <td className="px-4 py-2.5 text-center">
-                          <span className="font-bold text-foreground">{formatTotal(group.groupTotals)}</span>
-                        </td>
-                        {activeGroups.map((ag) => (
-                          <td key={`${group.unitId}-${ag.key}`} className="px-3 py-2.5 text-center">
-                            <span className="font-semibold text-foreground">
-                              {formatValue(group.groupTotals[ag.key] || 0, ag.key)}
-                            </span>
-                          </td>
-                        ))}
-                      </tr>
-
-                      {/* User rows within the unit */}
-                      {group.users.map((row, userIndex) => (
-                        <tr
-                          key={`${group.unitId}-${row.userId}`}
-                          className={`border-b last:border-b-0 ${
-                            userIndex % 2 === 0 ? 'bg-background' : 'bg-muted/20'
-                          }`}
-                        >
-                          <td className="px-4 py-2.5 pl-8">
-                            <div className="font-medium text-foreground">{row.userSigla}</div>
-                            <div className="text-xs text-slate-400 dark:text-slate-500 truncate" title={row.userName}>
-                              {row.userName}
+                  ) : (
+                    filteredGroups.map((group) => (
+                      <React.Fragment key={group.unitId}>
+                        {/* Linha da unidade */}
+                        <tr className="bg-slate-50 dark:bg-slate-900/40">
+                          <td className="px-4 py-4 border-b align-top">
+                            <div className="min-w-0">
+                              <div className="font-semibold text-[15px] text-foreground">
+                                {group.unitSigla}
+                              </div>
+                              <div
+                                className="text-sm text-muted-foreground truncate"
+                                title={group.unitDescricao}
+                              >
+                                {group.unitDescricao}
+                              </div>
                             </div>
                           </td>
-                          <td className="px-4 py-2.5 text-center">
-                            <span className="font-semibold text-foreground">{formatTotal(row.groupCounts)}</span>
+
+                          <td className="px-4 py-4 border-b text-center align-middle">
+                            <span className="inline-flex min-w-[56px] justify-center rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-foreground">
+                              {formatTotal(group.groupTotals)}
+                            </span>
                           </td>
+
                           {activeGroups.map((ag) => (
-                            <td key={`${group.unitId}-${row.userId}-${ag.key}`} className="px-3 py-2.5 text-center">
-                              <span className="font-medium text-foreground">
-                                {formatValue(row.groupCounts[ag.key] || 0, ag.key)}
+                            <td
+                              key={`${group.unitId}-${ag.key}`}
+                              className="px-3 py-4 border-b text-center align-middle"
+                            >
+                              <span className="text-base font-bold text-foreground tabular-nums">
+                                {formatValue(group.groupTotals[ag.key] || 0, ag.key)}
                               </span>
                             </td>
                           ))}
                         </tr>
-                      ))}
-                    </React.Fragment>
-                  ))}
+
+                        {/* Linhas dos usuários */}
+                        {group.users.map((row, index) => (
+                          <tr
+                            key={`${group.unitId}-${row.userId}`}
+                            className={[
+                              "transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40",
+                              index % 2 === 0 ? "bg-background" : "bg-slate-50/40 dark:bg-slate-900/20",
+                            ].join(" ")}
+                          >
+                            <td className="px-4 py-3 border-b">
+                              <div className="pl-4 min-w-0">
+                                <div className="font-medium text-foreground">
+                                  {row.userSigla}
+                                </div>
+                                <div
+                                  className="text-xs text-muted-foreground truncate"
+                                  title={row.userName}
+                                >
+                                  {row.userName}
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="px-4 py-3 border-b text-center">
+                              <span className="font-semibold text-foreground tabular-nums">
+                                {formatTotal(row.groupCounts)}
+                              </span>
+                            </td>
+
+                            {activeGroups.map((ag) => (
+                              <td
+                                key={`${group.unitId}-${row.userId}-${ag.key}`}
+                                className="px-3 py-3 border-b text-center"
+                              >
+                                <span className="text-sm text-foreground tabular-nums">
+                                  {formatValue(row.groupCounts[ag.key] || 0, ag.key)}
+                                </span>
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
+
             <ScrollBar orientation="horizontal" />
             <ScrollBar orientation="vertical" />
-            </ScrollArea>
+          </ScrollArea>
           </>
         ) : (
           <div className="overflow-hidden p-0 px-6 pb-6 pt-4">
