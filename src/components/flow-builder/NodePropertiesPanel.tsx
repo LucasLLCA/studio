@@ -349,13 +349,28 @@ export default function NodePropertiesPanel({ node, onUpdate, onClose, onDelete 
                   {loadingTipos && (
                     <p className="px-3 py-2 text-xs text-muted-foreground">Buscando...</p>
                   )}
-                  {!loadingTipos && tiposDocumento.length === 0 && (
+
+                  {/* Opção de adicionar manualmente se digitou algo que não está na lista */}
+                  {docSearch.trim() && !documentos.includes(docSearch.trim()) && (
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors flex items-center gap-1.5 border-b border-border"
+                      onClick={() => {
+                        update('documentos_necessarios', [...documentos.filter(Boolean), docSearch.trim()]);
+                        setDocDropdownOpen(false);
+                        setDocSearch('');
+                      }}
+                    >
+                      <Plus className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span>Adicionar <strong>"{docSearch.trim()}"</strong> manualmente</span>
+                    </button>
+                  )}
+
+                  {!loadingTipos && tiposDocumento.length === 0 && !docSearch.trim() && (
                     <p className="px-3 py-2 text-xs text-muted-foreground">
-                      {debouncedDocSearch.trim().length >= 2
-                        ? 'Nenhum tipo encontrado.'
-                        : 'Digite para buscar ou veja todos os tipos...'}
+                      Digite para buscar ou adicionar um documento...
                     </p>
                   )}
+
                   {tiposDocumento
                     .filter((t) => !documentos.includes(t.nome))
                     .map((tipo) => (
