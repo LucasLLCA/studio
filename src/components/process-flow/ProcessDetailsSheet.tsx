@@ -76,7 +76,7 @@ export function ProcessDetailsSheet({
         Processo
       </p>
 
-      <SheetTitle className="text-lg md:text-xl font-semibold text-primary break-words">
+      <SheetTitle className="text-lg font-semibold text-foreground break-words">
         {formatProcessNumber(rawProcessData?.Info?.NumeroProcesso || numeroProcesso)}
       </SheetTitle>
     </div>

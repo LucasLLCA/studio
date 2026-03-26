@@ -16,7 +16,6 @@ import {
 } from '@/lib/react-query/queries/useFluxos';
 import FlowEditor from '@/components/flow-builder/FlowEditor';
 import FlowToolbar from '@/components/flow-builder/FlowToolbar';
-import NodePalette from '@/components/flow-builder/NodePalette';
 import NodePropertiesPanel from '@/components/flow-builder/NodePropertiesPanel';
 import ValidationPanel from '@/components/flow-builder/ValidationPanel';
 import ProcessAssignmentDialog from '@/components/flow-builder/ProcessAssignmentDialog';
@@ -60,6 +59,7 @@ function FluxoEditorContent() {
   const [showValidation, setShowValidation] = useState(false);
   const [warningDialogOpen, setWarningDialogOpen] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const { errors, warnings, validate, clear } = useFlowValidation();
 
   useEffect(() => { setMounted(true); }, []);
@@ -127,11 +127,32 @@ function FluxoEditorContent() {
   );
 
   const handleStatusChange = useCallback(
-    (status: string) => {
-      updateMutation.mutate({ fluxoId, updates: { status } });
+    (newStatus: string) => {
+      if (newStatus === 'publicado') {
+        const currentNodes = ((window as unknown as Record<string, unknown>).__flowEditorNodes as Node[]) || [];
+        const hasFim = currentNodes.some(n => n.type === 'fim');
+        if (!hasFim) {
+          toast({
+            title: 'Não é possível publicar',
+            description: 'O fluxo precisa de um nó de Fim para ser publicado.',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      updateMutation.mutate({ fluxoId, updates: { status: newStatus } });
     },
-    [fluxoId, updateMutation],
+    [fluxoId, updateMutation, toast],
   );
+
+  const handleChangeNodeType = useCallback((nodeId: string, newType: string) => {
+    const fn = (window as unknown as Record<string, unknown>).__flowEditorChangeNodeType as
+      | ((id: string, type: string) => void)
+      | undefined;
+    if (fn) fn(nodeId, newType);
+    setSelectedNode((prev) => (prev && prev.id === nodeId ? { ...prev, type: newType } : prev));
+    setHasUnsaved(true);
+  }, []);
 
   const handleNodeUpdate = useCallback((nodeId: string, data: Record<string, unknown>) => {
     const fn = (window as unknown as Record<string, unknown>).__flowEditorUpdateNodeData as
@@ -218,21 +239,22 @@ function FluxoEditorContent() {
         isSaving={canvasMutation.isPending}
         hasUnsavedChanges={hasUnsaved}
         showSummary={showSummary}
+        isEditMode={isEditMode}
         onNameChange={handleNameChange}
         onStatusChange={handleStatusChange}
         onSave={handleSave}
         onAssignProcess={() => setAssignDialogOpen(true)}
         onToggleSummary={() => setShowSummary((v) => !v)}
+        onToggleEditMode={() => { setIsEditMode((v) => !v); setSelectedNode(null); }}
       />
 
       <div className="flex flex-1 overflow-hidden relative">
-        <NodePalette />
-
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <FlowEditor
             fluxo={fluxo}
-            onNodeSelect={setSelectedNode}
+            onNodeSelect={isEditMode ? setSelectedNode : () => {}}
             onDirty={handleDirty}
+            readOnly={!isEditMode}
           />
           {showValidation && (
             <ValidationPanel
@@ -250,13 +272,13 @@ function FluxoEditorContent() {
           />
         )}
 
-        {selectedNode ? (
+        {isEditMode && selectedNode ? (
           <NodePropertiesPanel
             node={selectedNode}
             onUpdate={handleNodeUpdate}
+            onChangeType={handleChangeNodeType}
             onClose={() => setSelectedNode(null)}
-
-            onDelete={(nodeId) => {
+            onDelete={selectedNode.type === 'inicio' ? undefined : (nodeId) => {
               const fn = (window as unknown as Record<string, unknown>).__flowEditorDeleteNode as
                 | ((id: string) => void)
                 | undefined;
@@ -265,10 +287,11 @@ function FluxoEditorContent() {
               setHasUnsaved(true);
             }}
           />
-        ) : (
+        ) : !isEditMode ? (
           <div className="w-72 border-l border-border bg-card overflow-y-auto flex-shrink-0">
             <div className="p-3 border-b border-border">
               <h3 className="text-sm font-semibold">Processos Vinculados</h3>
+              <p className="text-xs text-muted-foreground mt-1">{processos.length} processo(s)</p>
             </div>
             <FlowProcessesList
               processos={processos}
@@ -276,7 +299,7 @@ function FluxoEditorContent() {
               onRemove={handleRemoveProcesso}
             />
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Confirmação de salvar com avisos */}

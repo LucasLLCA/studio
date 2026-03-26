@@ -2,6 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Loader2, Crown, Trash2, UserPlus, X } from 'lucide-react';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -59,6 +67,13 @@ export default function EquipesPage() {
 
   // Create dialog
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
   const [createName, setCreateName] = useState('');
   const [createDesc, setCreateDesc] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -201,12 +216,13 @@ export default function EquipesPage() {
             <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
               <Users className="h-6 w-6" /> Equipes
             </h1>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Gerencie suas equipes para compartilhar processos
             </p>
           </div>
           <Button onClick={() => setIsCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Criar Equipe
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Criar Equipe</span>
           </Button>
         </div>
 
@@ -216,8 +232,8 @@ export default function EquipesPage() {
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : teams.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-            <Users className="h-12 w-12 mb-3 text-gray-300" />
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <Users className="h-12 w-12 mb-3 text-muted-foreground/50" />
             <p>Nenhuma equipe ainda.</p>
             <Button variant="outline" className="mt-3" onClick={() => setIsCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" /> Criar sua primeira equipe
@@ -245,7 +261,7 @@ export default function EquipesPage() {
                   )}
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Users className="h-3.5 w-3.5" />
                     {team.total_membros} {team.total_membros === 1 ? 'membro' : 'membros'}
                   </div>
@@ -256,45 +272,66 @@ export default function EquipesPage() {
         )}
       </div>
 
-      {/* Create Team Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Criar Equipe</DialogTitle>
-            <DialogDescription>
-              Crie uma equipe para compartilhar processos com colegas.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="team-name">Nome</Label>
-              <Input
-                id="team-name"
-                value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
-                placeholder="Nome da equipe"
-                onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
-              />
+      {/* Create Team — Drawer on mobile, Dialog on desktop */}
+      {isMobile ? (
+        <Drawer open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DrawerContent className="rounded-t-3xl">
+            <div className="mx-auto w-full max-w-md">
+              <DrawerHeader className="text-center">
+                <DrawerTitle>Criar Equipe</DrawerTitle>
+                <DrawerDescription>Crie uma equipe para compartilhar processos com colegas.</DrawerDescription>
+              </DrawerHeader>
+              <div className="px-4 pb-2 space-y-4">
+                <div>
+                  <Label htmlFor="team-name-m">Nome</Label>
+                  <Input id="team-name-m" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Nome da equipe" className="h-12 rounded-xl mt-1" onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }} />
+                </div>
+                <div>
+                  <Label htmlFor="team-desc-m">Descricao (opcional)</Label>
+                  <Input id="team-desc-m" value={createDesc} onChange={(e) => setCreateDesc(e.target.value)} placeholder="Descricao breve" className="h-12 rounded-xl mt-1" />
+                </div>
+              </div>
+              <div className="p-4 space-y-2">
+                <Button className="w-full rounded-xl h-12" onClick={handleCreate} disabled={!createName.trim() || isCreating}>
+                  {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                  Criar Equipe
+                </Button>
+                <DrawerClose asChild>
+                  <Button variant="outline" className="w-full rounded-xl h-12">Cancelar</Button>
+                </DrawerClose>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="team-desc">Descricao (opcional)</Label>
-              <Input
-                id="team-desc"
-                value={createDesc}
-                onChange={(e) => setCreateDesc(e.target.value)}
-                placeholder="Descricao breve"
-              />
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Criar Equipe</DialogTitle>
+              <DialogDescription>
+                Crie uma equipe para compartilhar processos com colegas.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="team-name">Nome</Label>
+                <Input id="team-name" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Nome da equipe" onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }} />
+              </div>
+              <div>
+                <Label htmlFor="team-desc">Descricao (opcional)</Label>
+                <Input id="team-desc" value={createDesc} onChange={(e) => setCreateDesc(e.target.value)} placeholder="Descricao breve" />
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreate} disabled={!createName.trim() || isCreating}>
-              {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Criar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
+              <Button onClick={handleCreate} disabled={!createName.trim() || isCreating}>
+                {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Criar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Team Detail Sheet */}
       <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Eye, Link2, Loader2, LayoutList } from 'lucide-react';
+import { ArrowLeft, Save, Edit, Eye, Link2, Loader2, LayoutList } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface FlowToolbarProps {
@@ -13,11 +13,13 @@ interface FlowToolbarProps {
   isSaving: boolean;
   hasUnsavedChanges: boolean;
   showSummary: boolean;
+  isEditMode?: boolean;
   onNameChange: (name: string) => void;
   onStatusChange: (status: string) => void;
   onSave: () => void;
   onAssignProcess: () => void;
   onToggleSummary: () => void;
+  onToggleEditMode?: () => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -33,11 +35,13 @@ export default function FlowToolbar({
   isSaving,
   hasUnsavedChanges,
   showSummary,
+  isEditMode = false,
   onNameChange,
   onStatusChange,
   onSave,
   onAssignProcess,
   onToggleSummary,
+  onToggleEditMode,
 }: FlowToolbarProps) {
   const router = useRouter();
   const [editingName, setEditingName] = useState(false);
@@ -56,7 +60,7 @@ export default function FlowToolbar({
         <ArrowLeft className="h-4 w-4" />
       </Button>
 
-      {editingName ? (
+      {isEditMode && editingName ? (
         <Input
           value={tempName}
           onChange={(e) => setTempName(e.target.value)}
@@ -67,8 +71,9 @@ export default function FlowToolbar({
         />
       ) : (
         <button
-          className="text-base font-semibold hover:underline"
+          className="text-lg font-semibold text-foreground hover:underline"
           onClick={() => {
+            if (!isEditMode) return;
             setTempName(nome);
             setEditingName(true);
           }}
@@ -77,31 +82,43 @@ export default function FlowToolbar({
         </button>
       )}
 
-      <select
-        className={`rounded-md border px-2 py-1 text-xs font-medium ${STATUS_COLORS[status] || 'border-input bg-background'}`}
-        value={status}
-        onChange={(e) => onStatusChange(e.target.value)}
-      >
-        <option value="rascunho">Rascunho</option>
-        <option value="publicado">Publicado</option>
-        <option value="arquivado">Arquivado</option>
-      </select>
+      {isEditMode && (
+        <select
+          className={`rounded-md border px-2 py-1 text-xs font-medium ${STATUS_COLORS[status] || 'border-input bg-background'}`}
+          value={status}
+          onChange={(e) => onStatusChange(e.target.value)}
+        >
+          <option value="rascunho">Rascunho</option>
+          <option value="publicado">Publicado</option>
+          <option value="arquivado">Arquivado</option>
+        </select>
+      )}
+
+      {!isEditMode && (
+        <span className={`rounded-md border px-2 py-1 text-xs font-medium ${STATUS_COLORS[status] || 'border-input bg-background'}`}>
+          {status === 'rascunho' ? 'Rascunho' : status === 'publicado' ? 'Publicado' : 'Arquivado'}
+        </span>
+      )}
 
       <div className="flex-1" />
 
-      {hasUnsavedChanges && (
+      {isEditMode && hasUnsavedChanges && (
         <span className="text-xs text-muted-foreground">Alterações não salvas</span>
       )}
 
-      <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving}>
-        {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-        Salvar
-      </Button>
+      {isEditMode && (
+        <>
+          <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving}>
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+            Salvar
+          </Button>
 
-      <Button variant="outline" size="sm" onClick={onAssignProcess}>
-        <Link2 className="h-4 w-4 mr-1" />
-        Vincular Processo
-      </Button>
+          <Button variant="outline" size="sm" onClick={onAssignProcess}>
+            <Link2 className="h-4 w-4 mr-1" />
+            Vincular Processo
+          </Button>
+        </>
+      )}
 
       <Button
         variant={showSummary ? 'default' : 'outline'}
@@ -112,10 +129,19 @@ export default function FlowToolbar({
         Resumo
       </Button>
 
-      <Button variant="outline" size="sm" onClick={() => router.push(`/fluxos/${fluxoId}/view`)}>
-        <Eye className="h-4 w-4 mr-1" />
-        Visualizar
-      </Button>
+      {onToggleEditMode && (
+        <Button
+          variant={isEditMode ? 'default' : 'outline'}
+          size="sm"
+          onClick={onToggleEditMode}
+        >
+          {isEditMode ? (
+            <><Eye className="h-4 w-4 mr-1" /> Visualizar</>
+          ) : (
+            <><Edit className="h-4 w-4 mr-1" /> Editar</>
+          )}
+        </Button>
+      )}
     </div>
   );
 }

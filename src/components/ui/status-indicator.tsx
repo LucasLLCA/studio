@@ -11,14 +11,14 @@ interface StatusIndicatorProps {
 function StatusIndicator({ status, label, className }: StatusIndicatorProps) {
   if (status === 'completed') {
     return (
-      <span className={cn("text-sm text-success flex items-center gap-1", className)}>
+      <span className={cn("text-xs text-success flex items-center gap-1", className)}>
         <CheckCircle className="h-3.5 w-3.5" /> {label ?? "Concluído"}
       </span>
     )
   }
 
   return (
-    <span className={cn("text-sm text-muted-foreground flex items-center gap-1", className)}>
+    <span className={cn("text-xs text-muted-foreground flex items-center gap-1", className)}>
       <Clock className="h-3.5 w-3.5" /> {label ?? "Em andamento"}
     </span>
   )

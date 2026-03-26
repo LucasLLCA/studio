@@ -63,30 +63,29 @@ export function ProcessToolbar({
   return (
     <div className="mb-8 space-y-3">
       {/* Status line — stacks vertically on mobile */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs text-muted-foreground">
         {openUnitsInProcess !== null && (
           <StatusIndicator status={openUnitsInProcess.length === 0 ? 'completed' : 'in-progress'} className="gap-2" />
         )}
         {hasBackgroundLoading && (
-          <Loader2 className="h-4 w-4 text-primary animate-spin" />
+          <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
         )}
-        {lastFetchedAt && !hasBackgroundLoading && (
-          <span className="text-xs text-muted-foreground">
+        {!hasBackgroundLoading && (dataCarga ? (
+          <span>
+            Atualizado em {new Date(dataCarga).toLocaleString('pt-BR')}
+          </span>
+        ) : lastFetchedAt ? (
+          <span>
             Atualizado {formatDistanceToNowStrict(lastFetchedAt, { addSuffix: true, locale: ptBR })}
           </span>
-        )}
-        {dataCarga && (
-          <span className="text-xs text-amber-600">
-            Dados atualizados em: {new Date(dataCarga).toLocaleString('pt-BR')}
-          </span>
-        )}
+        ) : null)}
       </div>
 
       <hr className="border-border/50" />
 
       {/* Número + link — number on separate line on mobile */}
       <div className="flex items-center gap-3">
-        <h1 className="text-xl sm:text-3xl text-foreground tracking-tight">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
           <span className="block sm:inline">Processo,</span>{' '}
           <span className="font-bold block sm:inline">{formattedNumber}</span>
         </h1>
@@ -104,7 +103,7 @@ export function ProcessToolbar({
       </div>
 
       {/* ── DESKTOP buttons ── */}
-      <div className="hidden lg:flex flex-wrap items-center gap-2">
+      <div className="hidden lg:flex flex-wrap items-center justify-start gap-2">
         {!isDetailsSheetOpen && (
           <Button variant="outline" size="sm" onClick={onOpenDetailsSheet}>
             <PanelRight className="mr-2 h-4 w-4" /> Detalhes
@@ -147,7 +146,7 @@ export function ProcessToolbar({
       </div>
 
       {/* ── MOBILE buttons: Detalhes, Observacoes, Mais ── */}
-      <div className="flex lg:hidden items-center gap-2">
+      <div className="flex lg:hidden items-center justify-start gap-2">
         {!isDetailsSheetOpen && (
           <Button variant="outline" size="sm" onClick={onOpenDetailsSheet}>
             <PanelRight className="mr-2 h-4 w-4" /> Detalhes

@@ -113,9 +113,27 @@ export function computeFlowCompliance(
 
     switch (node.tipo) {
       case 'inicio': {
+        // Match against GERACAO-PROCEDIMENTO to identify where the process was created
+        const geracaoTypes = getTaskTypesForKey('abertura');
+        for (const a of andamentos) {
+          if (geracaoTypes.has(a.Tarefa)) {
+            matched.push({
+              Tarefa: a.Tarefa,
+              DataHora: a.DataHora,
+              Usuario: a.Usuario ? { Nome: a.Usuario.Nome } : undefined,
+              Unidade: a.Unidade ? { Sigla: a.Unidade.Sigla, Descricao: a.Unidade.Descricao } : undefined,
+            });
+          }
+        }
         status = 'concluido';
-        // Use earliest andamento as timestamp
-        if (andamentos.length > 0) {
+        if (matched.length > 0) {
+          timestamp = matched.reduce((min, m) => {
+            const d = parseCustomDateString(m.DataHora);
+            const mDate = parseCustomDateString(min.DataHora);
+            return d < mDate ? m : min;
+          }).DataHora;
+        } else if (andamentos.length > 0) {
+          // Fallback: use earliest andamento
           const earliest = andamentos.reduce((min, a) => {
             const d = parseCustomDateString(a.DataHora);
             const mDate = parseCustomDateString(min.DataHora);
@@ -141,6 +159,7 @@ export function computeFlowCompliance(
                 Tarefa: a.Tarefa,
                 DataHora: a.DataHora,
                 Usuario: a.Usuario ? { Nome: a.Usuario.Nome } : undefined,
+                Unidade: a.Unidade ? { Sigla: a.Unidade.Sigla, Descricao: a.Unidade.Descricao } : undefined,
               });
             }
           }
@@ -195,12 +214,28 @@ export function computeFlowCompliance(
       }
     }
 
+    // Derive unidade from the earliest matched andamento
+    const actualUnidade = matched.length > 0 ? matched[0].Unidade?.Sigla ?? null : null;
+    // Expected unidade: responsavel field, or unidade_sei_sigla from metadata
+    const expectedUnidade = node.responsavel
+      || (node.metadata_extra?.unidade_sei_sigla as string | undefined)
+      || null;
+    // Check if it escaped the flow: node has expected unidade but done in a different one
+    const escapedFlow = !!(
+      status === 'concluido' &&
+      expectedUnidade &&
+      actualUnidade &&
+      expectedUnidade !== actualUnidade
+    );
+
     complianceMap.set(node.node_id, {
       node,
       status,
       matched_andamentos: matched,
       timestamp,
       order: orderIndex.get(node.node_id) ?? 999,
+      unidade: actualUnidade,
+      escapedFlow,
     });
   }
 
@@ -245,6 +280,27 @@ export function computeFlowCompliance(
       } else if (someDone) {
         comp.status = 'em_andamento';
       }
+    }
+  }
+
+  // ── Step 2b: Identify current (actionable) steps ──
+  // A pending node whose ALL predecessors are completed is the current/next step (em_andamento).
+  // A pending node with incomplete predecessors stays pendente (dependent).
+  for (const nodeId of order) {
+    const comp = complianceMap.get(nodeId)!;
+    if (comp.status !== 'pendente') continue;
+    // Skip structural nodes handled separately
+    if (['inicio', 'fim', 'decisao', 'fork', 'join'].includes(comp.node.tipo)) continue;
+
+    const preds = predecessorMap.get(nodeId) ?? [];
+    if (preds.length === 0) continue;
+
+    const allPredsDone = preds.every((p) => {
+      const pc = complianceMap.get(p);
+      return pc && pc.status === 'concluido';
+    });
+    if (allPredsDone) {
+      comp.status = 'em_andamento';
     }
   }
 

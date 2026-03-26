@@ -60,7 +60,7 @@ export default function FlowSummaryPanel({ nodes, onClose }: FlowSummaryPanelPro
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div>
           <h3 className="text-sm font-semibold">Resumo do Fluxo</h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">{sorted.length} etapa{sorted.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{sorted.length} etapa{sorted.length !== 1 ? 's' : ''}</p>
         </div>
         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onClose}>
           <X className="h-4 w-4" />
@@ -124,10 +124,12 @@ export default function FlowSummaryPanel({ nodes, onClose }: FlowSummaryPanelPro
 
               {/* Unidade */}
               {unidadeSigla && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Building2 className="h-3 w-3 shrink-0" />
-                  <span className="font-medium">{unidadeSigla}</span>
-                  {unidadeDesc && <span className="truncate">— {unidadeDesc}</span>}
+                <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                  <Building2 className="h-3 w-3 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <span className="font-medium">{unidadeSigla}</span>
+                    {unidadeDesc && <p className="text-[10px] text-muted-foreground/70 truncate">{unidadeDesc}</p>}
+                  </div>
                 </div>
               )}
 
@@ -170,7 +172,7 @@ export default function FlowSummaryPanel({ nodes, onClose }: FlowSummaryPanelPro
 
               {/* Sem detalhes */}
               {!descricao && !responsavel && !unidadeSigla && documentos.length === 0 && checklist.length === 0 && (
-                <p className="text-[11px] text-muted-foreground italic">Sem detalhes preenchidos.</p>
+                <p className="text-xs text-muted-foreground italic">Sem detalhes preenchidos.</p>
               )}
             </div>
           );

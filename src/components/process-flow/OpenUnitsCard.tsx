@@ -25,6 +25,11 @@ export function OpenUnitsCard({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg">
           <AlertTriangle className="h-5 w-5" /> Unidades em Aberto
+          {openUnitsInProcess && openUnitsInProcess.length > 0 && (
+            <span className="ml-auto inline-flex items-center justify-center rounded-full bg-destructive/10 text-destructive text-xs font-semibold px-2 py-0.5">
+              {openUnitsInProcess.length}
+            </span>
+          )}
         </CardTitle>
         <CardDescription>
           Clique em uma unidade em aberto para foca-la na linha do tempo
@@ -32,6 +37,7 @@ export function OpenUnitsCard({
       </CardHeader>
       <Separator />
       <CardContent className="pt-4">
+
         {unitAccessDenied ? (
           <div className="flex items-center gap-2 text-sm text-warning-foreground">
             <AlertTriangle className="h-4 w-4 flex-shrink-0" />

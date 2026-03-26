@@ -6,7 +6,7 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 export default function AppFooter() {
   return (
-    <footer className="bg-gray-100 py-6 px-4 sm:py-8 sm:px-8">
+    <footer className="bg-muted/50 py-6 px-4 sm:py-8 sm:px-8">
       <div className="flex flex-col items-center gap-6 max-w-6xl mx-auto">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <a href="https://soberania.ai/">
@@ -15,8 +15,7 @@ export default function AppFooter() {
               alt="Logo SoberanIA"
               width={120}
               height={40}
-              className="object-contain"
-              style={{ height: '40px', width: 'auto' }}
+              className="h-10 w-auto object-contain"
             />
           </a>
           <a href="https://pidigital.pi.gov.br/">
@@ -29,7 +28,7 @@ export default function AppFooter() {
             />
           </a>
         </div>
-        <div className="text-center text-xs text-gray-600 max-w-2xl">
+        <div className="text-center text-xs text-muted-foreground max-w-2xl">
           <p className="font-semibold mb-1">{"Desenvolvido pelo N\u00facleo Estrat\u00e9gico de Tecnologia e Governo Digital"}</p>
           <p className="mb-1">{"SEAD-PI/NTGD \u2022 Secretaria de Administra\u00e7\u00e3o do Piau\u00ed & SIA \u2022 Secretaria de Intelig\u00eancia Artificial do Piau\u00ed"}</p>
           <p>{"\u00a9 2026 Governo do Estado do Piau\u00ed"}</p>

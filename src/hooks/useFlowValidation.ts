@@ -59,10 +59,10 @@ export function useFlowValidation() {
     }
 
     if (fimNodes.length === 0) {
-      errors.push({
+      warnings.push({
         code: 'NO_END_NODE',
         message: 'O fluxo não possui nó de Fim.',
-        severity: 'error',
+        severity: 'warning',
       });
     } else if (fimNodes.length > 1) {
       fimNodes.forEach((n) =>

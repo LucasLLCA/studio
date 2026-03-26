@@ -391,7 +391,7 @@ function VisualizarProcessoContent() {
 
   return (
     <>
-      <div className="flex-1 flex flex-col overflow-y-auto px-8 py-4 w-full">
+      <div className="flex-1 flex flex-col overflow-y-auto px-4 sm:px-8 py-4 w-full">
         {/* Loading feedback when no data */}
         {isClient && hasBackgroundLoading && !rawProcessData && (
           <LoadingFeedback
@@ -506,6 +506,15 @@ function VisualizarProcessoContent() {
                 onTaskCardClick={handleTaskCardClick}
               />
 
+              {/* Flow Compliance */}
+              {rawProcessData?.Andamentos && usuario && (
+                <FlowComplianceSection
+                  usuario={usuario}
+                  numeroProcesso={numeroProcesso}
+                  andamentos={rawProcessData.Andamentos}
+                />
+              )}
+
               {/* Andamentos (Timeline or Table) */}
               <Card className="flex flex-col" data-diagram-card>
                <CardHeader className="pb-3 flex-shrink-0">
@@ -526,7 +535,7 @@ function VisualizarProcessoContent() {
           onClick={() => setAndamentosView("timeline")}
         >
           <GanttChartSquare className="mr-1 h-4 w-4" />
-          <span>Linha do Tempo</span>
+          <span className="hidden lg:inline">Linha do Tempo</span>
         </Button>
 
         <Button
@@ -536,7 +545,7 @@ function VisualizarProcessoContent() {
           onClick={() => setAndamentosView("table")}
         >
           <Table2 className="mr-1 h-4 w-4" />
-          <span>Tabela</span>
+          <span className="hidden lg:inline">Tabela</span>
         </Button>
       </div>
     </div>
@@ -551,7 +560,7 @@ function VisualizarProcessoContent() {
             className="h-8 text-xs border-amber-500/50 text-amber-700"
           >
             <FlaskConical className="mr-1 h-3 w-3" />
-            Experimental
+            <span className="hidden lg:inline">Experimental</span>
             <ChevronDown className="ml-1 h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>
@@ -574,7 +583,7 @@ function VisualizarProcessoContent() {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-8 text-xs">
               <Download className="mr-1 h-3 w-3" />
-              Exportar
+              <span className="hidden lg:inline">Exportar</span>
               <ChevronDown className="ml-1 h-3 w-3" />
             </Button>
           </DropdownMenuTrigger>
@@ -619,8 +628,8 @@ function VisualizarProcessoContent() {
             size="sm"
             disabled={!processedFlowData?.tasks.length}
           >
-            <ChevronsLeft className="mr-1 h-4 w-4" />
-            Início
+            <ChevronsLeft className="lg:mr-1 h-4 w-4" />
+            <span className="hidden lg:inline">Início</span>
           </Button>
 
           <Button
@@ -629,8 +638,8 @@ function VisualizarProcessoContent() {
             size="sm"
             disabled={!processedFlowData?.tasks.length}
           >
-            <ChevronsRight className="mr-1 h-4 w-4" />
-            Fim
+            <ChevronsRight className="lg:mr-1 h-4 w-4" />
+            <span className="hidden lg:inline">Fim</span>
           </Button>
 
           <Popover>
@@ -640,8 +649,8 @@ function VisualizarProcessoContent() {
                 size="sm"
                 disabled={!processedFlowData?.tasks.length}
               >
-                <GanttChartSquare className="mr-1 h-4 w-4" />
-                Filtrar Unidades
+                <GanttChartSquare className="lg:mr-1 h-4 w-4" />
+                <span className="hidden lg:inline">Filtrar Unidades</span>
                 {selectedLaneUnits.length > 0 && (
                   <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
                     {selectedLaneUnits.length}
@@ -715,8 +724,8 @@ function VisualizarProcessoContent() {
           <Dialog open={isLegendModalOpen} onOpenChange={setIsLegendModalOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
-                <HelpCircle className="mr-1 h-4 w-4" />
-                Legenda
+                <HelpCircle className="lg:mr-1 h-4 w-4" />
+                <span className="hidden lg:inline">Legenda</span>
               </Button>
             </DialogTrigger>
 
@@ -1105,15 +1114,6 @@ function VisualizarProcessoContent() {
                 </CardContent>
               </Card>
 
-              {/* Flow Compliance */}
-              {rawProcessData?.Andamentos && usuario && (
-                <FlowComplianceSection
-                  usuario={usuario}
-                  numeroProcesso={numeroProcesso}
-                  andamentos={rawProcessData.Andamentos}
-                />
-              )}
-
               {/* Productivity Table */}
               {rawProcessData?.Andamentos?.length > 0 && (
                 <Card className="flex flex-col">
@@ -1123,7 +1123,7 @@ function VisualizarProcessoContent() {
                       {/* LEFT: title + tabs */}
                       <div className="flex items-center gap-3">
                         <CardTitle className="flex items-center gap-2 text-lg">
-                          <GanttChartSquare className="h-5 w-5" /> Tabela Produtividade
+                          <GanttChartSquare className="h-5 w-5" /> Produtividade
                         </CardTitle>
                         <ProcessProductivityTabs
                           value={prodActiveTab}

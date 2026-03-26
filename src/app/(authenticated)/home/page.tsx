@@ -30,7 +30,7 @@ function FeatureCard({ icon, title, subtitle }: FeatureCardProps) {
       <div className="text-primary">{icon}</div>
       <div className="space-y-1">
         <p className="text-primary font-semibold leading-tight">{title}</p>
-        <p className="text-sm text-gray-600 leading-snug">{subtitle}</p>
+        <p className="text-sm text-muted-foreground leading-snug">{subtitle}</p>
       </div>
     </div>
   );
@@ -155,7 +155,7 @@ function HomeContent() {
     <div className="flex flex-1 items-center justify-center p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         <div className="mb-1">
-          <p className="text-gray-700">{"Ol\u00e1, "}<span className="font-semibold">{mounted ? (nomeUsuario || 'Usu\u00e1rio') : 'Usu\u00e1rio'}</span>
+          <p className="text-foreground">{"Ol\u00e1, "}<span className="font-semibold">{mounted ? (nomeUsuario || 'Usu\u00e1rio') : 'Usu\u00e1rio'}</span>
           </p>
         </div>
 
@@ -242,7 +242,7 @@ function HomeContent() {
                   </TabsTrigger>
                 </TabsList>
               </div>
-              <div className="bg-white border border-gray-300 rounded-lg p-3 sm:p-4 min-h-[280px] sm:min-h-[360px]">
+              <div className="bg-white border border-muted-foreground/50 rounded-lg p-3 sm:p-4 min-h-[280px] sm:min-h-[360px]">
                 <TabsContent value="historico" className="mt-0">
                   <HistoricoContent
                     history={history}
@@ -263,7 +263,7 @@ function HomeContent() {
                       contextoMap={contextoMap}
                     />
                   ) : (
-                    <div className="h-[330px] flex items-center justify-center text-sm text-gray-500">
+                    <div className="h-[330px] flex items-center justify-center text-sm text-muted-foreground">
                       Carregando...
                     </div>
                   )}
@@ -276,7 +276,7 @@ function HomeContent() {
                       contextoMap={contextoMap}
                     />
                   ) : (
-                    <div className="h-[330px] flex items-center justify-center text-sm text-gray-500">
+                    <div className="h-[330px] flex items-center justify-center text-sm text-muted-foreground">
                       Carregando...
                     </div>
                   )}

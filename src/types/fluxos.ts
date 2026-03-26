@@ -96,9 +96,18 @@ export type ComplianceStatus = 'concluido' | 'em_andamento' | 'pendente' | 'viol
 export interface FluxoNodeCompliance {
   node: FluxoNode;
   status: ComplianceStatus;
-  matched_andamentos: Array<{ Tarefa: string; DataHora: string; Usuario?: { Nome?: string } }>;
+  matched_andamentos: Array<{
+    Tarefa: string;
+    DataHora: string;
+    Usuario?: { Nome?: string };
+    Unidade?: { Sigla: string; Descricao?: string };
+  }>;
   timestamp: string | null;
   order: number;
+  /** The unidade sigla where this step was actually performed (from matched andamentos). */
+  unidade?: string | null;
+  /** True if the step was completed in a different unidade than the node's responsavel. */
+  escapedFlow?: boolean;
 }
 
 export interface FluxoComplianceSummary {

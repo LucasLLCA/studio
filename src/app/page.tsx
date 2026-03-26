@@ -319,152 +319,25 @@ function LoginPageContent() {
 
   return (
     <>
-      <style jsx>{`
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        
-        .login-screen {
-          background: #e5e7eb;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-          width: 100%;
-          height: 100vh;
-          overflow: hidden;
-          padding: 20px;
-        }
-        
-        .login-card {
-          background: white;
-          padding: 40px;
-          border-radius: 8px;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-          width: 100%;
-          max-width: 400px;
-          z-index: 10;
-        }
-        
-        .logo {
-          text-align: center;
-          margin-bottom: 30px;
-        }
-        
-        .logo-image {
-          margin-bottom: 20px;
-        }
-        
-        .logo h1 {
-          color: #1f2937;
-          font-size: 1.8rem;
-          font-weight: 600;
-          margin-bottom: 5px;
-        }
-        
-        .logo p {
-          color: #6b7280;
-          font-size: 0.9rem;
-        }
-        
-        .form-group {
-          margin-bottom: 20px;
-        }
-        
-        .form-group label {
-          display: block;
-          margin-bottom: 8px;
-          color: #374151;
-          font-weight: 500;
-        }
-        
-        .form-input {
-          width: 100%;
-          padding: 12px 16px;
-          border: 1px solid #d1d5db;
-          border-radius: 6px;
-          font-size: 16px;
-          background: #f9fafb;
-          transition: border-color 0.3s ease;
-        }
-        
-        .form-input:focus {
-          outline: none;
-          border-color: #3b82f6;
-          background: white;
-        }
-        
-        .login-btn {
-          width: 100%;
-          padding: 12px;
-          background: #3b82f6;
-          color: white;
-          border: none;
-          border-radius: 6px;
-          font-size: 16px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          margin-top: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-        }
-        
-        .login-btn:hover:not(:disabled) {
-          background: #2563eb;
-        }
-        
-        .login-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-        
-        .footer {
-          position: absolute;
-          bottom: 20px;
-          text-align: center;
-          color: #6b7280;
-          font-size: 0.875rem;
-        }
-        
-        .footer a {
-          color: #3b82f6;
-          text-decoration: none;
-        }
 
-        .remember-container {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
-}
-        
-      `}</style>
-      
-      <div className="login-screen" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
+      <div className="flex flex-col items-center justify-center relative w-full h-screen overflow-hidden p-5 bg-muted">
         {isAutoLogging ? (
-          <div className="login-card" style={{ textAlign: 'center' }}>
-            <div className="logo">
-              <h1>Login SEI</h1>
-              <p>Visualizador de Processos</p>
+          <div className="bg-card rounded-lg shadow-md p-6 sm:p-10 w-full max-w-md z-10 text-center">
+            <div className="text-center mb-8">
+              <h1 className="text-2xl font-bold text-primary">Login SEI</h1>
+              <p className="text-sm text-muted-foreground">Visualizador de Processos</p>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '40px 0' }}>
-              <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#3b82f6' }} />
-              <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>Realizando login automaticamente...</p>
+            <div className="flex flex-col items-center gap-4 py-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-muted-foreground text-sm">Realizando login automaticamente...</p>
             </div>
           </div>
         ) : (
-        <div className="login-card">
-          <div className="logo">
-            <div className="logo-image">
+        <div className="bg-card rounded-lg shadow-md p-6 sm:p-10 w-full max-w-md z-10">
+          <div className="text-center mb-8">
+            <div className="mb-5">
               <div
-                style={{ display: 'block', margin: '0 auto', width: '100%', maxWidth: '300px', height: 'auto' }}
+                className="block mx-auto w-full max-w-[300px] h-auto"
                 dangerouslySetInnerHTML={{
                   __html: `
 <svg width="100%" height="auto" viewBox="0 0 1097 322" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -532,78 +405,53 @@ function LoginPageContent() {
                 }}
               />
             </div>
-            <h1>Login SEI</h1>
-            <p>Acesse o Visualizador de Processos</p>
+            <h1 className="text-2xl font-bold text-primary mb-1">Login SEI</h1>
+            <p className="text-sm text-muted-foreground">Acesse o Visualizador de Processos</p>
           </div>
           {embedIdentity && (
-            <div style={{
-              background: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              borderRadius: '6px',
-              padding: '12px 16px',
-              color: '#1e40af',
-              fontSize: '0.875rem',
-              marginBottom: '20px',
-              lineHeight: '1.4',
-              display: 'flex',
-              gap: '10px',
-              alignItems: 'flex-start',
-            }}>
-              <Info style={{ width: '18px', height: '16px', flexShrink: 0, marginTop: '1px' }} />
+            <div className="bg-blue-50 border border-blue-200 rounded-md px-4 py-3 text-blue-800 text-sm mb-5 leading-snug flex gap-2.5 items-start">
+              <Info className="w-[18px] h-4 shrink-0 mt-px" />
               <span>Este login é necessário apenas na primeira vez.</span>
             </div>
           )}
           <form onSubmit={handleSubmit(onSubmit)}>
-            <div className="form-group">
-              <label>Usuário</label>
+            <div className="mb-5">
+              <label className="block mb-2 text-foreground font-medium text-sm">Usuário</label>
               <input
                 type="text"
                 placeholder="seu.usuario@orgao.pi.gov.br"
-                className="form-input"
+                className="w-full px-4 py-3 border border-input rounded-md text-base bg-input transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:bg-card"
                 {...register("usuario")}
                 disabled={isLoading}
               />
               {errors.usuario && (
-                <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '4px' }}>{errors.usuario.message}</p>
+                <p className="text-destructive text-sm mt-1">{errors.usuario.message}</p>
               )}
             </div>
-            <div className="form-group">
-              <label>Senha</label>
-              <div style={{ position: 'relative' }}>
+            <div className="mb-5">
+              <label className="block mb-2 text-foreground font-medium text-sm">Senha</label>
+              <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
-                  className="form-input"
-                  style={{ paddingRight: '40px' }}
+                  className="w-full px-4 py-3 pr-10 border border-input rounded-md text-base bg-input transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:bg-card"
                   {...register("senha")}
                   disabled={isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '2px',
-                    color: '#6b7280',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer p-0.5 text-muted-foreground flex items-center"
                 >
-                  {showPassword ? <EyeOff style={{ width: '18px', height: '18px' }} /> : <Eye style={{ width: '18px', height: '18px' }} />}
+                  {showPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
                 </button>
               </div>
               {errors.senha && (
-                <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '4px' }}>{errors.senha.message}</p>
+                <p className="text-destructive text-sm mt-1">{errors.senha.message}</p>
               )}
             </div>
-            <div className="form-group">
-              <label>Orgão</label>
+            <div className="mb-5">
+              <label className="block mb-2 text-foreground font-medium text-sm">Orgão</label>
               <Combobox
                 items={ORGAOS_PIAUI.map((o) => ({ value: o, label: o }))}
                 value={watchedOrgao ? { value: watchedOrgao, label: watchedOrgao } : null}
@@ -618,16 +466,8 @@ function LoginPageContent() {
                     <Button
                     type="button"
                     variant="outline"
-                    // Troque justify-between por justify-center
-                    className="w-full justify-center font-normal" 
+                    className="w-full justify-center font-normal bg-input border border-input cursor-pointer text-center"
                     disabled={isLoading}
-                    style={{
-                      background: '#f9fafb',
-                      border: '1px solid #d1d5db',
-                      cursor: 'pointer',
-                      // Remova o textAlign: 'left' ou mude para 'center'
-                      textAlign: 'center', 
-                    }}
                   >
                     <ComboboxValue placeholder="Selecione um Órgão" />
                   </Button>
@@ -646,47 +486,29 @@ function LoginPageContent() {
                 </ComboboxContent>
               </Combobox>
               {errors.orgao && (
-                <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '4px' }}>{errors.orgao.message}</p>
+                <p className="text-destructive text-sm mt-1">{errors.orgao.message}</p>
               )}
             </div>
             {/* Move o Lembrar de mim para a direita */}
             {!embedIdentity && (
-              <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    marginBottom: '4px',
-                    marginLeft: 'auto',
-                    width: 'fit-content'
-                  }}
-                >
+              <div className="flex items-center gap-2 mb-1 ml-auto w-fit">
                 <input
                   type="checkbox"
                   id="remember-me"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }}
+                  className="w-4 h-4 cursor-pointer accent-primary"
                 />
-                <label htmlFor="remember-me" style={{ cursor: 'pointer', fontSize: '0.875rem', color: '#4b5563' }}>
-      Lembrar de mim
-    </label>
+                <label htmlFor="remember-me" className="cursor-pointer text-sm text-muted-foreground">
+                  Lembrar de mim
+                </label>
               </div>
             )}
             {loginError && (
-              <div style={{
-                marginTop: '4px',
-                marginBottom: '4px',
-                padding: '12px 14px',
-                borderRadius: '8px',
-                backgroundColor: '#fef2f2',
-                border: '1px solid #fecaca',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '10px',
-              }}>
-                <AlertCircle size={18} style={{ color: '#dc2626', flexShrink: 0, marginTop: '1px' }} />
+              <div className="bg-destructive/5 border border-destructive/20 rounded-md p-3 mt-1 mb-1 flex items-start gap-2.5">
+                <AlertCircle size={18} className="text-destructive shrink-0 mt-px" />
                 <div>
-                  <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.875rem', marginBottom: '2px' }}>
+                  <p className="text-destructive text-sm font-semibold mb-0.5">
                     {loginError.tipo === 'usuario'
                       ? 'Usuário não encontrado'
                       : loginError.tipo === 'senha'
@@ -695,7 +517,7 @@ function LoginPageContent() {
                       ? 'Erro ao conectar com o SEI'
                       : 'Senha ou usuário errados'}
                   </p>
-                  <p style={{ color: '#991b1b', fontSize: '0.8125rem', lineHeight: '1.4' }}>
+                  <p className="text-destructive text-sm leading-snug">
                     {loginError.mensagem}
                   </p>
                 </div>
@@ -703,7 +525,7 @@ function LoginPageContent() {
             )}
             <button
               type="submit"
-              className="login-btn"
+              className="w-full py-3 mt-5 bg-primary text-primary-foreground rounded-md text-base font-medium hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors border-none cursor-pointer"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -718,7 +540,7 @@ function LoginPageContent() {
               )}
             </button>
             {authTokenValue && (
-              <p style={{ marginTop: '12px', fontSize: '0.7rem', color: '#9ca3af', wordBreak: 'break-all', textAlign: 'center' }}>
+              <p className="mt-3 text-[10px] text-muted-foreground break-all text-center">
                 auth_token: {authTokenValue}
               </p>
             )}

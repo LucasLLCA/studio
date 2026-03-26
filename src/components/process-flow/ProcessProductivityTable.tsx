@@ -7,7 +7,7 @@ import { parseCustomDateString } from '@/lib/process-flow-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TASK_GROUPS, getGroupKeyForTask } from '@/lib/task-groups';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Info } from 'lucide-react';
+import { Info, ListChecks, Clock, DollarSign } from 'lucide-react';
 import { ProcessFinancialTable } from './ProcessFinancialTable';
 
 export type ProductivityTab = 'tarefas' | 'horas' | 'financeiro';
@@ -490,36 +490,39 @@ export function ProcessProductivityTabs({
     <div className="flex items-center border rounded-md overflow-hidden">
       <button
         onClick={() => onValueChange('tarefas')}
-        className={`px-3 py-1.5 text-sm font-medium h-8 transition-colors ${
+        className={`px-3 py-1.5 text-sm font-medium h-8 transition-colors flex items-center gap-1 ${
           safeValue === 'tarefas'
             ? 'bg-primary text-primary-foreground'
             : 'bg-transparent text-foreground hover:bg-muted'
         }`}
       >
-        Tarefas
+        <ListChecks className="h-4 w-4" />
+        <span className="hidden xl:inline">Tarefas</span>
       </button>
       {hasHorasConfig && (
         <button
           onClick={() => onValueChange('horas')}
-          className={`px-3 py-1.5 text-sm font-medium h-8 transition-colors border-l ${
+          className={`px-3 py-1.5 text-sm font-medium h-8 transition-colors border-l flex items-center gap-1 ${
             safeValue === 'horas'
               ? 'bg-primary text-primary-foreground'
               : 'bg-transparent text-foreground hover:bg-muted'
           }`}
         >
-          Horas
+          <Clock className="h-4 w-4" />
+          <span className="hidden xl:inline">Horas</span>
         </button>
       )}
       {hasHorasConfig && canViewFinanceiro && (
         <button
           onClick={() => onValueChange('financeiro')}
-          className={`px-3 py-1.5 text-sm font-medium h-8 transition-colors border-l ${
+          className={`px-3 py-1.5 text-sm font-medium h-8 transition-colors border-l flex items-center gap-1 ${
             safeValue === 'financeiro'
               ? 'bg-primary text-primary-foreground'
               : 'bg-transparent text-foreground hover:bg-muted'
           }`}
         >
-          Financeiro
+          <DollarSign className="h-4 w-4" />
+          <span className="hidden xl:inline">Financeiro</span>
         </button>
       )}
     </div>

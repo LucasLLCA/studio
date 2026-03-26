@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ArrowLeft, Loader2, Settings, Users, Trash2, Plus, LogOut, Search, X as XIcon, Info } from 'lucide-react';
+import { ArrowLeft, Loader2, Settings, Users, Trash2, Plus, LogOut, Search, X as XIcon, Info, Menu } from 'lucide-react';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer';
+import { ScrollBar } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -422,61 +431,124 @@ export default function EquipeKanbanPage() {
             )}
           </div>
         </div>
+
         <div className="flex items-center gap-2">
+          {/* Membros button — always visible */}
           <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
-            <Settings className="h-4 w-4 mr-1" /> Membros
+            <Settings className="h-4 w-4 md:mr-1" />
+            <span className="hidden md:inline">Membros</span>
           </Button>
-          {!isOwner && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              onClick={() => setIsLeaveTeamOpen(true)}
-            >
-              <LogOut className="h-4 w-4 mr-1" /> Sair da equipe
-            </Button>
-          )}
+
+          {/* Owner: delete team — desktop only */}
           {isOwner && (
-            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setIsDeleteTeamOpen(true)}>
+            <Button variant="outline" size="sm" className="hidden md:inline-flex text-destructive hover:text-destructive" onClick={() => setIsDeleteTeamOpen(true)}>
               <Trash2 className="h-4 w-4 mr-1" /> Excluir equipe
             </Button>
           )}
+
+          {/* Mobile drawer for filters */}
+          <div className="md:hidden">
+            <Drawer>
+              <DrawerTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8">
+                  <Menu className="h-4 w-4" />
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent className="rounded-t-3xl">
+                <div className="mx-auto w-full max-w-md">
+                  <DrawerHeader className="text-center pb-2">
+                    <DrawerTitle>Filtros</DrawerTitle>
+                  </DrawerHeader>
+                  <div className="px-4 pb-4 space-y-4 max-h-[75vh] overflow-y-auto">
+                    {/* Search */}
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-primary">Buscar</p>
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                        <Input placeholder="Número Processo..." value={filterNumero} onChange={(e) => setFilterNumero(e.target.value)} className="pl-8 h-10 rounded-xl" />
+                      </div>
+                    </div>
+                    <Separator />
+                    {/* Grupos */}
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-primary">Grupos</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {board.colunas.map(coluna => (
+                          <button key={coluna.tag_id} onClick={() => setFilterTagIds(prev => { const next = new Set(prev); if (next.has(coluna.tag_id)) next.delete(coluna.tag_id); else next.add(coluna.tag_id); return next; })} className={cn('text-xs px-2.5 py-1 rounded-full border transition-colors', filterTagIds.has(coluna.tag_id) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border')}>
+                            {coluna.tag_nome}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Tags */}
+                    {usedTeamTags.length > 0 && (
+                      <>
+                        <Separator />
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-primary">Tags</p>
+                            {filterTeamTagIds.size > 1 && (
+                              <button
+                                onClick={() => setTagFilterMode(prev => prev === 'and' ? 'or' : 'and')}
+                                className={cn(
+                                  'text-[10px] font-bold px-2 py-0.5 rounded border transition-colors',
+                                  tagFilterMode === 'and' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-amber-100 text-amber-700 border-amber-300',
+                                )}
+                              >
+                                {tagFilterMode === 'and' ? 'E' : 'OU'}
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {usedTeamTags.map(tag => {
+                              const active = filterTeamTagIds.has(tag.id);
+                              return (
+                                <button key={tag.id} onClick={() => setFilterTeamTagIds(prev => { const next = new Set(prev); if (next.has(tag.id)) next.delete(tag.id); else next.add(tag.id); return next; })} className={cn('text-xs px-2.5 py-1 rounded-full border transition-all', active ? 'opacity-100' : 'opacity-70')} style={tag.cor ? { backgroundColor: active ? tag.cor : 'transparent', color: active ? '#fff' : tag.cor, borderColor: tag.cor } : undefined}>
+                                  {tag.nome}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <DrawerClose asChild>
+                      <Button variant="outline" className="w-full rounded-xl h-12">Fechar</Button>
+                    </DrawerClose>
+                  </div>
+                </div>
+              </DrawerContent>
+            </Drawer>
+          </div>
         </div>
       </div>
 
-      {/* Barra de filtros */}
-      <div className="flex-shrink-0 border-b px-4 sm:px-6 py-2 space-y-2 bg-muted/20">
-        {/* Row 1: Search */}
+      {/* Desktop filter bar */}
+      <div className="hidden md:block flex-shrink-0 border-b px-4 sm:px-6 py-2 space-y-2 bg-muted/20">
+        {/* Search */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Número Processo..."
-              value={filterNumero}
-              onChange={(e) => setFilterNumero(e.target.value)}
-              className="pl-8 h-8 text-sm"
-            />
+            <Input placeholder="Número Processo..." value={filterNumero} onChange={(e) => setFilterNumero(e.target.value)} className="pl-8 h-8 text-sm" />
             {filterNumero && (
-              <button
-                onClick={() => setFilterNumero('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
+              <button onClick={() => setFilterNumero('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                 <XIcon className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
           {filtroAtivo && (
-            <button
-              onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); setFilterTeamTagIds(new Set()); }}
-              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0"
-            >
+            <button onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); setFilterTeamTagIds(new Set()); }} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0">
               Limpar filtros
             </button>
           )}
         </div>
 
-        {/* Row 2: Grupos de processos */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <Separator />
+
+        {/* Grupos — horizontal scroll */}
+        <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-1 shrink-0">
             <span className="text-xs text-muted-foreground font-medium">Grupos</span>
             <TooltipProvider delayDuration={200}>
@@ -486,97 +558,60 @@ export default function EquipeKanbanPage() {
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs text-xs">
                   Clique em um grupo para filtrar os processos daquele grupo no quadro.
-                  Vários grupos podem ser selecionados ao mesmo tempo.
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
-          {board.colunas.map(coluna => (
-            <button
-              key={coluna.tag_id}
-              onClick={() => setFilterTagIds(prev => {
-                const next = new Set(prev);
-                if (next.has(coluna.tag_id)) next.delete(coluna.tag_id);
-                else next.add(coluna.tag_id);
-                return next;
-              })}
-              className={cn(
-                'text-xs px-2.5 py-0.5 rounded-full border transition-colors',
-                filterTagIds.has(coluna.tag_id)
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
-              )}
-            >
-              {coluna.tag_nome}
-            </button>
-          ))}
+          <ScrollArea className="flex-1">
+            <div className="flex items-center gap-1.5 pb-1">
+              {board.colunas.map(coluna => (
+                <button key={coluna.tag_id} onClick={() => setFilterTagIds(prev => { const next = new Set(prev); if (next.has(coluna.tag_id)) next.delete(coluna.tag_id); else next.add(coluna.tag_id); return next; })} className={cn('text-xs px-2.5 py-0.5 rounded-full border transition-colors shrink-0', filterTagIds.has(coluna.tag_id) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground')}>
+                  {coluna.tag_nome}
+                </button>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         </div>
 
-        {/* Row 3: Tags de observação */}
+        {/* Tags — horizontal scroll */}
         {usedTeamTags.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <div className="flex items-center gap-1 shrink-0">
-              <span className="text-xs text-muted-foreground font-medium">Tags</span>
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs text-xs">
-                    Filtra processos que possuem esta tag. Use E/OU para definir se o processo precisa ter todas ou qualquer uma das tags selecionadas.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            {/* AND/OR toggle */}
-            {filterTeamTagIds.size > 1 && (
-              <button
-                onClick={() => setTagFilterMode(prev => prev === 'and' ? 'or' : 'and')}
-                className={cn(
-                  'text-[10px] font-bold px-2 py-0.5 rounded border transition-colors shrink-0',
-                  tagFilterMode === 'and'
-                    ? 'bg-blue-100 text-blue-700 border-blue-300'
-                    : 'bg-amber-100 text-amber-700 border-amber-300',
-                )}
-                title={tagFilterMode === 'and'
-                  ? 'E — processo deve ter TODAS as tags selecionadas'
-                  : 'OU — processo deve ter QUALQUER uma das tags selecionadas'
-                }
-              >
-                {tagFilterMode === 'and' ? 'E' : 'OU'}
-              </button>
-            )}
-            {usedTeamTags.map(tag => {
-              const active = filterTeamTagIds.has(tag.id);
-              return (
-                <button
-                  key={tag.id}
-                  onClick={() => setFilterTeamTagIds(prev => {
-                    const next = new Set(prev);
-                    if (next.has(tag.id)) next.delete(tag.id);
-                    else next.add(tag.id);
-                    return next;
-                  })}
-                  className={cn(
-                    'text-xs px-2.5 py-0.5 rounded-full border transition-all',
-                    active ? 'opacity-100 ring-2 ring-offset-1' : 'opacity-70 hover:opacity-100'
-                  )}
-                  style={tag.cor
-                    ? {
-                        backgroundColor: active ? tag.cor : 'transparent',
-                        color: active ? '#fff' : tag.cor,
-                        borderColor: tag.cor,
-                        ...(active ? { ringColor: tag.cor } : {}),
-                      }
-                    : undefined
-                  }
-                  title={`Filtrar por tag "${tag.nome}"`}
-                >
-                  {tag.nome}
+          <>
+            <Separator />
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-xs text-muted-foreground font-medium">Tags</span>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs text-xs">
+                      Filtra processos que possuem esta tag.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              {filterTeamTagIds.size > 1 && (
+                <button onClick={() => setTagFilterMode(prev => prev === 'and' ? 'or' : 'and')} className={cn('text-[10px] font-bold px-2 py-0.5 rounded border transition-colors shrink-0', tagFilterMode === 'and' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-amber-100 text-amber-700 border-amber-300')} title={tagFilterMode === 'and' ? 'E — todas as tags' : 'OU — qualquer tag'}>
+                  {tagFilterMode === 'and' ? 'E' : 'OU'}
                 </button>
-              );
-            })}
-          </div>
+              )}
+              <ScrollArea className="flex-1">
+                <div className="flex items-center gap-1.5 pb-1">
+                  {usedTeamTags.map(tag => {
+                    const active = filterTeamTagIds.has(tag.id);
+                    return (
+                      <button key={tag.id} onClick={() => setFilterTeamTagIds(prev => { const next = new Set(prev); if (next.has(tag.id)) next.delete(tag.id); else next.add(tag.id); return next; })} className={cn('text-xs px-2.5 py-0.5 rounded-full border transition-all shrink-0', active ? 'opacity-100 ring-2 ring-offset-1' : 'opacity-70 hover:opacity-100')} style={tag.cor ? { backgroundColor: active ? tag.cor : 'transparent', color: active ? '#fff' : tag.cor, borderColor: tag.cor } : undefined} title={`Filtrar por tag "${tag.nome}"`}>
+                        {tag.nome}
+                      </button>
+                    );
+                  })}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </div>
+          </>
         )}
       </div>
 
@@ -619,45 +654,50 @@ export default function EquipeKanbanPage() {
         />
       )}
 
-      {/* Team Settings Sheet */}
+      {/* Team Settings Sheet — responsive */}
       <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <SheetContent className="sm:max-w-lg">
-          <SheetHeader>
-            <SheetTitle>{board.equipe.nome}</SheetTitle>
-            <SheetDescription>
-              {board.equipe.descricao || 'Gerenciar membros da equipe'}
-            </SheetDescription>
-          </SheetHeader>
+        <SheetContent className="w-full sm:max-w-lg p-0 flex flex-col">
+          <div className="p-4 sm:p-6 border-b">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                {board.equipe.nome}
+              </SheetTitle>
+              <SheetDescription>
+                {board.equipe.descricao || 'Gerenciar membros da equipe'}
+              </SheetDescription>
+            </SheetHeader>
+          </div>
 
-          <div className="mt-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+            {/* Members list */}
             <div>
               <h3 className="text-sm font-semibold mb-2">Membros ({board.equipe.membros.length})</h3>
-              <ScrollArea className="h-[200px]">
-                <div className="space-y-2">
-                  {board.equipe.membros.map((m) => (
-                    <div key={m.id} className="flex items-center justify-between p-2 rounded-md border">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">{m.usuario}</span>
-                        <Badge variant={m.papel === 'admin' ? 'default' : 'secondary'} className="text-xs">
-                          {m.papel === 'admin' ? <><Crown className="h-3 w-3 mr-1" />Proprietario</> : 'Membro'}
+              <div className="space-y-2">
+                {board.equipe.membros.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between p-2.5 rounded-lg border">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold shrink-0">
+                        {m.usuario.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-sm truncate block">{m.usuario}</span>
+                        <Badge variant={m.papel === 'admin' ? 'default' : 'secondary'} className="text-[10px] mt-0.5">
+                          {m.papel === 'admin' ? <><Crown className="h-2.5 w-2.5 mr-0.5" />Proprietário</> : 'Membro'}
                         </Badge>
                       </div>
-                      {isAdmin && m.usuario !== usuario && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => handleRemoveMember(m.usuario)}
-                        >
-                          <X className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      )}
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
+                    {isAdmin && m.usuario !== usuario && (
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => handleRemoveMember(m.usuario)}>
+                        <X className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
+            {/* Add member */}
             {isAdmin && (
               <>
                 <Separator />
@@ -669,12 +709,9 @@ export default function EquipeKanbanPage() {
                       value={newMemberEmail}
                       onChange={(e) => setNewMemberEmail(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleAddMember(); }}
+                      className="h-10"
                     />
-                    <Button
-                      size="sm"
-                      onClick={handleAddMember}
-                      disabled={!newMemberEmail.trim() || isAddingMember}
-                    >
+                    <Button onClick={handleAddMember} disabled={!newMemberEmail.trim() || isAddingMember} className="h-10 shrink-0">
                       {isAddingMember ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
                     </Button>
                   </div>
@@ -683,18 +720,27 @@ export default function EquipeKanbanPage() {
             )}
           </div>
 
-          {!isOwner && (
-            <>
-              <Separator />
+          {/* Bottom actions */}
+          <div className="p-4 sm:p-6 border-t space-y-2">
+            {!isOwner && (
               <Button
                 variant="outline"
-                className="w-full text-destructive hover:text-destructive"
-                onClick={() => setIsLeaveTeamOpen(true)}
+                className="w-full text-destructive hover:text-destructive h-10"
+                onClick={() => { setIsSettingsOpen(false); setIsLeaveTeamOpen(true); }}
               >
                 <LogOut className="mr-2 h-4 w-4" /> Sair da equipe
               </Button>
-            </>
-          )}
+            )}
+            {isOwner && (
+              <Button
+                variant="outline"
+                className="w-full text-destructive hover:text-destructive h-10"
+                onClick={() => { setIsSettingsOpen(false); setIsDeleteTeamOpen(true); }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Excluir equipe
+              </Button>
+            )}
+          </div>
         </SheetContent>
       </Sheet>
 

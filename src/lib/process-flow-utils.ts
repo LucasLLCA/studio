@@ -42,6 +42,33 @@ export const SIGNIFICANT_TASK_TYPES: string[] = [
 
 const AUTO_CONCLUSION_TASK_TYPE = 'CONCLUSAO-AUTOMATICA-UNIDADE';
 
+/** Bloco-related task types — these represent cross-unit document signing interactions,
+ *  NOT physical process movement. They should use dotted lines, not solid. */
+const BLOCO_TASK_TYPES = new Set([
+  'DOCUMENTO-INCLUIDO-EM-BLOCO',
+  'DOCUMENTO-RETIRADO-DO-BLOCO',
+  'PROCESSO-INCLUIDO-EM-BLOCO',
+  'BLOCO-DISPONIBILIZACAO',
+  'BLOCO-RETORNO',
+  'BLOCO-CONCLUSAO',
+  'BLOCO-CANCELAMENTO-DISPONIBILIZACAO',
+]);
+
+/** Check if a task is a bloco-related cross-unit interaction (signature via bloco). */
+function isBlocoRelatedCrossUnit(task: Andamento, blocoOriginUnits: Map<string, string>): boolean {
+  // ASSINATURA-DOCUMENTO in a unit different from where the document was included in a bloco
+  if (task.Tarefa === 'ASSINATURA-DOCUMENTO') {
+    const docId = task.Atributos?.find(a => a.Nome === 'DOCUMENTO')?.Valor;
+    if (docId) {
+      const originUnitId = blocoOriginUnits.get(docId);
+      if (originUnitId && originUnitId !== task.Unidade.IdUnidade) return true;
+    }
+  }
+  // BLOCO-RETORNO is always a cross-unit bloco interaction
+  if (task.Tarefa === 'BLOCO-RETORNO') return true;
+  return false;
+}
+
 const BLOCO_REF_RE = /\bbloco\s+(\d+)/i;
 const DOC_REF_RE = /\bdocumento\s+(?:\w+\s+)*?(\d{6,})/i;
 
@@ -173,15 +200,37 @@ export function processAndamentos(
       return a.IdAndamento.localeCompare(b.IdAndamento);
     });
 
-  // Post-sort fixup: when a CONCLUSAO appears before its matching
+  // Post-sort fixup 1: when RECEBIDO appears before its matching REMETIDO
+  // within 60s, swap them. Logical order: REMETIDO → RECEBIDO.
+  // SEI sometimes records RECEBIDO a few seconds before REMETIDO.
+  for (let i = 0; i < sorted.length; i++) {
+    if (sorted[i].Tarefa !== 'PROCESSO-RECEBIDO-UNIDADE') continue;
+    const recebidoTime = sorted[i].parsedDate.getTime();
+    const recebidoUnit = sorted[i].Unidade.IdUnidade;
+    // Look forward for a REMETIDO within 60s whose destination matches this RECEBIDO's unit
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (sorted[j].parsedDate.getTime() - recebidoTime > 60000) break;
+      if (sorted[j].Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
+        // Check if this REMETIDO's destination unit matches the RECEBIDO's unit
+        // REMETIDO is recorded in the DESTINATION unit with UNIDADE attr = SENDER
+        // If the REMETIDO is in the same unit as RECEBIDO, it's the matching pair
+        if (sorted[j].Unidade.IdUnidade === recebidoUnit) {
+          // Move REMETIDO before RECEBIDO
+          const [remetido] = sorted.splice(j, 1);
+          sorted.splice(i, 0, remetido);
+          break;
+        }
+      }
+    }
+  }
+
+  // Post-sort fixup 2: when a CONCLUSAO appears before its matching
   // REMETIDO/RECEBIDO within 60s, move it after them.
   // Correct chronological order: REMETIDO → RECEBIDO → CONCLUSAO
   for (let i = 0; i < sorted.length; i++) {
     const tarefa = sorted[i].Tarefa;
     if (tarefa !== 'CONCLUSAO-AUTOMATICA-UNIDADE' && tarefa !== 'CONCLUSAO-PROCESSO-UNIDADE') continue;
     const conclusaoTime = sorted[i].parsedDate.getTime();
-    // Look backwards for REMETIDO/RECEBIDO within 60s that should come before this CONCLUSAO
-    // If a REMETIDO at a later timestamp exists, the CONCLUSAO should follow it
     let lastTransferAfter = i;
     for (let j = i + 1; j < sorted.length; j++) {
       const candidate = sorted[j];
@@ -192,10 +241,8 @@ export function processAndamentos(
       }
     }
     if (lastTransferAfter > i) {
-      // Move CONCLUSAO after the last transfer event
       const [conclusao] = sorted.splice(i, 1);
       sorted.splice(lastTransferAfter, 0, conclusao);
-      // Re-check from same position since we removed an element
       i--;
     }
   }
@@ -378,13 +425,82 @@ export function processAndamentos(
     'GERACAO-PROCEDIMENTO',
   ]);
 
+  // Build bloco origin map: document ID → unit ID where it was included in a bloco.
+  // This lets us trace cross-unit bloco signatures back to the originating unit.
+  const blocoOriginUnits = new Map<string, string>();
+  const blocoDocToInclusionTask = new Map<string, ProcessedAndamento>();
+  for (const task of processedTasks) {
+    if (task.Tarefa === 'DOCUMENTO-INCLUIDO-EM-BLOCO') {
+      const docId = task.Atributos?.find(a => a.Nome === 'DOCUMENTO')?.Valor;
+      if (docId && !blocoOriginUnits.has(docId)) {
+        blocoOriginUnits.set(docId, task.Unidade.IdUnidade);
+        blocoDocToInclusionTask.set(docId, task);
+      }
+    }
+  }
+
   for (let i = 0; i < processedTasks.length; i++) {
     const currentTask = processedTasks[i];
     const currentUnitId = currentTask.Unidade.IdUnidade;
+    const isBlocoTask = BLOCO_TASK_TYPES.has(currentTask.Tarefa);
+    const isCrossUnitBloco = isBlocoRelatedCrossUnit(currentTask, blocoOriginUnits);
 
-    // Cross-unit document/bloco reference: dotted arrow to origin activity.
-    // Also draws dotted lines for same-unit orphan nodes (in concluded lanes)
-    // since they have no intra-lane connections.
+    // ── Cross-unit bloco signature: dotted arrow to the inclusion task ──
+    if (isCrossUnitBloco) {
+      const docId = currentTask.Atributos?.find(a => a.Nome === 'DOCUMENTO')?.Valor;
+      const inclusionTask = docId ? blocoDocToInclusionTask.get(docId) : undefined;
+      if (inclusionTask) {
+        connections.push({ sourceTask: inclusionTask, targetTask: currentTask, style: 'dotted' });
+      }
+      // Don't update lane state for cross-unit bloco interactions
+      continue;
+    }
+
+    // ── Bloco operations: dotted link, skip lane continuity ──
+    if (isBlocoTask) {
+      // Try to link to the document's inclusion task or ref origin
+      const refIds: string[] = [];
+      if (currentTask.originalTaskIds) {
+        for (const origId of currentTask.originalTaskIds) {
+          const orig = globallySortedAndamentos.find(a => a.IdAndamento === origId);
+          if (orig) {
+            const rawDesc = orig.Descricao?.replace(/<[^>]*>/g, '') || '';
+            const refId = extractReferenceId(rawDesc);
+            if (refId && !refIds.includes(refId)) refIds.push(refId);
+          }
+        }
+      } else {
+        const rawDesc = currentTask.Descricao?.replace(/<[^>]*>/g, '') || '';
+        const refId = extractReferenceId(rawDesc);
+        if (refId) refIds.push(refId);
+      }
+      // Also check document attributes for bloco tasks
+      const docAttr = currentTask.Atributos?.find(a => a.Nome === 'DOCUMENTO')?.Valor;
+      if (docAttr) {
+        const inclusionTask = blocoDocToInclusionTask.get(docAttr);
+        if (inclusionTask && inclusionTask.IdAndamento !== currentTask.IdAndamento) {
+          connections.push({ sourceTask: inclusionTask, targetTask: currentTask, style: 'dotted' });
+          continue;
+        }
+      }
+      for (const refId of refIds) {
+        const origin = firstByRef.get(refId);
+        if (origin && origin.IdAndamento !== currentTask.IdAndamento) {
+          connections.push({ sourceTask: origin, targetTask: currentTask, style: 'dotted' });
+        }
+      }
+      // If no ref found, try linking to last task in same lane (as dotted)
+      if (refIds.length === 0 && !docAttr) {
+        const lastInLane = latestTaskInLane.get(currentUnitId);
+        if (lastInLane && lastInLane.IdAndamento !== currentTask.IdAndamento) {
+          connections.push({ sourceTask: lastInLane, targetTask: currentTask, style: 'dotted' });
+        }
+      }
+      // Bloco tasks don't participate in lane continuity
+      continue;
+    }
+
+    // ── Standard cross-unit document reference: dotted arrow to origin activity ──
     const isOrphanInConcludedLane = concludedLanes.has(currentUnitId);
     {
       const refIds: string[] = [];
@@ -413,9 +529,6 @@ export function processAndamentos(
     }
 
     // REMETIDO sender cross-lane connection runs BEFORE activation check.
-    // The sender lane connection is about the sender, not the destination unit,
-    // so it must work even when the destination unit hasn't been activated yet
-    // (e.g., first REMETIDO to a new unit like ACERVO).
     if (currentTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
       const senderUnitAttribute = currentTask.Atributos?.find(attr => attr.Nome === "UNIDADE");
       const senderUnitId = senderUnitAttribute?.IdOrigem;
@@ -432,7 +545,6 @@ export function processAndamentos(
 
     // Non-activated unit: skip intra-lane flow connections
     if (!activatedUnits.has(currentUnitId)) {
-      // Still track REMETIDO in the lane so future events can find it
       if (currentTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
         latestTaskInLane.set(currentUnitId, currentTask);
       }
@@ -445,15 +557,11 @@ export function processAndamentos(
     }
 
     // If this lane is concluded, orphan activities don't participate in flow connections.
-    // They are still rendered as nodes but have no intra-lane edges.
     if (concludedLanes.has(currentUnitId)) {
-      // Don't update latestTaskInLane — keep the lane "dead"
       continue;
     }
 
     if (currentTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE') {
-      // Also connect from the receiving unit's own previous node if it wasn't concluded.
-      // When a unit never had a conclusão, the process stayed open there — maintain lane continuity.
       const lastActionInOwnLane = latestTaskInLane.get(currentUnitId);
       if (lastActionInOwnLane &&
           lastActionInOwnLane.IdAndamento !== currentTask.IdAndamento &&
@@ -467,7 +575,6 @@ export function processAndamentos(
       const lastActionInCurrentLane = latestTaskInLane.get(currentUnitId);
       if (lastActionInCurrentLane) {
           if(lastActionInCurrentLane.IdAndamento !== currentTask.IdAndamento || lastActionInCurrentLane.globalSequence !== currentTask.globalSequence) {
-             // Do not draw a connection if the last action was a conclusion (manual or automatic).
              if (lastActionInCurrentLane.Tarefa !== AUTO_CONCLUSION_TASK_TYPE &&
                  lastActionInCurrentLane.Tarefa !== 'CONCLUSAO-PROCESSO-UNIDADE') {
                 connections.push({ sourceTask: lastActionInCurrentLane, targetTask: currentTask });
@@ -476,7 +583,6 @@ export function processAndamentos(
       }
       latestTaskInLane.set(currentUnitId, currentTask);
 
-      // Mark lane as concluded after processing the conclusão node
       if (currentTask.Tarefa === AUTO_CONCLUSION_TASK_TYPE ||
           currentTask.Tarefa === 'CONCLUSAO-PROCESSO-UNIDADE') {
         concludedLanes.add(currentUnitId);
@@ -524,19 +630,126 @@ export function processAndamentos(
   const maxX = processedTasks.length > 0 ? Math.max(...processedTasks.map(t => t.x)) : INITIAL_X_OFFSET;
   const calculatedSvgHeight = (laneMap.size || 1) * VERTICAL_LANE_SPACING + INITIAL_Y_OFFSET;
 
-  // Deduplicate connections — same (source, target) pair can be pushed more than once
-  // when summary nodes or remetido tasks share IdAndamento values across iterations.
+  // ── Post-processing: enforce ONE incoming edge per node, fix orphans ──
+
+  // 1. Deduplicate exact same (source, target) pairs
   const seenConns = new Set<string>();
-  const uniqueConnections = connections.filter(conn => {
+  const deduped = connections.filter(conn => {
     const k = `${conn.sourceTask.IdAndamento}|${conn.targetTask.IdAndamento}|${conn.sourceTask.globalSequence}|${conn.targetTask.globalSequence}`;
     if (seenConns.has(k)) return false;
     seenConns.add(k);
     return true;
   });
 
+  // 2. Keep only ONE incoming edge per target node (prefer solid over dotted).
+  // Exception: REMETIDO nodes that land in an unconcluded lane keep BOTH the
+  // sender connection (actual tramitação) AND the own-lane continuity connection.
+  const bestIncoming = new Map<string, Connection>();
+  // Extra connections for REMETIDO nodes with lane continuity
+  const extraRemetidoConns: Connection[] = [];
+
+  for (const conn of deduped) {
+    const targetKey = `${conn.targetTask.IdAndamento}|${conn.targetTask.globalSequence}`;
+    const existing = bestIncoming.get(targetKey);
+    if (!existing) {
+      bestIncoming.set(targetKey, conn);
+    } else {
+      const existingIsSolid = !existing.style;
+      const newIsSolid = !conn.style;
+
+      // For REMETIDO targets: keep BOTH sender and own-lane connections if both solid
+      if (conn.targetTask.Tarefa === 'PROCESSO-REMETIDO-UNIDADE' && newIsSolid && existingIsSolid) {
+        const existingIsSender = existing.sourceTask.Unidade.IdUnidade !== conn.targetTask.Unidade.IdUnidade;
+        const newIsSender = conn.sourceTask.Unidade.IdUnidade !== conn.targetTask.Unidade.IdUnidade;
+        if (existingIsSender !== newIsSender) {
+          // One is sender, one is own-lane — keep both
+          extraRemetidoConns.push(conn);
+          continue;
+        }
+      }
+
+      // Prefer solid over dotted
+      if (newIsSolid && !existingIsSolid) {
+        bestIncoming.set(targetKey, conn);
+      }
+      // If both same type, keep the one with closest source
+      else if (newIsSolid === existingIsSolid) {
+        const existingDist = Math.abs(conn.targetTask.globalSequence - existing.sourceTask.globalSequence);
+        const newDist = Math.abs(conn.targetTask.globalSequence - conn.sourceTask.globalSequence);
+        if (newDist < existingDist) {
+          bestIncoming.set(targetKey, conn);
+        }
+      }
+    }
+  }
+  const singleIncomingConns = [...Array.from(bestIncoming.values()), ...extraRemetidoConns];
+
+  // 3. Fix orphan nodes: every non-first node should have at least one incoming edge.
+  // Build set of nodes that have incoming edges.
+  const nodesWithIncoming = new Set<string>();
+  for (const conn of singleIncomingConns) {
+    nodesWithIncoming.add(`${conn.targetTask.IdAndamento}|${conn.targetTask.globalSequence}`);
+  }
+
+  const firstTaskKey = processedTasks.length > 0
+    ? `${processedTasks[0].IdAndamento}|${processedTasks[0].globalSequence}`
+    : '';
+
+  for (let i = 1; i < processedTasks.length; i++) {
+    const task = processedTasks[i];
+    const taskKey = `${task.IdAndamento}|${task.globalSequence}`;
+    if (nodesWithIncoming.has(taskKey)) continue;
+
+    // Orphan node — try to infer a connection
+    let linkedSource: ProcessedAndamento | null = null;
+    let linkedStyle: 'dotted' | undefined = 'dotted';
+
+    // Strategy A: bloco task → link to DOCUMENTO-INCLUIDO-EM-BLOCO via document attr
+    if (BLOCO_TASK_TYPES.has(task.Tarefa) || isBlocoRelatedCrossUnit(task, blocoOriginUnits)) {
+      const docId = task.Atributos?.find(a => a.Nome === 'DOCUMENTO')?.Valor;
+      if (docId) {
+        linkedSource = blocoDocToInclusionTask.get(docId) ?? null;
+      }
+    }
+
+    // Strategy B: signature in a foreign unit → link to document origin
+    if (!linkedSource && task.Tarefa === 'ASSINATURA-DOCUMENTO') {
+      const docId = task.Atributos?.find(a => a.Nome === 'DOCUMENTO')?.Valor;
+      if (docId) {
+        // Find the task that generated or included this document
+        const generationTask = processedTasks.find(t =>
+          t.globalSequence < task.globalSequence &&
+          (t.Tarefa === 'GERACAO-DOCUMENTO' || t.Tarefa === 'DOCUMENTO-INCLUIDO-EM-BLOCO') &&
+          t.Atributos?.some(a => a.Nome === 'DOCUMENTO' && a.Valor === docId)
+        );
+        if (generationTask) linkedSource = generationTask;
+      }
+    }
+
+    // Strategy C: BLOCO-RETORNO → link to last BLOCO-DISPONIBILIZACAO in a different unit
+    if (!linkedSource && task.Tarefa === 'BLOCO-RETORNO') {
+      const lastDisp = [...processedTasks].reverse().find(t =>
+        t.globalSequence < task.globalSequence &&
+        t.Tarefa === 'BLOCO-DISPONIBILIZACAO' &&
+        t.Unidade.IdUnidade !== task.Unidade.IdUnidade
+      );
+      if (lastDisp) linkedSource = lastDisp;
+    }
+
+    // Strategy D: fallback — link to the chronologically previous node (dotted)
+    if (!linkedSource) {
+      linkedSource = processedTasks[i - 1];
+    }
+
+    if (linkedSource) {
+      singleIncomingConns.push({ sourceTask: linkedSource, targetTask: task, style: linkedStyle });
+      nodesWithIncoming.add(taskKey);
+    }
+  }
+
   return {
     tasks: processedTasks,
-    connections: uniqueConnections,
+    connections: singleIncomingConns,
     svgWidth: maxX + NODE_RADIUS + HORIZONTAL_SPACING_BASE, 
     svgHeight: Math.max(calculatedSvgHeight, INITIAL_Y_OFFSET * 2),
     laneMap,

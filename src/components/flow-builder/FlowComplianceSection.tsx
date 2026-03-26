@@ -2,22 +2,18 @@
 
 import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { GitBranch, CheckCircle2, Clock, AlertTriangle, Circle, Loader2, ExternalLink } from 'lucide-react';
+import { ReactFlowProvider } from '@xyflow/react';
+import { GitBranch, AlertTriangle, Loader2, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+import { Separator } from '@/components/ui/separator';
 import { useFluxosByProcesso } from '@/lib/react-query/queries/useFluxos';
 import { computeFlowCompliance } from '@/lib/flow-compliance';
 import { stripProcessNumber } from '@/lib/utils';
 import type { Andamento } from '@/types/process-flow';
-import type { ComplianceStatus, FluxoComplianceResult } from '@/types/fluxos';
-import { parseCustomDateString } from '@/lib/process-flow-utils';
+import type { FluxoComplianceResult } from '@/types/fluxos';
+import { FlowComplianceGraph } from './FlowComplianceGraph';
 
 interface FlowComplianceSectionProps {
   usuario: string;
@@ -25,74 +21,13 @@ interface FlowComplianceSectionProps {
   andamentos: Andamento[];
 }
 
-const STATUS_CONFIG: Record<ComplianceStatus, { label: string; icon: React.ReactNode; className: string }> = {
-  concluido: {
-    label: 'Concluído',
-    icon: <CheckCircle2 className="h-3.5 w-3.5" />,
-    className: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800',
-  },
-  em_andamento: {
-    label: 'Em andamento',
-    icon: <Clock className="h-3.5 w-3.5" />,
-    className: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800',
-  },
-  pendente: {
-    label: 'Pendente',
-    icon: <Circle className="h-3.5 w-3.5" />,
-    className: 'bg-gray-500/10 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700',
-  },
-  violado: {
-    label: 'Pulado',
-    icon: <AlertTriangle className="h-3.5 w-3.5" />,
-    className: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800',
-  },
-};
-
-const NODE_TYPE_LABELS: Record<string, string> = {
-  inicio: 'Início',
-  fim: 'Fim',
-  sei_task: 'Tarefa SEI',
-  etapa: 'Etapa',
-  decisao: 'Decisão',
-  fork: 'Fork',
-  join: 'Join',
-};
-
-function formatTimestamp(dateStr: string | null): string | null {
-  if (!dateStr) return null;
-  try {
-    const d = parseCustomDateString(dateStr);
-    if (isNaN(d.getTime())) {
-      // Try ISO format
-      const iso = new Date(dateStr);
-      if (!isNaN(iso.getTime())) return iso.toLocaleString('pt-BR');
-      return null;
-    }
-    return d.toLocaleString('pt-BR');
-  } catch {
-    return null;
-  }
-}
-
-function ComplianceBadge({ status }: { status: ComplianceStatus }) {
-  const config = STATUS_CONFIG[status];
-  return (
-    <Badge variant="outline" className={`gap-1 text-[10px] px-1.5 py-0 ${config.className}`}>
-      {config.icon}
-      {config.label}
-    </Badge>
-  );
-}
-
 function FlowComplianceCard({ result }: { result: FluxoComplianceResult }) {
   const { fluxo, summary, nodes } = result;
-
-  // All nodes including inicio/fim for the step list display
-  const displayNodes = nodes;
+  const escapedCount = nodes.filter((nc) => nc.escapedFlow).length;
 
   return (
-    <div className="border rounded-lg p-4 space-y-3">
-      {/* Header */}
+    <div className="space-y-3">
+      {/* Header row */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -103,9 +38,6 @@ function FlowComplianceCard({ result }: { result: FluxoComplianceResult }) {
               {fluxo.nome}
               <ExternalLink className="h-3 w-3 opacity-50" />
             </Link>
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              {fluxo.status}
-            </Badge>
           </div>
           {fluxo.descricao && (
             <p className="text-xs text-muted-foreground mt-0.5 truncate">{fluxo.descricao}</p>
@@ -117,6 +49,11 @@ function FlowComplianceCard({ result }: { result: FluxoComplianceResult }) {
           {summary.concluido > 0 && (
             <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0 bg-green-500/10 text-green-700 dark:text-green-400">
               {summary.concluido}
+            </Badge>
+          )}
+          {escapedCount > 0 && (
+            <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+              {escapedCount} fora do fluxo
             </Badge>
           )}
           {summary.violado > 0 && (
@@ -144,42 +81,10 @@ function FlowComplianceCard({ result }: { result: FluxoComplianceResult }) {
         </div>
       )}
 
-      {/* Step list (expandable) */}
-      {displayNodes.length > 0 && (
-        <Accordion type="single" collapsible>
-          <AccordionItem value="steps" className="border-none">
-            <AccordionTrigger className="py-1.5 text-xs text-muted-foreground hover:no-underline">
-              Ver etapas ({displayNodes.length})
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-1 pt-1">
-                {displayNodes.map((nc) => (
-                  <div
-                    key={nc.node.node_id}
-                    className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/50 text-sm"
-                  >
-                    <ComplianceBadge status={nc.status} />
-                    <span className="font-medium flex-1 min-w-0 truncate">{nc.node.nome}</span>
-                    <span className="text-[10px] text-muted-foreground shrink-0">
-                      {NODE_TYPE_LABELS[nc.node.tipo] ?? nc.node.tipo}
-                    </span>
-                    {nc.timestamp && (
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        {formatTimestamp(nc.timestamp)}
-                      </span>
-                    )}
-                    {nc.matched_andamentos.length > 0 && (
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        ({nc.matched_andamentos.length} andamento{nc.matched_andamentos.length > 1 ? 's' : ''})
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      )}
+      {/* Visual flow graph */}
+      <ReactFlowProvider>
+        <FlowComplianceGraph result={result} />
+      </ReactFlowProvider>
     </div>
   );
 }
@@ -199,7 +104,6 @@ export function FlowComplianceSection({
     );
   }, [fluxosVinculados, andamentos]);
 
-  // Don't render at all if no flows linked and not loading
   if (!isLoading && (!fluxosVinculados || fluxosVinculados.length === 0)) {
     return null;
   }
@@ -208,19 +112,20 @@ export function FlowComplianceSection({
     <Card className="flex flex-col">
       <CardHeader className="pb-3 flex-shrink-0">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <GitBranch className="h-5 w-5" /> Conformidade de Fluxo
+          <GitBranch className="h-5 w-5" /> Fluxo
         </CardTitle>
         <CardDescription>
-          Verificação das etapas do fluxo vinculado contra os andamentos reais do processo.
+          Acompanhamento das etapas do fluxo vinculado ao processo.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <Separator />
+      <CardContent className="pt-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {complianceResults.map((result) => (
               <FlowComplianceCard key={result.fluxo.id} result={result} />
             ))}

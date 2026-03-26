@@ -56,6 +56,14 @@ import {
 import { hasAuthTokenCookie, clearAuthTokenCookie } from "@/app/sei-actions";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { FeedPanel } from "@/components/bi/FeedPanel";
 import { useFeedBadge } from "@/lib/react-query/queries/useBiQueries";
 
@@ -128,7 +136,7 @@ export default function AppHeader() {
     <>
       {/* ── Main header ─────────────────────────────────────── */}
       <div className="sticky top-0 z-40 border-b border-border bg-card shadow-sm">
-        <div className="container mx-auto flex max-w-full items-center justify-between gap-2 p-3">
+        <div className="container mx-auto flex max-w-full items-center justify-between gap-2 px-4 sm:px-6 py-3">
 
           {/* LEFT: Title */}
           <div className="flex min-w-0 items-center">
@@ -180,7 +188,7 @@ export default function AppHeader() {
                     <Users className="h-4 w-4 mr-2" />
                     Equipes
                   </DropdownMenuItem>
-                  <DropdownMenuItem disabled>
+                  <DropdownMenuItem onClick={() => router.push('/pessoal')}>
                     <User className="h-4 w-4 mr-2" />
                     Pessoal
                   </DropdownMenuItem>
@@ -297,8 +305,65 @@ export default function AppHeader() {
               </DropdownMenu>
             </div>
 
-            {/* Mobile menu */}
-            <div className="md:hidden">
+            {/* Mobile: recent processes drawer + hamburger menu */}
+            <div className="md:hidden flex items-center gap-1">
+              {showSubheader && (
+                <Drawer>
+                  <DrawerTrigger asChild>
+                    <Button variant="ghost" size="icon" aria-label="Processos recentes" className="relative">
+                      <FileText className="h-5 w-5" />
+                      <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                        {recentProcesses.length}
+                      </span>
+                    </Button>
+                  </DrawerTrigger>
+                  <DrawerContent className="rounded-t-3xl">
+                    <div className="mx-auto w-full max-w-md">
+                      <DrawerHeader className="text-center pb-2">
+                        <DrawerTitle>Processos Recentes</DrawerTitle>
+                      </DrawerHeader>
+                      <div className="px-4 pb-4 space-y-1.5 max-h-[60vh] overflow-y-auto">
+                        {recentProcesses.map(numero => {
+                          const isActive = currentProcessoNorm === normalizeNum(numero);
+                          return (
+                            <div
+                              key={normalizeNum(numero)}
+                              className={cn(
+                                'flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-colors cursor-pointer',
+                                isActive
+                                  ? 'bg-primary/10 text-primary font-medium'
+                                  : 'text-foreground hover:bg-muted',
+                              )}
+                              onClick={() => goToProcess(numero)}
+                            >
+                              <span className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 shrink-0" />
+                                {formatProcessNumber(numero)}
+                              </span>
+                              <button
+                                className="rounded-md p-1 text-muted-foreground hover:text-destructive transition-colors"
+                                onClick={(e) => { e.stopPropagation(); removeRecentProcess(numero); }}
+                                title="Remover"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                        {recentProcesses.length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-4">Nenhum processo recente.</p>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <DrawerClose asChild>
+                          <Button variant="outline" className="w-full rounded-xl h-12">Fechar</Button>
+                        </DrawerClose>
+                      </div>
+                    </div>
+                  </DrawerContent>
+                </Drawer>
+              )}
+
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" aria-label="Abrir menu">
@@ -327,7 +392,7 @@ export default function AppHeader() {
                         Equipes
                       </Button>
 
-                      <Button variant="ghost" className="justify-start" disabled>
+                      <Button variant="ghost" className="justify-start" onClick={() => { router.push('/pessoal'); }}>
                         <User className="mr-2 h-4 w-4" />
                         Pessoal
                       </Button>
@@ -412,12 +477,12 @@ export default function AppHeader() {
           </div>
         </div>
 
-        {/* ── Subheader: Recent process tabs ───────────────────── */}
+        {/* ── Subheader: Recent process tabs (desktop only, mobile uses drawer) ── */}
         {showSubheader && (
-          <div className="border-t border-border/50 bg-muted/30">
-            <div className="container mx-auto max-w-full px-3">
+          <div className="hidden md:block border-t border-border/50 bg-muted/30">
+            <div className="container mx-auto max-w-full px-4 sm:px-8">
               {isSubheaderCollapsed ? (
-                <div className="flex items-center justify-center py-0.5">
+                <div className="flex items-center justify-end py-0.5">
                   <button
                     className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-0.5 rounded transition-colors"
                     onClick={toggleSubheaderCollapsed}

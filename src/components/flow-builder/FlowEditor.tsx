@@ -161,7 +161,33 @@ export default function FlowEditor({
   const initialNodes = useMemo(() => dbToNodes(fluxo), [fluxo]);
   const initialEdges = useMemo(() => dbToEdges(fluxo), [fluxo]);
 
-  const [nodes, setNodes] = useState<Node[]>(initialNodes);
+  // Auto-add inicio node if flow is empty
+  const nodesWithInicio = useMemo(() => {
+    if (initialNodes.length === 0 && !readOnly) {
+      return [{
+        id: 'node_inicio',
+        type: 'inicio' as const,
+        position: { x: 250, y: 100 },
+        data: {
+          nome: 'Início',
+          tipo: 'inicio',
+          sei_task_key: null,
+          descricao: null,
+          responsavel: null,
+          duracao_estimada_horas: null,
+          prioridade: null,
+          documentos_necessarios: null,
+          checklist: null,
+          regras_prazo: null,
+          metadata_extra: null,
+          acoes: [{ tipo: 'geracao_procedimento', responsavel: '', dependente_de: null }],
+        },
+      }];
+    }
+    return initialNodes;
+  }, [initialNodes, readOnly]);
+
+  const [nodes, setNodes] = useState<Node[]>(nodesWithInicio);
   const [edges, setEdges] = useState<Edge[]>(initialEdges);
   const viewportRef = useRef<{ x: number; y: number; zoom: number } | null>(
     fluxo.viewport || null,
@@ -332,6 +358,51 @@ export default function FlowEditor({
     (window as unknown as Record<string, unknown>).__flowEditorViewport = viewportRef.current;
     (window as unknown as Record<string, unknown>).__flowEditorUpdateNodeData = updateNodeData;
     (window as unknown as Record<string, unknown>).__flowEditorAddNode = addNodeFromPalette;
+    (window as unknown as Record<string, unknown>).__flowEditorAddConnectedNode = (
+      sourceNodeId: string,
+      tipo: string,
+      nome: string,
+      nodeData?: Record<string, unknown>,
+    ) => {
+      if (readOnly) return null;
+      const sourceNode = nodes.find(n => n.id === sourceNodeId);
+      const posX = sourceNode ? sourceNode.position.x + 250 : 400;
+      const posY = sourceNode ? sourceNode.position.y : 200;
+      const newId = `node_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const newNode: Node = {
+        id: newId,
+        type: tipo,
+        position: { x: posX, y: posY },
+        data: {
+          nome,
+          tipo,
+          sei_task_key: null,
+          descricao: null,
+          responsavel: null,
+          duracao_estimada_horas: null,
+          prioridade: null,
+          documentos_necessarios: null,
+          checklist: null,
+          regras_prazo: null,
+          metadata_extra: null,
+          ...nodeData,
+        },
+      };
+      const newEdge: Edge = {
+        id: `edge_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        source: sourceNodeId,
+        target: newId,
+        type: 'padrao',
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setEdges((eds) => [...eds, newEdge]);
+      markDirty();
+      return newId;
+    };
+    (window as unknown as Record<string, unknown>).__flowEditorChangeNodeType = (nodeId: string, newType: string) => {
+      setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, type: newType } : n));
+      markDirty();
+    };
     (window as unknown as Record<string, unknown>).__flowEditorDeleteNode = (nodeId: string) => {
       setNodes((nds) => nds.filter((n) => n.id !== nodeId));
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
