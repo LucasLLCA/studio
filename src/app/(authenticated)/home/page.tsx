@@ -291,9 +291,9 @@ function HomeContent() {
         </section>
 
        {/* DESKTOP / TABLET */}
-<div className="mt-8 hidden grid-cols-1 gap-10 xl:grid xl:grid-cols-2">
+<div className="mt-8 hidden grid-cols-1 gap-10 lg:grid lg:grid-cols-2">
   {/* LADO ESQUERDO */}
-  <section className="self-start">
+  <section className="self-start">  
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <FeatureCard
         icon={<GanttChartSquare className="h-8 w-8" />}
@@ -322,9 +322,9 @@ function HomeContent() {
   </section>
 
   {/* LADO DIREITO */}
-  <section className="self-start">
-    <Tabs defaultValue="historico" className="self-start -mt-1">
-      <div>
+  <section className="self-start -mt-16">
+    <Tabs defaultValue="historico" className="self-start -mt-3">
+      <div className=" mb-8">
         <TabsList className={`${appTabsListClass} grid-cols-3`}>
           <TabsTrigger value="historico" className={appTabsTriggerClass}>
             Últimas pesquisas
@@ -340,7 +340,7 @@ function HomeContent() {
         </TabsList>
       </div>
 
-      <div className={`${appTabsPanelClass} min-h-[360px]`}>
+      <div className={`${appTabsPanelClass} min-h-[100px]`}>
         <TabsContent value="historico" className="mt-0">
           <HistoricoContent
             history={history}
