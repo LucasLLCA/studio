@@ -29,20 +29,38 @@ import {
   appTabsPanelClass,
 } from "@/components/ui/app-tabs";
 
+export const appCardClass =
+  "rounded-2xl border border-border bg-card text-card-foreground shadow-sm";
+
+export const appInputClass =
+  "border border-input bg-background text-foreground placeholder:text-muted-foreground";
+
+export const appTabActiveClass =
+  "text-primary border-b-2 border-primary";
+
+export const appTabInactiveClass =
+  "text-muted-foreground hover:text-foreground";
+
 interface FeatureCardProps {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
 }
-
 function FeatureCard({ icon, title, subtitle }: FeatureCardProps) {
   return (
-    <div className="relative overflow-hidden rounded-lg border border-primary-light bg-white p-5 min-h-36 flex flex-col gap-3 shadow-sm">
-      <div className="absolute top-0 left-0 h-1 w-full bg-primary" />
+    <div className="relative overflow-hidden rounded-lg border border-border bg-card p-5 min-h-36 flex flex-col gap-6 shadow-sm">
+      
+      {/* linha de cima neutra */}
+      <div className="absolute top-0 left-0 h-1 w-full + border-t-border" />
+
+      {/* ícone */}
       <div className="text-primary">{icon}</div>
 
       <div className="space-y-2">
+        {/* título mais forte */}
         <p className="text-primary font-semibold leading-tight">{title}</p>
+
+        {/* descrição continua suave */}
         <p className="text-sm leading-snug text-muted-foreground">{subtitle}</p>
       </div>
     </div>
@@ -239,61 +257,61 @@ function HomeContent() {
         </section>
 
        {/* MOBILE: cards em carrossel */}
-        <section className="mt-8 md:hidden">
-          <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 pl-1 pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            <div className="min-w-[240px] max-w-[240px] snap-start">
-              <FeatureCard
-                icon={<GanttChartSquare className="h-7 w-7" />}
-                title="Seja Ágil"
-                subtitle="Analise objetivamente com a linha do tempo"
-              />
-            </div>
+<section className="mt-8 md:hidden">
+  <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 pl-1 pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <div className="min-w-[240px] max-w-[240px] snap-start">
+      <FeatureCard
+        icon={<GanttChartSquare className="h-7 w-7" />}
+        title="Seja Ágil"
+        subtitle="Analise objetivamente com a linha do tempo"
+      />
+    </div>
 
-            <div className="min-w-[240px] max-w-[240px] snap-start">
-              <FeatureCard
-                icon={<Brain className="h-7 w-7" />}
-                title="Use IA a seu favor"
-                subtitle="Entendimento automatizado de processos e documentos"
-              />
-            </div>
+    <div className="min-w-[240px] max-w-[240px] snap-start">
+      <FeatureCard
+        icon={<Brain className="h-7 w-7" />}
+        title="Use IA a seu favor"
+        subtitle="Entendimento automatizado de processos e documentos"
+      />
+    </div>
 
-            <div className="min-w-[240px] max-w-[240px] snap-start">
-              <FeatureCard
-                icon={<Share2 className="h-7 w-7" />}
-                title="Salve e acompanhe"
-                subtitle="Crie grupos, favorite e compartilhe processos"
-              />
-            </div>
+    <div className="min-w-[240px] max-w-[240px] snap-start">
+      <FeatureCard
+        icon={<Share2 className="h-7 w-7" />}
+        title="Salve e acompanhe"
+        subtitle="Crie grupos, favorite e compartilhe processos"
+      />
+    </div>
 
-            <div className="min-w-[240px] max-w-[240px] snap-start">
-              <FeatureCard
-                icon={<FileSignature className="h-7 w-7" />}
-                title="Tome ações rápidas"
-                subtitle="Assine ofícios e compartilhe entendimentos"
-              />
-            </div>
-          </div>
-        </section>
+    <div className="min-w-[240px] max-w-[240px] snap-start">
+      <FeatureCard
+        icon={<FileSignature className="h-7 w-7" />}
+        title="Tome ações rápidas"
+        subtitle="Assine ofícios e compartilhe entendimentos"
+      />
+    </div>
+  </div>
+</section>
 
-        {/* MOBILE: home simplificada */}
-        <section className="mt-6 space-y-4 md:hidden">
-          <HomeMobileDrawer
-            history={history}
-            isHistoryLoading={isHistoryLoading}
-            contextoMap={contextoMap}
-            usuario={usuario}
-            onItemClick={handleHistoryItemClick}
-            onSave={handleHistorySave}
-            onShare={handleHistoryShare}
-            onDelete={handleHistoryDelete}
-            onShareTag={(tagId) => setShareTagId(tagId)}
-          />
-        </section>
+{/* MOBILE: home simplificada */}
+<section className="mt-6 space-y-4 md:hidden">
+  <HomeMobileDrawer
+    history={history}
+    isHistoryLoading={isHistoryLoading}
+    contextoMap={contextoMap}
+    usuario={usuario}
+    onItemClick={handleHistoryItemClick}
+    onSave={handleHistorySave}
+    onShare={handleHistoryShare}
+    onDelete={handleHistoryDelete}
+    onShareTag={(tagId) => setShareTagId(tagId)}
+  />
+</section>
 
-       {/* DESKTOP / TABLET */}
-<div className="mt-8 hidden grid-cols-1 gap-10 lg:grid lg:grid-cols-2">
+{/* DESKTOP / TABLET */}
+<div className="mt-8 hidden grid-cols-1 gap-8 lg:grid lg:grid-cols-2">
   {/* LADO ESQUERDO */}
-  <section className="self-start">  
+  <section className="self-start">
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <FeatureCard
         icon={<GanttChartSquare className="h-8 w-8" />}
@@ -320,6 +338,7 @@ function HomeContent() {
       />
     </div>
   </section>
+
 
   {/* LADO DIREITO */}
   <section className="self-start -mt-16">
