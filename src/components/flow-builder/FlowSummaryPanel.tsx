@@ -24,8 +24,8 @@ const NODE_TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode; c
   etapa:    { label: 'Etapa',              icon: <Layers className="h-3.5 w-3.5" />,      color: 'text-blue-700',   border: 'border-blue-200 bg-blue-50/50'    },
   sei_task: { label: 'Tarefa SEI',         icon: <FileText className="h-3.5 w-3.5" />,    color: 'text-purple-700', border: 'border-purple-200 bg-purple-50/50'},
   decisao:  { label: 'Decisão',            icon: <GitBranch className="h-3.5 w-3.5" />,   color: 'text-orange-700', border: 'border-orange-200 bg-orange-50/50'},
-  fork:     { label: 'Fork',               icon: <Shuffle className="h-3.5 w-3.5" />,     color: 'text-slate-700',  border: 'border-slate-200 bg-slate-50/50'  },
-  join:     { label: 'Join',               icon: <Merge className="h-3.5 w-3.5" />,       color: 'text-slate-700',  border: 'border-slate-200 bg-slate-50/50'  },
+  fork:     { label: 'Fork',               icon: <Shuffle className="h-3.5 w-3.5" />,     color: 'text-foreground',  border: 'border-border bg-muted/30'  },
+  join:     { label: 'Join',               icon: <Merge className="h-3.5 w-3.5" />,       color: 'text-foreground',  border: 'border-border bg-muted/30'  },
 };
 
 const TYPE_ORDER: Record<string, number> = {
@@ -99,11 +99,11 @@ export default function FlowSummaryPanel({ nodes, onClose }: FlowSummaryPanelPro
               <div className="flex items-start gap-2">
                 <span className={cn('mt-0.5 shrink-0', cfg.color)}>{cfg.icon}</span>
                 <div className="min-w-0">
-                  <p className={cn('text-[10px] font-medium uppercase tracking-wide', cfg.color)}>{cfg.label}</p>
+                  <p className={cn('text-2xs font-medium uppercase tracking-wide', cfg.color)}>{cfg.label}</p>
                   <p className="text-sm font-semibold leading-tight">{nome}</p>
                 </div>
                 {pCfg && (
-                  <span className={cn('ml-auto shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full', pCfg.bg, pCfg.color)}>
+                  <span className={cn('ml-auto shrink-0 text-2xs font-semibold px-1.5 py-0.5 rounded-full', pCfg.bg, pCfg.color)}>
                     {pCfg.label}
                   </span>
                 )}
@@ -128,7 +128,7 @@ export default function FlowSummaryPanel({ nodes, onClose }: FlowSummaryPanelPro
                   <Building2 className="h-3 w-3 shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     <span className="font-medium">{unidadeSigla}</span>
-                    {unidadeDesc && <p className="text-[10px] text-muted-foreground/70 truncate">{unidadeDesc}</p>}
+                    {unidadeDesc && <p className="text-2xs text-muted-foreground/70 truncate">{unidadeDesc}</p>}
                   </div>
                 </div>
               )}
@@ -136,7 +136,7 @@ export default function FlowSummaryPanel({ nodes, onClose }: FlowSummaryPanelPro
               {/* Documentos necessários */}
               {documentos.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                  <p className="text-2xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
                     Documentos
                   </p>
                   <ul className="space-y-0.5">
@@ -153,7 +153,7 @@ export default function FlowSummaryPanel({ nodes, onClose }: FlowSummaryPanelPro
               {/* Checklist */}
               {checklist.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                  <p className="text-2xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
                     Checklist
                   </p>
                   <ul className="space-y-0.5">
@@ -162,7 +162,7 @@ export default function FlowSummaryPanel({ nodes, onClose }: FlowSummaryPanelPro
                         <CheckSquare className={cn('h-3 w-3 shrink-0 mt-0.5', item.obrigatorio ? 'text-orange-500' : 'text-muted-foreground')} />
                         <span>{item.item}</span>
                         {item.obrigatorio && (
-                          <span className="ml-auto text-[9px] text-orange-600 font-medium shrink-0">obrig.</span>
+                          <span className="ml-auto text-2xs text-orange-600 font-medium shrink-0">obrig.</span>
                         )}
                       </li>
                     ))}

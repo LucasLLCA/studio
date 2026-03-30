@@ -57,7 +57,7 @@ export default function AuthenticatedLayout({
 
   return (
     <LastViewedProcessProvider>
-      <div className="flex flex-col min-h-screen bg-gray-100 w-full">
+      <div className="flex flex-col min-h-screen bg-background w-full">
         <AppHeader />
         <OfflineBanner />
         <main className="flex-1 flex flex-col w-full">{children}</main>

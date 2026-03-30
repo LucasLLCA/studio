@@ -21,7 +21,7 @@ interface ProcessTimelineBarProps {
 
 const getIconForTask = (taskType: string) => {
     if (taskType.includes('CONCLUSAO')) return <CheckCircle className="h-4 w-4 text-success" />;
-    if (taskType.includes('REMETIDO')) return <Send className="h-4 w-4 text-yellow-600" />;
+    if (taskType.includes('REMETIDO')) return <Send className="h-4 w-4 text-warning" />;
     if (taskType.includes('RECEBIDO')) return <ChevronsRight className="h-4 w-4 text-blue-500" />;
     if (taskType.includes('REABERTURA')) return <CornerRightUp className="h-4 w-4 text-purple-500" />;
     return <FileText className="h-4 w-4 text-gray-500" />;

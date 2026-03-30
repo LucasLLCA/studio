@@ -9,7 +9,7 @@ const TASK_COLORS: Record<string, string> = {
   'assinatura': 'bg-green-100 border-green-400',
   'publicacao': 'bg-purple-100 border-purple-400',
   'notificacao': 'bg-orange-100 border-orange-400',
-  'default': 'bg-slate-100 border-slate-400',
+  'default': 'bg-muted/50 border-muted-foreground/60',
 };
 
 const PRIO_BORDER: Record<string, string> = {
@@ -59,17 +59,17 @@ function SeiTaskNode({ data, selected }: NodeProps) {
       } ${selected ? 'ring-2 ring-primary' : ''}`}
     >
       <NodeToolbar position={Position.Top} isVisible={!!unidadeSigla} className="pointer-events-none">
-        <span className="whitespace-nowrap text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300 text-slate-700 shadow-sm">
+        <span className="whitespace-nowrap text-2xs font-semibold px-1.5 py-0.5 rounded bg-muted/50 border border-border text-foreground shadow-sm">
           {unidadeSigla}
         </span>
       </NodeToolbar>
 
-      <Handle type="target" position={Position.Top} className="!bg-slate-500 !w-3 !h-3" />
+      <Handle type="target" position={Position.Top} className="!bg-muted-foreground !w-3 !h-3" />
 
       {hasInfo && (
         <>
           <button
-            className="absolute top-1 right-1 z-10 w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[9px] font-bold flex items-center justify-center hover:bg-slate-300 leading-none select-none"
+            className="absolute top-1 right-1 z-10 w-4 h-4 rounded-full bg-muted text-foreground text-2xs font-bold flex items-center justify-center hover:bg-muted-foreground/30 leading-none select-none"
             onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}
             title="Ver informações"
           >
@@ -83,7 +83,7 @@ function SeiTaskNode({ data, selected }: NodeProps) {
             >
               <p className="font-semibold text-foreground truncate">{nome}</p>
               {prioridade && (
-                <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded border ${PRIO_BADGE[prioridade]}`}>
+                <span className={`inline-flex text-2xs font-semibold px-1.5 py-0.5 rounded border ${PRIO_BADGE[prioridade]}`}>
                   {PRIO_LABEL[prioridade]}
                 </span>
               )}
@@ -109,14 +109,14 @@ function SeiTaskNode({ data, selected }: NodeProps) {
         </>
       )}
 
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1">
+      <div className="text-2xs uppercase tracking-wide text-muted-foreground font-medium mb-1">
         {taskKey || 'SEI Task'}
       </div>
       <div className="text-sm font-semibold text-foreground truncate pr-5">{nome}</div>
       {responsavel && (
         <div className="text-xs text-muted-foreground mt-1 truncate">{responsavel}</div>
       )}
-      <Handle type="source" position={Position.Bottom} className="!bg-slate-500 !w-3 !h-3" />
+      <Handle type="source" position={Position.Bottom} className="!bg-muted-foreground !w-3 !h-3" />
     </div>
   );
 }

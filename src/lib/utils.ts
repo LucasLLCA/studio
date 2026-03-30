@@ -34,3 +34,19 @@ export function formatProcessNumber(numeroProcesso: string): string {
 
   return `${parte1}.${parte2}/${parte3}-${parte4}`;
 }
+
+/**
+ * Aplica a máscara de formatação de processo enquanto o usuário digita.
+ * Formato: NNNNN.NNNNNN/NNNN-NN
+ */
+export function applyProcessoMask(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 17);
+  let masked = '';
+  for (let i = 0; i < digits.length; i++) {
+    if (i === 5) masked += '.';
+    if (i === 11) masked += '/';
+    if (i === 15) masked += '-';
+    masked += digits[i];
+  }
+  return masked;
+}

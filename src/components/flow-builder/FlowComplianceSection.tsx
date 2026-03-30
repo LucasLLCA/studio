@@ -47,17 +47,17 @@ function FlowComplianceCard({ result }: { result: FluxoComplianceResult }) {
         {/* Summary badges */}
         <div className="flex items-center gap-1.5 shrink-0">
           {summary.concluido > 0 && (
-            <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0 bg-green-500/10 text-green-700 dark:text-green-400">
+            <Badge variant="outline" className="gap-1 text-2xs px-1.5 py-0 bg-green-500/10 text-green-700 dark:text-green-400">
               {summary.concluido}
             </Badge>
           )}
           {escapedCount > 0 && (
-            <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+            <Badge variant="outline" className="gap-1 text-2xs px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-400">
               {escapedCount} fora do fluxo
             </Badge>
           )}
           {summary.violado > 0 && (
-            <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0 bg-red-500/10 text-red-700 dark:text-red-400">
+            <Badge variant="outline" className="gap-1 text-2xs px-1.5 py-0 bg-red-500/10 text-red-700 dark:text-red-400">
               {summary.violado} puladas
             </Badge>
           )}

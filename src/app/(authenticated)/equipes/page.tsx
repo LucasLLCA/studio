@@ -208,12 +208,12 @@ export default function EquipesPage() {
     team.membros.some(m => m.usuario === usuario && m.papel === 'admin');
 
   return (
-    <div className="flex-1 p-4 sm:p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="flex-1 flex flex-col overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 w-full max-w-6xl mx-auto">
+      <div>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight text-primary flex items-center gap-2">
               <Users className="h-6 w-6" /> Equipes
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
@@ -297,7 +297,7 @@ export default function EquipesPage() {
                   Criar Equipe
                 </Button>
                 <DrawerClose asChild>
-                  <Button variant="outline" className="w-full rounded-xl h-12">Cancelar</Button>
+                  <Button variant="outline" className="w-full rounded-xl h-11">Cancelar</Button>
                 </DrawerClose>
               </div>
             </div>

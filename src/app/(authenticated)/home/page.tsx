@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { HistoryItem } from '@/lib/history-api-client';
 import { useSearchHistory } from '@/lib/react-query/queries/useSearchHistory';
-import { stripProcessNumber } from '@/lib/utils';
+import { stripProcessNumber, applyProcessoMask } from '@/lib/utils';
 import { SaveProcessoModal } from '@/components/process-flow/SaveProcessoModal';
 import { MeuEspacoContent } from '@/components/home/MeuEspacoContent';
 import { CompartilhadosContent } from '@/components/home/CompartilhadosContent';
@@ -80,18 +80,6 @@ function HomeContent() {
       return () => clearTimeout(timer);
     }
   }, [mounted, isAuthenticated, router]);
-
-  const applyProcessoMask = (value: string): string => {
-    const digits = value.replace(/\D/g, '').slice(0, 17);
-    let masked = '';
-    for (let i = 0; i < digits.length; i++) {
-      if (i === 5) masked += '.';
-      if (i === 11) masked += '/';
-      if (i === 15) masked += '-';
-      masked += digits[i];
-    }
-    return masked;
-  };
 
   const processoDigits = stripProcessNumber(processoNumeroInput);
   const isProcessoValid = processoDigits.length === 17;

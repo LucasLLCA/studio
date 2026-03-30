@@ -49,7 +49,7 @@ function EtapaNode({ data, selected }: NodeProps) {
       } ${selected ? 'ring-2 ring-primary' : ''}`}
     >
       <NodeToolbar position={Position.Top} isVisible={!!unidadeSigla} className="pointer-events-none">
-        <span className="whitespace-nowrap text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-100 border border-indigo-300 text-indigo-700 shadow-sm">
+        <span className="whitespace-nowrap text-2xs font-semibold px-1.5 py-0.5 rounded bg-indigo-100 border border-indigo-300 text-indigo-700 shadow-sm">
           {unidadeSigla}
         </span>
       </NodeToolbar>
@@ -59,7 +59,7 @@ function EtapaNode({ data, selected }: NodeProps) {
       {hasInfo && (
         <>
           <button
-            className="absolute top-1 right-1 z-10 w-4 h-4 rounded-full bg-indigo-200 text-indigo-700 text-[9px] font-bold flex items-center justify-center hover:bg-indigo-300 leading-none select-none"
+            className="absolute top-1 right-1 z-10 w-4 h-4 rounded-full bg-indigo-200 text-indigo-700 text-2xs font-bold flex items-center justify-center hover:bg-indigo-300 leading-none select-none"
             onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}
             title="Ver informações"
           >
@@ -73,7 +73,7 @@ function EtapaNode({ data, selected }: NodeProps) {
             >
               <p className="font-semibold text-foreground truncate">{nome}</p>
               {prioridade && (
-                <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded border ${PRIO_BADGE[prioridade]}`}>
+                <span className={`inline-flex text-2xs font-semibold px-1.5 py-0.5 rounded border ${PRIO_BADGE[prioridade]}`}>
                   {PRIO_LABEL[prioridade]}
                 </span>
               )}

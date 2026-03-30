@@ -90,11 +90,11 @@ function FluxosContent() {
   if (!mounted || !isAuthenticated) return null;
 
   return (
-    <div className="container mx-auto max-w-5xl py-6 px-4">
+    <div className="flex-1 flex flex-col overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 w-full max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <GitBranch className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">Fluxos de Processos</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Fluxos de Processos</h1>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
@@ -145,7 +145,7 @@ function FluxosContent() {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-semibold text-sm truncate flex-1">{fluxo.nome}</h3>
-                    <Badge className={`ml-2 text-[10px] ${STATUS_COLORS[fluxo.status] || ''}`}>
+                    <Badge className={`ml-2 text-2xs ${STATUS_COLORS[fluxo.status] || ''}`}>
                       {fluxo.status}
                     </Badge>
                   </div>
@@ -158,7 +158,7 @@ function FluxosContent() {
                     <span>{fluxo.processo_count} processos</span>
                   </div>
                   <div className="flex items-center justify-between mt-3">
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-2xs text-muted-foreground">
                       {new Date(fluxo.atualizado_em).toLocaleDateString('pt-BR')}
                     </span>
                     <Button

@@ -113,7 +113,7 @@ export function MobileVerticalTimeline({ tasks }: MobileVerticalTimelineProps) {
                           <span className={`text-xs font-medium ${significant ? 'text-foreground' : 'text-muted-foreground'}`}>
                             {task.Tarefa}
                           </span>
-                          <span className="text-[10px] text-muted-foreground shrink-0">
+                          <span className="text-2xs text-muted-foreground shrink-0">
                             {formatTime(task.parsedDate)}
                           </span>
                         </div>
@@ -131,7 +131,7 @@ export function MobileVerticalTimeline({ tasks }: MobileVerticalTimelineProps) {
                           </p>
                         )}
                         {task.Usuario?.Nome && (
-                          <div className="text-[10px] text-muted-foreground/60 mt-1">
+                          <div className="text-2xs text-muted-foreground/60 mt-1">
                             {task.Usuario.Nome}
                           </div>
                         )}

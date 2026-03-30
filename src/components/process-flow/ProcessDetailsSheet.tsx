@@ -83,9 +83,9 @@ export function ProcessDetailsSheet({
 
     <Button
       variant="ghost"
-      size="sm"
+      size="icon"
       onClick={() => onOpenChange(false)}
-      className="h-8 w-8 p-0 flex-shrink-0"
+      className="h-8 w-8 rounded-lg flex-shrink-0"
       aria-label="Fechar detalhes"
     >
       <X className="h-4 w-4" />

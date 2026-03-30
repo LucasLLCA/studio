@@ -46,13 +46,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { hasAuthTokenCookie, clearAuthTokenCookie } from "@/app/sei-actions";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -124,7 +117,7 @@ export default function AppHeader() {
   };
 
   const tabClass = (active: boolean) =>
-    `bg-transparent border-0 rounded-b-none ${active ? "border-b-2 border-primary text-primary" : ""}`;
+    `rounded-lg ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`;
 
   const showSubheader = mounted && isAuthenticated && recentProcesses.length > 0;
 
@@ -135,18 +128,30 @@ export default function AppHeader() {
   return (
     <>
       {/* ── Main header ─────────────────────────────────────── */}
-      <div className="sticky top-0 z-40 border-b border-border bg-card shadow-sm">
-        <div className="container mx-auto flex max-w-full items-center justify-between gap-2 px-4 sm:px-6 py-3">
+      <div className="sticky top-0 z-40 border-b border-border/60 backdrop-blur-md bg-card/80">
+        <div className="container mx-auto flex max-w-full items-center justify-between gap-2 px-4 sm:px-6 py-3.5">
 
-          {/* LEFT: Title */}
+          {/* LEFT: Mobile hamburger + Title */}
           <div className="flex min-w-0 items-center">
+            {/* Mobile hamburger — left of title */}
+            {mounted && isAuthenticated && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Abrir menu"
+                className="md:hidden mr-1 text-muted-foreground"
+                onClick={() => setIsMobileMenuOpen(true)}
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            )}
             {mounted && isAuthenticated && (
               <Button
                 variant="ghost"
                 className="mr-1 inline-flex h-auto items-center px-2 py-1 text-left text-sm font-bold text-primary hover:bg-transparent hover:text-primary-hover sm:px-3 sm:text-xl"
                 onClick={goToHome}
               >
-                <span className="truncate max-w-[220px] sm:max-w-none">
+                <span className="truncate max-w-[180px] sm:max-w-none">
                   Visualizador de Processos
                 </span>
               </Button>
@@ -161,7 +166,7 @@ export default function AppHeader() {
               {/* Início */}
               <Button
                 className={tabClass(isOnHome)}
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={goToHome}
                 title="Página Inicial"
@@ -175,7 +180,7 @@ export default function AppHeader() {
                 <DropdownMenuTrigger asChild>
                   <Button
                     className={tabClass(isOnEquipes)}
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                   >
                     <Users className="h-4 w-4 lg:mr-1.5" />
@@ -199,7 +204,7 @@ export default function AppHeader() {
               {mounted && hasModulo('fluxos') && (
                 <Button
                   className={tabClass(isOnFluxos)}
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => router.push('/fluxos')}
                   title="Fluxos de Processos"
@@ -212,7 +217,7 @@ export default function AppHeader() {
               {/* BI's */}
               <Button
                 className={tabClass(pathname.startsWith("/bi"))}
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => router.push("/bi")}
                 title="Business Intelligence"
@@ -225,8 +230,8 @@ export default function AppHeader() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    className="bg-transparent border-0"
-                    variant="outline"
+                    className="text-muted-foreground hover:text-foreground"
+                    variant="ghost"
                     size="sm"
                   >
                     <FlaskConical className="h-4 w-4 lg:mr-1.5" />
@@ -245,15 +250,15 @@ export default function AppHeader() {
               {/* Notificações (bell icon) */}
               {mounted && isAuthenticated && usuario && (
                 <Button
-                  className="bg-transparent border-0 relative"
-                  variant="outline"
+                  className="relative text-muted-foreground hover:text-foreground"
+                  variant="ghost"
                   size="icon"
                   onClick={() => setIsFeedOpen(true)}
                   title="Movimentacoes"
                 >
                   <Bell className="h-4 w-4" />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-2xs font-bold text-destructive-foreground">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   )}
@@ -265,7 +270,7 @@ export default function AppHeader() {
                 <DropdownMenuTrigger asChild>
                   <Button
                     className={tabClass(isOnAdmin)}
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
                     title="Configurações"
                   >
@@ -277,7 +282,7 @@ export default function AppHeader() {
                     <>
                       <div className="px-2 py-1.5 flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">Papel:</span>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
+                        <Badge variant="secondary" className="text-2xs px-1.5 py-0 font-medium">
                           {papelNome}
                         </Badge>
                       </div>
@@ -305,14 +310,14 @@ export default function AppHeader() {
               </DropdownMenu>
             </div>
 
-            {/* Mobile: recent processes drawer + hamburger menu */}
+            {/* Mobile: recent processes + notifications (right side) */}
             <div className="md:hidden flex items-center gap-1">
               {showSubheader && (
                 <Drawer>
                   <DrawerTrigger asChild>
                     <Button variant="ghost" size="icon" aria-label="Processos recentes" className="relative">
                       <FileText className="h-5 w-5" />
-                      <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                      <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-2xs font-bold text-primary-foreground">
                         {recentProcesses.length}
                       </span>
                     </Button>
@@ -354,9 +359,9 @@ export default function AppHeader() {
                           <p className="text-sm text-muted-foreground text-center py-4">Nenhum processo recente.</p>
                         )}
                       </div>
-                      <div className="p-4">
+                      <div className="p-4 pt-2">
                         <DrawerClose asChild>
-                          <Button variant="outline" className="w-full rounded-xl h-12">Fechar</Button>
+                          <Button variant="outline" className="w-full rounded-xl h-11">Fechar</Button>
                         </DrawerClose>
                       </div>
                     </div>
@@ -364,116 +369,155 @@ export default function AppHeader() {
                 </Drawer>
               )}
 
-              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Abrir menu">
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
+              {mounted && isAuthenticated && usuario && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative text-muted-foreground"
+                  onClick={() => setIsFeedOpen(true)}
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-2xs font-bold text-destructive-foreground">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </Button>
+              )}
+            </div>
 
-                <SheetContent side="right" className="w-[280px] sm:w-[320px]">
-                  <SheetHeader>
-                    <SheetTitle>Menu</SheetTitle>
-                  </SheetHeader>
-
-                  <div className="mt-6 flex flex-col justify-between h-[calc(100vh-120px)]">
-                    <div className="flex flex-col gap-2">
-                      <Button variant="ghost" className="justify-start" onClick={goToHome}>
-                        <Home className="mr-2 h-4 w-4" />
-                        Início
-                      </Button>
-
-                      <div className="pl-1 pt-2 pb-1">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Espaços</span>
-                      </div>
-
-                      <Button variant="ghost" className="justify-start" onClick={goToEquipes}>
-                        <Users className="mr-2 h-4 w-4" />
-                        Equipes
-                      </Button>
-
-                      <Button variant="ghost" className="justify-start" onClick={() => { router.push('/pessoal'); }}>
-                        <User className="mr-2 h-4 w-4" />
-                        Pessoal
-                      </Button>
-
-                      {mounted && hasModulo('fluxos') && (
-                        <Button variant="ghost" className="justify-start" onClick={() => { router.push('/fluxos'); setIsMobileMenuOpen(false); }}>
-                          <GitBranch className="mr-2 h-4 w-4" />
-                          Fluxos
-                        </Button>
-                      )}
-
-                      <Button variant="ghost" className="justify-start" onClick={() => { router.push("/bi"); setIsMobileMenuOpen(false); }}>
-                        <BarChart3 className="mr-2 h-4 w-4" />
-                        BI&apos;s
-                      </Button>
-
-                      <div className="pl-1 pt-2 pb-1">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Experimental</span>
-                      </div>
-
-                      <Button variant="ghost" className="justify-start" disabled>
-                        <Compass className="mr-2 h-4 w-4" />
-                        Explorador
-                      </Button>
-
-                      <div className="border-t my-2" />
-
-                      {mounted && papelNome && (
-                        <div className="px-3 py-1.5 flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Papel:</span>
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
-                            {papelNome}
-                          </Badge>
-                        </div>
-                      )}
-
-                      {mounted && hasModulo('admin') && (
-                        <Button variant="ghost" className="justify-start" onClick={() => { router.push('/admin'); setIsMobileMenuOpen(false); }}>
-                          <Shield className="mr-2 h-4 w-4" />
-                          Admin
-                        </Button>
-                      )}
-
-                      <Button variant="ghost" className="justify-start" onClick={() => { setIsInfoModalOpen(true); setIsMobileMenuOpen(false); }}>
-                        <Newspaper className="mr-2 h-4 w-4" />
-                        Atualizações
-                      </Button>
-
-                      {mounted && isAuthenticated && usuario && (
-                        <Button
-                          variant="ghost"
-                          className="justify-start relative"
-                          onClick={() => { setIsFeedOpen(true); setIsMobileMenuOpen(false); }}
-                        >
-                          <Bell className="mr-2 h-4 w-4" />
-                          Movimentacoes
-                          {unreadCount > 0 && (
-                            <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                              {unreadCount > 99 ? "99+" : unreadCount}
-                            </span>
-                          )}
-                        </Button>
-                      )}
-                    </div>
-
-                    {mounted && isAuthenticated && !isEmbedMode && (
-                      <div className="border-t pt-4 mt-4">
-                        <Button
-                          variant="ghost"
-                          className="justify-start text-red-600 hover:text-red-700 w-full"
-                          onClick={handleLogout}
-                        >
-                          <LogOut className="mr-2 h-4 w-4" />
-                          Sair
-                        </Button>
+            {/* Mobile menu drawer (triggered by hamburger on left) */}
+            <Drawer open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <DrawerContent className="rounded-t-3xl">
+                <div className="mx-auto w-full max-w-md">
+                  <DrawerHeader className="text-center pb-2">
+                    <DrawerTitle>Menu</DrawerTitle>
+                    {mounted && papelNome && (
+                      <div className="flex items-center justify-center gap-2 mt-1">
+                        <Badge variant="secondary" className="text-2xs px-2 py-0.5 font-medium">
+                          {papelNome}
+                        </Badge>
                       </div>
                     )}
+                  </DrawerHeader>
+
+                  <div className="px-4 pb-2 max-h-[65vh] overflow-y-auto">
+                    {/* Navigation modules as cards */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        className={cn(
+                          "flex flex-col items-center gap-1.5 rounded-xl p-3 text-xs font-medium transition-colors",
+                          isOnHome ? "bg-primary/10 text-primary" : "bg-muted/50 text-foreground hover:bg-muted"
+                        )}
+                        onClick={goToHome}
+                      >
+                        <Home className="h-5 w-5" />
+                        Início
+                      </button>
+
+                      <button
+                        className={cn(
+                          "flex flex-col items-center gap-1.5 rounded-xl p-3 text-xs font-medium transition-colors",
+                          isOnEquipes ? "bg-primary/10 text-primary" : "bg-muted/50 text-foreground hover:bg-muted"
+                        )}
+                        onClick={goToEquipes}
+                      >
+                        <Users className="h-5 w-5" />
+                        Equipes
+                      </button>
+
+                      <button
+                        className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-xs font-medium bg-muted/50 text-foreground hover:bg-muted transition-colors"
+                        onClick={() => { router.push('/pessoal'); setIsMobileMenuOpen(false); }}
+                      >
+                        <User className="h-5 w-5" />
+                        Pessoal
+                      </button>
+
+                      {mounted && hasModulo('fluxos') && (
+                        <button
+                          className={cn(
+                            "flex flex-col items-center gap-1.5 rounded-xl p-3 text-xs font-medium transition-colors",
+                            isOnFluxos ? "bg-primary/10 text-primary" : "bg-muted/50 text-foreground hover:bg-muted"
+                          )}
+                          onClick={() => { router.push('/fluxos'); setIsMobileMenuOpen(false); }}
+                        >
+                          <GitBranch className="h-5 w-5" />
+                          Fluxos
+                        </button>
+                      )}
+
+                      <button
+                        className={cn(
+                          "flex flex-col items-center gap-1.5 rounded-xl p-3 text-xs font-medium transition-colors",
+                          pathname.startsWith("/bi") ? "bg-primary/10 text-primary" : "bg-muted/50 text-foreground hover:bg-muted"
+                        )}
+                        onClick={() => { router.push("/bi"); setIsMobileMenuOpen(false); }}
+                      >
+                        <BarChart3 className="h-5 w-5" />
+                        BI&apos;s
+                      </button>
+
+                      <button
+                        className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-xs font-medium bg-muted/50 text-muted-foreground opacity-50"
+                        disabled
+                      >
+                        <Compass className="h-5 w-5" />
+                        Explorador
+                      </button>
+                    </div>
+
+                    {/* Settings section */}
+                    <div className="mt-4 space-y-1">
+                      <p className="text-2xs font-medium uppercase tracking-wide text-muted-foreground px-1 mb-2">Configurações</p>
+
+                      {mounted && hasModulo('admin') && (
+                        <button
+                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-colors"
+                          onClick={() => { router.push('/admin'); setIsMobileMenuOpen(false); }}
+                        >
+                          <Shield className="h-4 w-4 text-muted-foreground" />
+                          Administração
+                        </button>
+                      )}
+
+                      <button
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-colors"
+                        onClick={() => { setIsInfoModalOpen(true); setIsMobileMenuOpen(false); }}
+                      >
+                        <Newspaper className="h-4 w-4 text-muted-foreground" />
+                        Atualizações
+                      </button>
+
+                      <button
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-colors"
+                        onClick={() => { /* help */ setIsMobileMenuOpen(false); }}
+                      >
+                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                        Ajuda
+                      </button>
+                    </div>
                   </div>
-                </SheetContent>
-              </Sheet>
-            </div>
+
+                  {/* Footer actions */}
+                  <div className="px-4 pb-4 pt-2 space-y-2">
+                    {mounted && isAuthenticated && !isEmbedMode && (
+                      <Button
+                        variant="outline"
+                        className="w-full rounded-xl h-11 text-destructive border-destructive/30 hover:bg-destructive/5"
+                        onClick={handleLogout}
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Sair
+                      </Button>
+                    )}
+                    <DrawerClose asChild>
+                      <Button variant="ghost" className="w-full rounded-xl h-11 text-muted-foreground">Fechar</Button>
+                    </DrawerClose>
+                  </div>
+                </div>
+              </DrawerContent>
+            </Drawer>
           </div>
         </div>
 

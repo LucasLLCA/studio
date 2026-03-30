@@ -108,7 +108,7 @@ function IssueRow({ issue, onFocus }: { issue: ValidationIssue; onFocus: (id?: s
           {issue.message}
         </p>
         {issue.nodeId && (
-          <p className="text-[10px] text-muted-foreground mt-0.5">Clique para ir ao nó</p>
+          <p className="text-2xs text-muted-foreground mt-0.5">Clique para ir ao nó</p>
         )}
       </div>
     </button>

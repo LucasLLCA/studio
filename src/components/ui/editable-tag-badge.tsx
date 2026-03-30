@@ -91,7 +91,7 @@ export function EditableTagBadge({
     }
   };
 
-  const sizeClass = size === 'xs' ? 'text-[10px] px-1.5 py-0' : 'text-xs';
+  const sizeClass = size === 'xs' ? 'text-2xs px-1.5 py-0' : 'text-xs';
 
   const badge = (
     <Badge
@@ -141,7 +141,7 @@ export function EditableTagBadge({
               autoFocus
             />
             <div>
-              <p className="text-[10px] text-muted-foreground mb-1">Cor:</p>
+              <p className="text-2xs text-muted-foreground mb-1">Cor:</p>
               <div className="flex flex-wrap gap-1">
                 {TAG_COLORS.map(cor => (
                   <button

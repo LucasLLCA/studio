@@ -57,7 +57,7 @@ function InicioFimNode({ data, selected, type }: NodeProps) {
       } ${selected ? 'ring-2 ring-primary' : ''}`}
     >
       <NodeToolbar position={Position.Top} isVisible={!!unidadeSigla} className="pointer-events-none">
-        <span className={`whitespace-nowrap text-[10px] font-semibold px-1.5 py-0.5 rounded border shadow-sm ${toolbarBg}`}>
+        <span className={`whitespace-nowrap text-2xs font-semibold px-1.5 py-0.5 rounded border shadow-sm ${toolbarBg}`}>
           {unidadeSigla}
         </span>
       </NodeToolbar>
@@ -67,7 +67,7 @@ function InicioFimNode({ data, selected, type }: NodeProps) {
       {hasInfo && (
         <>
           <button
-            className={`absolute top-1 right-1 z-10 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center leading-none select-none ${infoBtnClass}`}
+            className={`absolute top-1 right-1 z-10 w-4 h-4 rounded-full text-2xs font-bold flex items-center justify-center leading-none select-none ${infoBtnClass}`}
             onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}
             title="Ver informações"
           >
@@ -81,7 +81,7 @@ function InicioFimNode({ data, selected, type }: NodeProps) {
             >
               <p className="font-semibold text-foreground truncate">{nome}</p>
               {prioridade && (
-                <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded border ${PRIO_BADGE[prioridade]}`}>
+                <span className={`inline-flex text-2xs font-semibold px-1.5 py-0.5 rounded border ${PRIO_BADGE[prioridade]}`}>
                   {PRIO_LABEL[prioridade]}
                 </span>
               )}

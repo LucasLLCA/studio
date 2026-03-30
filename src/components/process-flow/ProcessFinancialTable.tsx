@@ -442,17 +442,17 @@ export function ProcessFinancialTable({
             </div>
           )}
           <table className="border-collapse text-sm">
-            <thead className="sticky top-0 z-10 bg-slate-400 dark:bg-slate-600">
+            <thead className="sticky top-0 z-10 bg-muted-foreground">
               <tr className="border-b">
-                <th className="px-4 py-3 text-left font-semibold text-slate-50 min-w-[220px]">Unidade / Usuário</th>
-                <th className="px-4 py-3 text-center font-semibold text-slate-50 min-w-[130px]">CPF</th>
-                <th className="px-4 py-3 text-center font-semibold text-slate-50 min-w-[140px]">Salário Médio</th>
-                <th className="px-4 py-3 text-center font-semibold text-slate-50 min-w-[120px]">Horas Pessoa</th>
-                <th className="px-4 py-3 text-center font-semibold text-slate-50 min-w-[140px]">Total</th>
+                <th className="px-4 py-3 text-left font-semibold text-background min-w-[220px]">Unidade / Usuário</th>
+                <th className="px-4 py-3 text-center font-semibold text-background min-w-[130px] hidden md:table-cell">CPF</th>
+                <th className="px-4 py-3 text-center font-semibold text-background min-w-[140px] hidden md:table-cell">Salário Médio</th>
+                <th className="px-4 py-3 text-center font-semibold text-background min-w-[120px]">Horas Pessoa</th>
+                <th className="px-4 py-3 text-center font-semibold text-background min-w-[140px]">Total</th>
                 {activeGroups.map((group) => (
                   <th
                     key={group.key}
-                    className="px-3 py-3 text-center font-semibold text-slate-50 min-w-[180px]"
+                    className="px-3 py-3 text-center font-semibold text-background min-w-[180px]"
                   >
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -502,8 +502,8 @@ export function ProcessFinancialTable({
                           {unit.unitDescricao}
                         </div>
                       </td>
-                      <td className="px-4 py-2.5 text-center text-muted-foreground">-</td>
-                      <td className="px-4 py-2.5 text-center text-muted-foreground">-</td>
+                      <td className="px-4 py-2.5 text-center text-muted-foreground hidden md:table-cell">-</td>
+                      <td className="px-4 py-2.5 text-center text-muted-foreground hidden md:table-cell">-</td>
                       <td className="px-4 py-2.5 text-center font-semibold text-foreground">
                         {unitHours.toFixed(1)}h
                       </td>
@@ -529,14 +529,14 @@ export function ProcessFinancialTable({
                         >
                           <td className="px-4 py-2.5 pl-8">
                             <div className="font-medium text-foreground">{user.userSigla}</div>
-                            <div className="text-xs text-slate-400 dark:text-slate-500 truncate" title={user.userName}>
+                            <div className="text-xs text-muted-foreground truncate" title={user.userName}>
                               {user.userName}
                             </div>
                           </td>
-                          <td className="px-4 py-2.5 text-center font-medium text-foreground">
+                          <td className="px-4 py-2.5 text-center font-medium text-foreground hidden md:table-cell">
                             {cpfFormatter(data?.cpf ?? null)}
                           </td>
-                          <td className="px-4 py-2.5 text-center font-medium text-foreground">
+                          <td className="px-4 py-2.5 text-center font-medium text-foreground hidden md:table-cell">
                             {salary ? formatCurrency(salary) : '-'}
                           </td>
                           <td className="px-4 py-2.5 text-center font-medium text-foreground">
@@ -558,10 +558,10 @@ export function ProcessFinancialTable({
               })}
 
               {unitGroups.length > 0 && (
-                <tr className="bg-slate-100 dark:bg-slate-800 border-t-2">
+                <tr className="bg-muted/50 dark:bg-muted/50 border-t-2">
                   <td className="px-4 py-3 font-bold text-foreground">Total Geral</td>
-                  <td className="px-4 py-3 text-center text-muted-foreground">-</td>
-                  <td className="px-4 py-3 text-center text-muted-foreground">-</td>
+                  <td className="px-4 py-3 text-center text-muted-foreground hidden md:table-cell">-</td>
+                  <td className="px-4 py-3 text-center text-muted-foreground hidden md:table-cell">-</td>
                   <td className="px-4 py-3 text-center text-muted-foreground">-</td>
                   <td className="px-4 py-3 text-center font-bold text-foreground">
                     {formatCurrency(globalTotals.total)}

@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Loader2, Search, X as XIcon, Info, User, Plus, Menu } from 'lucide-react';
+import { useToggleSet } from '@/hooks/use-toggle-set';
+import { Loader2, Search, User, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import {
   Drawer,
   DrawerClose,
@@ -14,32 +13,14 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { KanbanFilterBar, KanbanFilterBarMobile } from '@/components/kanban/KanbanFilterBar';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
 import { getMyGrupos, getGrupoWithProcessos, createGrupo, deleteGrupo, removeProcessoFromGrupo, moveProcessoEntreGrupos } from '@/lib/api/grupos-api-client';
 import { KanbanBoard } from '@/components/kanban/KanbanBoard';
+import { NewGroupDialog } from '@/components/kanban/NewGroupDialog';
 import type { KanbanColumn, KanbanProcesso } from '@/types/teams';
 
 export default function EspacoPessoalPage() {
@@ -52,12 +33,9 @@ export default function EspacoPessoalPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [filterNumero, setFilterNumero] = useState('');
-  const [filterTagIds, setFilterTagIds] = useState<Set<string>>(new Set());
+  const { set: filterTagIds, toggle: toggleFilterTag, clear: clearFilterTags } = useToggleSet<string>();
 
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
-  const [newGroupName, setNewGroupName] = useState('');
-  const [newGroupColor, setNewGroupColor] = useState('#6366f1');
-  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   const [deleteColumnId, setDeleteColumnId] = useState<string | null>(null);
   const [deleteProcessoData, setDeleteProcessoData] = useState<{ processo: KanbanProcesso; grupoId: string } | null>(null);
@@ -92,23 +70,16 @@ export default function EspacoPessoalPage() {
 
   useEffect(() => { if (usuario) loadBoard(); }, [usuario, loadBoard]);
 
-  const handleCreateGroup = useCallback(async () => {
-    if (!usuario || !newGroupName.trim()) return;
-    setIsCreatingGroup(true);
-    try {
-      const result = await createGrupo(usuario, newGroupName.trim(), newGroupColor);
-      if ('error' in result) {
-        toast({ title: 'Erro', description: (result as { error: string }).error, variant: 'destructive' });
-      } else {
-        toast({ title: 'Grupo criado!' });
-        setNewGroupName('');
-        setIsNewGroupOpen(false);
-        loadBoard();
-      }
-    } finally {
-      setIsCreatingGroup(false);
+  const handleCreateGroup = useCallback(async (name: string, color?: string) => {
+    if (!usuario) return;
+    const result = await createGrupo(usuario, name, color);
+    if ('error' in result) {
+      toast({ title: 'Erro', description: (result as { error: string }).error, variant: 'destructive' });
+      throw new Error((result as { error: string }).error);
     }
-  }, [usuario, newGroupName, newGroupColor, toast, loadBoard]);
+    toast({ title: 'Grupo criado!' });
+    loadBoard();
+  }, [usuario, toast, loadBoard]);
 
   const handleDeleteColumn = useCallback(async () => {
     if (!deleteColumnId || !usuario) return;
@@ -221,29 +192,18 @@ export default function EspacoPessoalPage() {
                 <DrawerHeader className="text-center pb-2">
                   <DrawerTitle>Filtros</DrawerTitle>
                 </DrawerHeader>
-                <div className="px-4 pb-4 space-y-4 max-h-[75vh] overflow-y-auto">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-primary">Buscar</p>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                      <Input placeholder="Número Processo..." value={filterNumero} onChange={(e) => setFilterNumero(e.target.value)} className="pl-8 h-10 rounded-xl" />
-                    </div>
-                  </div>
-                  <Separator />
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-primary">Grupos</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {colunas.map(coluna => (
-                        <button key={coluna.tag_id} onClick={() => setFilterTagIds(prev => { const next = new Set(prev); if (next.has(coluna.tag_id)) next.delete(coluna.tag_id); else next.add(coluna.tag_id); return next; })} className={cn('text-xs px-2.5 py-1 rounded-full border transition-colors', filterTagIds.has(coluna.tag_id) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border')}>
-                          {coluna.tag_nome}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <KanbanFilterBarMobile
+                  filterNumero={filterNumero}
+                  onFilterNumeroChange={setFilterNumero}
+                  colunas={colunas}
+                  filterTagIds={filterTagIds}
+                  onToggleTag={toggleFilterTag}
+                  onClearFilters={() => { setFilterNumero(''); clearFilterTags(); }}
+                  isFilterActive={filtroAtivo}
+                />
                 <div className="p-4">
                   <DrawerClose asChild>
-                    <Button variant="outline" className="w-full rounded-xl h-12">Fechar</Button>
+                    <Button variant="outline" className="w-full rounded-xl h-11">Fechar</Button>
                   </DrawerClose>
                 </div>
               </div>
@@ -253,53 +213,15 @@ export default function EspacoPessoalPage() {
       </div>
 
       {/* Desktop filter bar */}
-      <div className="hidden md:block flex-shrink-0 border-b px-4 sm:px-6 py-2 space-y-2 bg-muted/20">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input placeholder="Número Processo..." value={filterNumero} onChange={(e) => setFilterNumero(e.target.value)} className="pl-8 h-8 text-sm" />
-            {filterNumero && (
-              <button onClick={() => setFilterNumero('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                <XIcon className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-          {filtroAtivo && (
-            <button onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); }} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0">
-              Limpar filtros
-            </button>
-          )}
-        </div>
-
-        <Separator />
-
-        {/* Grupos — horizontal scroll */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs text-muted-foreground font-medium">Grupos</span>
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-3 w-3 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs text-xs">
-                  Clique em um grupo para filtrar os processos.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <ScrollArea className="flex-1">
-            <div className="flex items-center gap-1.5 pb-1">
-              {colunas.map(coluna => (
-                <button key={coluna.tag_id} onClick={() => setFilterTagIds(prev => { const next = new Set(prev); if (next.has(coluna.tag_id)) next.delete(coluna.tag_id); else next.add(coluna.tag_id); return next; })} className={cn('text-xs px-2.5 py-0.5 rounded-full border transition-colors shrink-0', filterTagIds.has(coluna.tag_id) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground')}>
-                  {coluna.tag_nome}
-                </button>
-              ))}
-            </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        </div>
-      </div>
+      <KanbanFilterBar
+        filterNumero={filterNumero}
+        onFilterNumeroChange={setFilterNumero}
+        colunas={colunas}
+        filterTagIds={filterTagIds}
+        onToggleTag={toggleFilterTag}
+        onClearFilters={() => { setFilterNumero(''); clearFilterTags(); }}
+        isFilterActive={filtroAtivo}
+      />
 
       {/* Kanban Board */}
       <div className="flex-1 overflow-hidden">
@@ -308,7 +230,7 @@ export default function EspacoPessoalPage() {
             <div className="text-center">
               <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">Nenhum processo encontrado.</p>
-              <button onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); }} className="text-xs text-primary hover:underline mt-2 block mx-auto">
+              <button onClick={() => { setFilterNumero(''); clearFilterTags(); }} className="text-xs text-primary hover:underline mt-2 block mx-auto">
                 Limpar filtros
               </button>
             </div>
@@ -332,59 +254,32 @@ export default function EspacoPessoalPage() {
       </div>
 
       {/* New Group Dialog */}
-      <Dialog open={isNewGroupOpen} onOpenChange={setIsNewGroupOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo grupo de processos</DialogTitle>
-            <DialogDescription>Crie um grupo para organizar seus processos.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label>Nome</Label>
-              <Input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="Ex: Em análise" className="mt-1" onKeyDown={(e) => { if (e.key === 'Enter') handleCreateGroup(); }} />
-            </div>
-            <div>
-              <Label>Cor</Label>
-              <input type="color" value={newGroupColor} onChange={(e) => setNewGroupColor(e.target.value)} className="mt-1 h-8 w-full rounded border cursor-pointer" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewGroupOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateGroup} disabled={!newGroupName.trim() || isCreatingGroup}>
-              {isCreatingGroup ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
-              Criar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <NewGroupDialog
+        open={isNewGroupOpen}
+        onOpenChange={setIsNewGroupOpen}
+        onSubmit={handleCreateGroup}
+        showColorPicker
+        title="Novo grupo de processos"
+      />
 
       {/* Delete Column Confirmation */}
-      <AlertDialog open={!!deleteColumnId} onOpenChange={(open) => { if (!open) setDeleteColumnId(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir grupo?</AlertDialogTitle>
-            <AlertDialogDescription>O grupo e todos os processos associados serão removidos.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteColumn} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={!!deleteColumnId}
+        onOpenChange={(open) => { if (!open) setDeleteColumnId(null); }}
+        title="Excluir grupo?"
+        description="O grupo e todos os processos associados serão removidos."
+        onConfirm={handleDeleteColumn}
+        confirmLabel="Excluir"
+      />
 
       {/* Delete Processo Confirmation */}
-      <AlertDialog open={!!deleteProcessoData} onOpenChange={(open) => { if (!open) setDeleteProcessoData(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover processo?</AlertDialogTitle>
-            <AlertDialogDescription>O processo será removido deste grupo.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteProcesso} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remover</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={!!deleteProcessoData}
+        onOpenChange={(open) => { if (!open) setDeleteProcessoData(null); }}
+        title="Remover processo?"
+        description="O processo será removido deste grupo."
+        onConfirm={handleDeleteProcesso}
+      />
     </div>
   );
 }

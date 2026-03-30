@@ -391,7 +391,7 @@ function VisualizarProcessoContent() {
 
   return (
     <>
-      <div className="flex-1 flex flex-col overflow-y-auto px-4 sm:px-8 py-4 w-full">
+      <div className="flex-1 flex flex-col overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
         {/* Loading feedback when no data */}
         {isClient && hasBackgroundLoading && !rawProcessData && (
           <LoadingFeedback
@@ -1059,7 +1059,7 @@ function VisualizarProcessoContent() {
 
           <div className="p-4">
             <DrawerClose asChild>
-              <Button variant="outline" className="w-full rounded-xl h-12">
+              <Button variant="outline" className="w-full rounded-xl h-11">
                 Fechar
               </Button>
             </DrawerClose>
@@ -1245,7 +1245,7 @@ function VisualizarProcessoContent() {
                         {/* BOTÃO FECHAR */}
                         <div className="p-4">
                           <DrawerClose asChild>
-                            <Button variant="outline" className="w-full rounded-xl h-12">
+                            <Button variant="outline" className="w-full rounded-xl h-11">
                               Fechar
                             </Button>
                           </DrawerClose>

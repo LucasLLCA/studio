@@ -66,7 +66,7 @@ export function KanbanCard({ processo, sourceTagId, onClick, onDelete, isDraggab
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 flex-shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-destructive/10"
+                  className="h-6 w-6 p-0 flex-shrink-0 opacity-40 sm:opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-destructive/10"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete(processo);

@@ -3,7 +3,11 @@
 @tailwind utilities;
 
 body {
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), 'DM Sans', system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display), 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 @layer base {
@@ -40,12 +44,16 @@ body {
 
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
+    --success-light: 142 71% 94%;
     --warning: 38 92% 50%;
     --warning-foreground: 30 80% 20%;
+    --warning-light: 38 92% 93%;
     --info: 219 82% 60%;
     --info-foreground: 0 0% 100%;
+    --info-light: 219 82% 94%;
+    --destructive-light: 0 84% 94%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
     --chart-1: 207 86% 65%;
     --chart-2: 125 37% 65%;
@@ -95,10 +103,14 @@ body {
 
     --success: 142 71% 55%;
     --success-foreground: 0 0% 100%;
+    --success-light: 142 71% 18%;
     --warning: 38 92% 60%;
     --warning-foreground: 38 92% 90%;
+    --warning-light: 38 92% 18%;
     --info: 219 74% 68%;
     --info-foreground: 219 74% 95%;
+    --info-light: 219 74% 18%;
+    --destructive-light: 0 62% 18%;
 
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -123,6 +135,38 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* ── Standardized component patterns ── */
+@layer components {
+  /* Page container — standard centered content layout */
+  .page-container {
+    @apply flex-1 flex flex-col overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 w-full max-w-6xl mx-auto;
+  }
+
+  /* Page title — consistent h1 across all pages */
+  .page-title {
+    @apply text-2xl font-semibold tracking-tight flex items-center gap-2 mb-6;
+  }
+
+  /* Section label — uppercase mini header for UI sections */
+  .section-label {
+    @apply text-xs font-medium uppercase tracking-wide text-muted-foreground;
+  }
+
+  /* Status badge variants */
+  .badge-success {
+    @apply bg-success-light text-success border-success/20;
+  }
+  .badge-warning {
+    @apply bg-warning-light text-warning border-warning/20;
+  }
+  .badge-destructive {
+    @apply bg-destructive-light text-destructive border-destructive/20;
+  }
+  .badge-info {
+    @apply bg-info-light text-info border-info/20;
   }
 }
 

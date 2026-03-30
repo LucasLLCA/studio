@@ -104,18 +104,18 @@ export function ProcessAndamentosTable({ andamentos, searchQuery = '', openUnits
         <div ref={parentRef} className="h-[400px] w-full overflow-auto">
           <div className="w-full">
             <table className="w-full border-collapse text-sm">
-              <thead className="sticky top-0 z-10 bg-slate-400 dark:bg-slate-600">
+              <thead className="sticky top-0 z-10 bg-muted-foreground">
                 <tr className="border-b">
-                  <th className="px-4 py-3 text-left font-semibold text-slate-50 min-w-[200px]">
+                  <th className="px-4 py-3 text-left font-semibold text-background min-w-[200px]">
                     Data/Hora
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-50 min-w-[120px]">
+                  <th className="px-4 py-3 text-left font-semibold text-background min-w-[120px]">
                     Unidade
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-50 min-w-[150px]">
+                  <th className="px-4 py-3 text-left font-semibold text-background min-w-[150px]">
                     Usuário
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-50 min-w-[300px]">
+                  <th className="px-4 py-3 text-left font-semibold text-background min-w-[300px]">
                     Descrição
                   </th>
                 </tr>
@@ -141,7 +141,7 @@ export function ProcessAndamentosTable({ andamentos, searchQuery = '', openUnits
                       onClick={() => handleRowClick(andamento)}
                       className={`border-b last:border-b-0 transition-colors hover:bg-accent cursor-pointer ${
                         isOpenUnitLast
-                          ? 'bg-red-50 dark:bg-red-950/30'
+                          ? 'bg-destructive-light dark:bg-destructive-light'
                           : virtualRow.index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
                       }`}
                     >
@@ -155,13 +155,13 @@ export function ProcessAndamentosTable({ andamentos, searchQuery = '', openUnits
                       </td>
                       <td className="px-4 py-3">
                         <div className={`font-medium ${isOpenUnitLast ? 'text-destructive' : 'text-foreground'}`}>{andamento.Unidade.Sigla}</div>
-                        <div className="text-xs text-slate-400 dark:text-slate-500 truncate" title={andamento.Unidade.Descricao}>
+                        <div className="text-xs text-muted-foreground truncate" title={andamento.Unidade.Descricao}>
                           {andamento.Unidade.Descricao}
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-medium text-foreground">{andamento.Usuario.Sigla}</div>
-                        <div className="text-xs text-slate-400 dark:text-slate-500 truncate" title={andamento.Usuario.Nome}>
+                        <div className="text-xs text-muted-foreground truncate" title={andamento.Usuario.Nome}>
                           {andamento.Usuario.Nome}
                         </div>
                       </td>

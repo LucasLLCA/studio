@@ -184,7 +184,7 @@ function FeedEntryItem({
       </div>
 
       {entry.tag_nome && (
-        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 mt-1">
+        <Badge variant="secondary" className="text-2xs px-1.5 py-0 mt-1">
           {entry.tag_nome}
         </Badge>
       )}

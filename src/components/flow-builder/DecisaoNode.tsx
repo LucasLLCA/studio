@@ -43,14 +43,14 @@ function DecisaoNode({ data, selected }: NodeProps) {
   return (
     <div className="relative flex items-center justify-center" style={{ width: 120, height: 120 }}>
       <NodeToolbar position={Position.Top} isVisible={!!unidadeSigla} offset={30} className="pointer-events-none">
-        <span className="whitespace-nowrap text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 border border-amber-300 text-amber-700 shadow-sm">
+        <span className="whitespace-nowrap text-2xs font-semibold px-1.5 py-0.5 rounded bg-amber-50 border border-amber-300 text-amber-700 shadow-sm">
           {unidadeSigla}
         </span>
       </NodeToolbar>
       {hasInfo && (
         <>
           <button
-            className="absolute top-2 right-2 z-20 w-4 h-4 rounded-full bg-amber-200 text-amber-800 text-[9px] font-bold flex items-center justify-center hover:bg-amber-300 leading-none select-none shadow"
+            className="absolute top-2 right-2 z-20 w-4 h-4 rounded-full bg-amber-200 text-amber-800 text-2xs font-bold flex items-center justify-center hover:bg-amber-300 leading-none select-none shadow"
             onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}
             title="Ver informações"
           >
@@ -64,7 +64,7 @@ function DecisaoNode({ data, selected }: NodeProps) {
             >
               <p className="font-semibold text-foreground truncate">{d.nome as string}</p>
               {prioridade && (
-                <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded border ${PRIO_BADGE[prioridade]}`}>
+                <span className={`inline-flex text-2xs font-semibold px-1.5 py-0.5 rounded border ${PRIO_BADGE[prioridade]}`}>
                   {PRIO_LABEL[prioridade]}
                 </span>
               )}

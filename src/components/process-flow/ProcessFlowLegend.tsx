@@ -106,7 +106,7 @@ export function ProcessFlowLegend() {
               visual={
                 <div className="relative flex items-center justify-center">
                   <div className="w-6 h-6 rounded-full border-2 border-gray-300 flex-shrink-0" style={{ backgroundColor: 'hsl(var(--destructive))' }}></div>
-                  <span className="absolute -top-3.5 text-[10px] font-bold" style={{ color: 'hsl(var(--destructive))' }}>5d</span>
+                  <span className="absolute -top-3.5 text-2xs font-bold" style={{ color: 'hsl(var(--destructive))' }}>5d</span>
                 </div>
               }
             />

@@ -323,7 +323,7 @@ export function ProcessProductivityTable({
                         </div>
 
                         <div className="shrink-0 rounded-xl border bg-background px-3 py-2 text-center min-w-[72px]">
-                          <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          <div className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
                             Total
                           </div>
                           <div className="text-lg font-bold leading-none text-foreground mt-1">
@@ -374,7 +374,7 @@ export function ProcessProductivityTable({
                             </div>
 
                             <div className="shrink-0 rounded-xl bg-primary/10 px-3 py-2 text-center min-w-[64px]">
-                              <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              <div className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
                                 Total
                               </div>
                               <div className="text-base font-bold leading-none text-foreground mt-1">
@@ -395,7 +395,7 @@ export function ProcessProductivityTable({
             <div className="min-w-max">
               <table className="w-full border-separate border-spacing-0 text-sm">
                 <thead className="sticky top-0 z-20 bg-background">
-                  <tr className="border-b bg-slate-100/95 backdrop-blur supports-[backdrop-filter]:bg-slate-100/80 dark:bg-slate-800/95 dark:supports-[backdrop-filter]:bg-slate-800/80">
+                  <tr className="border-b bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80 dark:bg-muted/95 dark:supports-[backdrop-filter]:bg-muted/80">
                     <th className="px-4 py-3 text-left font-semibold text-foreground min-w-[280px] border-b">
                       Unidade / Usuário
                     </th>
@@ -449,7 +449,7 @@ export function ProcessProductivityTable({
                     filteredGroups.map((group) => (
                       <React.Fragment key={group.unitId}>
                         {/* Linha da unidade */}
-                        <tr className="bg-slate-50 dark:bg-slate-900/40">
+                        <tr className="bg-muted/30 dark:bg-muted/30">
                           <td className="px-4 py-4 border-b align-top">
                             <div className="min-w-0">
                               <div className="font-semibold text-[15px] text-foreground">
@@ -487,8 +487,8 @@ export function ProcessProductivityTable({
                           <tr
                             key={`${group.unitId}-${row.userId}`}
                             className={[
-                              "transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40",
-                              index % 2 === 0 ? "bg-background" : "bg-slate-50/40 dark:bg-slate-900/20",
+                              "transition-colors hover:bg-muted/30 dark:hover:bg-muted/30",
+                              index % 2 === 0 ? "bg-background" : "bg-muted/20 dark:bg-muted/20",
                             ].join(" ")}
                           >
                             <td className="px-4 py-3 border-b">

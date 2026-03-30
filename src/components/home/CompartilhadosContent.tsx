@@ -91,30 +91,30 @@ export function CompartilhadosContent({ usuario, contextoMap = {} }: Compartilha
   const renderGrupoItem = (item: SharedWithMeItem, showSharer?: boolean) => {
     const isExpanded = expandedGrupos.has(item.compartilhamento_id);
     return (
-      <div key={item.compartilhamento_id} className="rounded-md border border-gray-200 transition-colors">
+      <div key={item.compartilhamento_id} className="rounded-md border border-border transition-colors">
         <button
           onClick={() => toggleGrupo(item.compartilhamento_id)}
-          className="w-full text-left p-3 hover:bg-gray-50 transition-colors"
+          className="w-full text-left p-3 hover:bg-muted/30 transition-colors"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {item.tag_cor && (
                 <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.tag_cor }} />
               )}
-              <p className="font-medium text-gray-800 truncate">{item.tag_nome}</p>
+              <p className="font-medium text-foreground truncate">{item.tag_nome}</p>
               <span className="text-xs text-muted-foreground shrink-0">{item.processos.length} processo(s)</span>
             </div>
-            <ChevronDown className={cn('h-4 w-4 text-gray-400 shrink-0 ml-2 transition-transform', isExpanded && 'rotate-180')} />
+            <ChevronDown className={cn('h-4 w-4 text-muted-foreground/70 shrink-0 ml-2 transition-transform', isExpanded && 'rotate-180')} />
           </div>
           {showSharer && (
-            <p className="text-xs text-gray-500 mt-1">por {item.compartilhado_por}</p>
+            <p className="text-xs text-muted-foreground mt-1">por {item.compartilhado_por}</p>
           )}
         </button>
 
         {isExpanded && (
-          <div className="border-t border-gray-100 px-3 py-2">
+          <div className="border-t border-border/50 px-3 py-2">
             {item.processos.length === 0 ? (
-              <p className="text-xs text-gray-500 py-2">Nenhum processo neste grupo.</p>
+              <p className="text-xs text-muted-foreground py-2">Nenhum processo neste grupo.</p>
             ) : (
               <div className="space-y-1">
                 {item.processos.map((p) => (
@@ -159,7 +159,7 @@ export function CompartilhadosContent({ usuario, contextoMap = {} }: Compartilha
             <div key={group.equipeId}>
               <button
                 onClick={() => toggleEquipe(group.equipeId)}
-                className="flex items-center justify-between w-full px-1 py-1.5 rounded hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-between w-full px-1 py-1.5 rounded hover:bg-muted/30 transition-colors"
               >
                 <div className="flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
@@ -188,7 +188,7 @@ export function CompartilhadosContent({ usuario, contextoMap = {} }: Compartilha
           <div>
             <button
               onClick={() => toggleEquipe('__avulsos__')}
-              className="flex items-center justify-between w-full px-1 py-1.5 rounded hover:bg-gray-50 transition-colors"
+              className="flex items-center justify-between w-full px-1 py-1.5 rounded hover:bg-muted/30 transition-colors"
             >
               <div className="flex items-center gap-1.5">
                 <UserRound className="h-3.5 w-3.5 text-muted-foreground" />

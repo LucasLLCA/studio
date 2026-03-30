@@ -44,30 +44,30 @@ function ForkJoinNode({ data, selected }: NodeProps) {
   return (
     <div className="relative" style={{ width: 160, height: 24 }}>
       <NodeToolbar position={Position.Top} isVisible={!!unidadeSigla} className="pointer-events-none">
-        <span className="whitespace-nowrap text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 border border-gray-300 text-gray-700 shadow-sm">
+        <span className="whitespace-nowrap text-2xs font-semibold px-1.5 py-0.5 rounded bg-muted/50 border border-border text-foreground shadow-sm">
           {unidadeSigla}
         </span>
       </NodeToolbar>
       <div
-        className={`flex items-center justify-center rounded border-2 border-gray-500 bg-gray-200 shadow-sm w-full h-full border-l-4 ${
-          prioridade && PRIO_BORDER[prioridade] ? PRIO_BORDER[prioridade] : 'border-l-gray-500'
+        className={`flex items-center justify-center rounded border-2 border-muted-foreground bg-muted shadow-sm w-full h-full border-l-4 ${
+          prioridade && PRIO_BORDER[prioridade] ? PRIO_BORDER[prioridade] : 'border-l-muted-foreground'
         } ${selected ? 'ring-2 ring-primary' : ''}`}
       >
-        <Handle type="target" position={Position.Top} className="!bg-gray-600 !w-3 !h-3" />
-        <span className="text-[10px] font-medium text-gray-700 uppercase">
+        <Handle type="target" position={Position.Top} className="!bg-muted-foreground !w-3 !h-3" />
+        <span className="text-2xs font-medium text-foreground uppercase">
           {isFork ? 'Fork' : 'Join'}
         </span>
-        <Handle type="source" position={Position.Bottom} className="!bg-gray-600 !w-3 !h-3" />
+        <Handle type="source" position={Position.Bottom} className="!bg-muted-foreground !w-3 !h-3" />
         {isFork && (
           <>
-            <Handle type="source" position={Position.Bottom} id="left" className="!bg-gray-600 !w-3 !h-3" style={{ left: '25%' }} />
-            <Handle type="source" position={Position.Bottom} id="right" className="!bg-gray-600 !w-3 !h-3" style={{ left: '75%' }} />
+            <Handle type="source" position={Position.Bottom} id="left" className="!bg-muted-foreground !w-3 !h-3" style={{ left: '25%' }} />
+            <Handle type="source" position={Position.Bottom} id="right" className="!bg-muted-foreground !w-3 !h-3" style={{ left: '75%' }} />
           </>
         )}
         {!isFork && (
           <>
-            <Handle type="target" position={Position.Top} id="left" className="!bg-gray-600 !w-3 !h-3" style={{ left: '25%' }} />
-            <Handle type="target" position={Position.Top} id="right" className="!bg-gray-600 !w-3 !h-3" style={{ left: '75%' }} />
+            <Handle type="target" position={Position.Top} id="left" className="!bg-muted-foreground !w-3 !h-3" style={{ left: '25%' }} />
+            <Handle type="target" position={Position.Top} id="right" className="!bg-muted-foreground !w-3 !h-3" style={{ left: '75%' }} />
           </>
         )}
       </div>
@@ -75,7 +75,7 @@ function ForkJoinNode({ data, selected }: NodeProps) {
       {hasInfo && (
         <>
           <button
-            className="absolute -top-2 -right-2 z-10 w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[9px] font-bold flex items-center justify-center hover:bg-slate-300 leading-none select-none shadow"
+            className="absolute -top-2 -right-2 z-10 w-4 h-4 rounded-full bg-muted text-foreground text-2xs font-bold flex items-center justify-center hover:bg-muted-foreground/30 leading-none select-none shadow"
             onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}
             title="Ver informações"
           >
@@ -89,7 +89,7 @@ function ForkJoinNode({ data, selected }: NodeProps) {
             >
               <p className="font-semibold text-foreground">{isFork ? 'Fork' : 'Join'}</p>
               {prioridade && (
-                <span className={`inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded border ${PRIO_BADGE[prioridade]}`}>
+                <span className={`inline-flex text-2xs font-semibold px-1.5 py-0.5 rounded border ${PRIO_BADGE[prioridade]}`}>
                   {PRIO_LABEL[prioridade]}
                 </span>
               )}

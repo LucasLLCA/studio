@@ -220,7 +220,7 @@ export function ProcessToolbar({
               </div>
               <div className="p-4">
                 <DrawerClose asChild>
-                  <Button variant="outline" className="w-full rounded-xl h-12">
+                  <Button variant="outline" className="w-full rounded-xl h-11">
                     Fechar
                   </Button>
                 </DrawerClose>

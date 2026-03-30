@@ -515,8 +515,8 @@ export function ObservacoesSheet({
   // Config visual de escopo
   const scopeConfig: Record<ObservacaoEscopo, { label: string; Icon: React.ElementType; className: string }> = {
     pessoal: { label: 'Pessoal', Icon: Lock, className: 'bg-muted/50 text-muted-foreground border-muted' },
-    equipe:  { label: 'Equipe',  Icon: Users, className: 'bg-blue-50 text-blue-600 border-blue-100' },
-    global:  { label: 'Global',  Icon: Globe, className: 'bg-green-50 text-green-600 border-green-100' },
+    equipe:  { label: 'Equipe',  Icon: Users, className: 'bg-info-light text-info border-info/20' },
+    global:  { label: 'Global',  Icon: Globe, className: 'bg-success-light text-success border-success/20' },
   };
 
   const scopeOptions: { value: ObservacaoEscopo; label: string; Icon: React.ElementType }[] = [
@@ -575,16 +575,16 @@ export function ObservacoesSheet({
               <MessageSquare className="h-5 w-5" />
               Observacoes
               {mencoesBadge > 0 && (
-                <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+                <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-2xs font-bold">
                   {mencoesBadge}
                 </span>
               )}
             </SheetTitle>
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={() => onOpenChange(false)}
-              className="h-8 w-8 p-0 flex-shrink-0"
+              className="h-8 w-8 rounded-lg flex-shrink-0"
               aria-label="Fechar observacoes"
             >
               <X className="h-4 w-4" />
@@ -628,7 +628,7 @@ export function ObservacoesSheet({
             return Array.from(grupos.entries()).map(([teamId, tags]) => (
               <div key={teamId ?? 'pessoal'} className="space-y-1">
                 {/* Rótulo do grupo */}
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                <p className="text-2xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                   {teamId === null ? (
                     <><Lock className="h-2.5 w-2.5" /> {tags[0].teamName}</>
                   ) : (
@@ -777,15 +777,15 @@ export function ObservacoesSheet({
                             return (
                               <div className="space-y-1 pt-0.5">
                                 {jaAplicada ? (
-                                  <div className="flex items-center gap-1.5 px-2 py-2 bg-green-50 border border-green-100 rounded text-xs text-green-700">
-                                    <Check className="h-3.5 w-3.5 shrink-0 text-green-600" />
+                                  <div className="flex items-center gap-1.5 px-2 py-2 bg-success-light border border-success/20 rounded text-xs text-success">
+                                    <Check className="h-3.5 w-3.5 shrink-0 text-success" />
                                     <span>
                                       <span className="font-medium">&quot;{existingTag.nome}&quot;</span> já está aplicada a este processo.
                                     </span>
                                   </div>
                                 ) : (
                                   <>
-                                    <p className="text-[10px] text-amber-600 px-2 py-1 bg-amber-50 rounded flex items-center gap-1">
+                                    <p className="text-2xs text-warning px-2 py-1 bg-warning-light rounded flex items-center gap-1">
                                       <Info className="h-3 w-3 shrink-0" /> Tag já existe — deseja aplicá-la?
                                     </p>
                                     <button
@@ -808,8 +808,8 @@ export function ObservacoesSheet({
                           if (crossTeamMatch) {
                             return (
                               <div className="space-y-1 pt-0.5">
-                                <div className="flex items-center gap-1.5 px-2 py-2 bg-blue-50 border border-blue-100 rounded text-xs text-blue-700">
-                                  <Info className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                                <div className="flex items-center gap-1.5 px-2 py-2 bg-info-light border border-info/20 rounded text-xs text-info">
+                                  <Info className="h-3.5 w-3.5 shrink-0 text-info" />
                                   <span>
                                     Tag de <span className="font-medium">{crossTeamMatch.teamName}</span> — deseja usá-la aqui?
                                   </span>
@@ -831,8 +831,8 @@ export function ObservacoesSheet({
                           // Equipe sem coluna com processo — bloquear criação
                           if (!isPersonalMode && !selectedTeamHasGrupos) {
                             return (
-                              <div className="flex items-start gap-1.5 px-2 py-2 bg-amber-50 border border-amber-100 rounded text-xs text-amber-700">
-                                <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
+                              <div className="flex items-start gap-1.5 px-2 py-2 bg-warning-light border border-warning/20 rounded text-xs text-warning">
+                                <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-warning" />
                                 <span>
                                   Esta equipe não possui nenhuma coluna com processo salvo. Adicione pelo menos um processo a uma coluna da equipe antes de criar tags.
                                 </span>
@@ -841,7 +841,7 @@ export function ObservacoesSheet({
                           }
                           return (
                             <div className="space-y-1.5 pt-1">
-                              <p className="text-[10px] text-muted-foreground px-1">Cor da tag (opcional):</p>
+                              <p className="text-2xs text-muted-foreground px-1">Cor da tag (opcional):</p>
                               <div className="flex flex-wrap gap-1 px-1">
                                 {TAG_COLORS.map(cor => (
                                   <button
@@ -910,7 +910,7 @@ export function ObservacoesSheet({
                   onKeyDown={(e) => { if (e.key === 'Enter') handleEditTag(); }}
                 />
                 <div>
-                  <p className="text-[10px] text-muted-foreground mb-1">Cor:</p>
+                  <p className="text-2xs text-muted-foreground mb-1">Cor:</p>
                   <div className="flex flex-wrap gap-1">
                     {TAG_COLORS.map(cor => (
                       <button
@@ -1000,7 +1000,7 @@ export function ObservacoesSheet({
                       onMouseDown={(e) => { e.preventDefault(); handleSelectMencao(membro); }}
                       className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-left"
                     >
-                      <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                      <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-2xs font-bold flex-shrink-0">
                         {membro.usuario[0].toUpperCase()}
                       </span>
                       <span className="truncate">{membro.usuario}</span>
@@ -1072,7 +1072,7 @@ export function ObservacoesSheet({
                   key={obs.id}
                   className={cn(
                     'group flex gap-3 rounded-lg p-1.5 -mx-1.5 transition-colors',
-                    souMencionado && 'bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800/40'
+                    souMencionado && 'bg-warning-light dark:bg-warning-light border border-warning/20 dark:border-warning/20'
                   )}
                 >
                   {/* Avatar */}
@@ -1092,7 +1092,7 @@ export function ObservacoesSheet({
                         {formatDistanceToNow(new Date(obs.criado_em), { addSuffix: true, locale: ptBR })}
                       </span>
                       <span className={cn(
-                        'inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border flex-shrink-0',
+                        'inline-flex items-center gap-0.5 text-2xs px-1.5 py-0.5 rounded border flex-shrink-0',
                         scopeClassName
                       )}>
                         <ScopeIcon className="h-2.5 w-2.5" />
@@ -1184,7 +1184,7 @@ export function ObservacoesSheet({
                         {vistosPor.map(m => (
                           <span
                             key={m.id}
-                            className="inline-flex items-center gap-0.5 text-[10px] text-green-600 bg-green-50 border border-green-200 rounded px-1.5 py-0.5"
+                            className="inline-flex items-center gap-0.5 text-2xs text-success bg-success-light border border-success/20 rounded px-1.5 py-0.5"
                             title={m.visto_em ? format(new Date(m.visto_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : ''}
                           >
                             <Eye className="h-2.5 w-2.5" />
@@ -1199,14 +1199,14 @@ export function ObservacoesSheet({
                       <div className="mt-2 space-y-2 pl-3 border-l-2 border-muted">
                         {(obs.respostas ?? []).map(resp => (
                           <div key={resp.id} className="group/resp flex gap-2">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold">
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-2xs font-semibold">
                               {getInitials(resp.usuario)}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-xs font-medium truncate">{resp.usuario}</span>
                                 <span
-                                  className="text-[10px] text-muted-foreground cursor-default"
+                                  className="text-2xs text-muted-foreground cursor-default"
                                   title={format(new Date(resp.criado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                                 >
                                   {formatDistanceToNow(new Date(resp.criado_em), { addSuffix: true, locale: ptBR })}
@@ -1269,7 +1269,7 @@ export function ObservacoesSheet({
                                   }}
                                   className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-left"
                                 >
-                                  <span className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                                  <span className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-2xs font-bold flex-shrink-0">
                                     {membro.usuario[0].toUpperCase()}
                                   </span>
                                   <span className="truncate">{membro.usuario}</span>

@@ -80,9 +80,9 @@ export default function BiPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto px-4 md:px-8 py-6 w-full max-w-7xl mx-auto">
+    <div className="flex-1 flex flex-col overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 w-full max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
           <BarChart3 className="h-6 w-6" /> Business Intelligence
         </h1>
         <Button
@@ -115,7 +115,7 @@ export default function BiPage() {
       )}
 
       <Tabs defaultValue="estoque" className="w-full">
-        <TabsList className="mb-4 overflow-x-auto">
+        <TabsList className="mb-4 overflow-x-auto flex-wrap sm:flex-nowrap w-full sm:w-auto">
           <TabsTrigger value="estoque">Estoque de Processos</TabsTrigger>
           <TabsTrigger value="produtividade">Produtividade</TabsTrigger>
         </TabsList>

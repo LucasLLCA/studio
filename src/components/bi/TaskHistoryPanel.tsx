@@ -11,31 +11,31 @@ function statusBadge(status: BiTask["status"]) {
   switch (status) {
     case "SUCCESS":
       return (
-        <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-[10px] px-1.5 py-0">
+        <Badge className="bg-success-light text-success dark:bg-success-light dark:text-success text-2xs px-1.5 py-0">
           SUCCESS
         </Badge>
       );
     case "FAILURE":
       return (
-        <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 text-[10px] px-1.5 py-0">
+        <Badge className="bg-destructive-light text-destructive dark:bg-destructive-light dark:text-destructive text-2xs px-1.5 py-0">
           FAILURE
         </Badge>
       );
     case "STARTED":
       return (
-        <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 text-[10px] px-1.5 py-0">
+        <Badge className="bg-warning-light text-warning dark:bg-warning-light dark:text-warning text-2xs px-1.5 py-0">
           STARTED
         </Badge>
       );
     case "PENDING":
       return (
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+        <Badge variant="outline" className="text-2xs px-1.5 py-0">
           PENDING
         </Badge>
       );
     default:
       return (
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+        <Badge variant="outline" className="text-2xs px-1.5 py-0">
           {status}
         </Badge>
       );

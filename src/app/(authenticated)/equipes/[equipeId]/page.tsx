@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ArrowLeft, Loader2, Settings, Users, Trash2, Plus, LogOut, Search, X as XIcon, Info, Menu } from 'lucide-react';
+import { useToggleSet } from '@/hooks/use-toggle-set';
+import { ArrowLeft, Loader2, Settings, Users, Trash2, LogOut, Search, Menu } from 'lucide-react';
 import {
   Drawer,
   DrawerClose,
@@ -10,12 +11,11 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer';
-import { ScrollBar } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { KanbanFilterBar, KanbanFilterBarMobile } from '@/components/kanban/KanbanFilterBar';
 import {
   Sheet,
   SheetContent,
@@ -23,20 +23,10 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { usePersistedAuth } from '@/hooks/use-persisted-auth';
 import { useParams, useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
 import { getKanbanBoard } from '@/lib/api/tags-api-client';
 import { createGrupo, deleteGrupo, removeProcessoFromGrupo, moveProcessoEntreGrupos } from '@/lib/api/grupos-api-client';
 import {
@@ -44,17 +34,8 @@ import {
   removeTeamMember,
   deleteTeam,
 } from '@/lib/api/teams-api-client';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { KanbanBoard } from '@/components/kanban/KanbanBoard';
+import { NewGroupDialog } from '@/components/kanban/NewGroupDialog';
 import { ProcessoKanbanSheet } from '@/components/kanban/ProcessoKanbanSheet';
 import type { KanbanBoard as KanbanBoardType, KanbanProcesso, TeamMember, TeamTag } from '@/types/teams';
 import { UserPlus, X, Crown } from 'lucide-react';
@@ -87,8 +68,8 @@ export default function EquipeKanbanPage() {
 
   // Filtros do board
   const [filterNumero, setFilterNumero] = useState('');
-  const [filterTagIds, setFilterTagIds] = useState<Set<string>>(new Set());
-  const [filterTeamTagIds, setFilterTeamTagIds] = useState<Set<string>>(new Set());
+  const { set: filterTagIds, toggle: toggleFilterTag, clear: clearFilterTags } = useToggleSet<string>();
+  const { set: filterTeamTagIds, toggle: toggleFilterTeamTag, clear: clearFilterTeamTags } = useToggleSet<string>();
   const [tagFilterMode, setTagFilterMode] = useState<'and' | 'or'>('and');
 
   // Tags de observação que estão de fato aplicadas em pelo menos um processo do board
@@ -151,8 +132,6 @@ export default function EquipeKanbanPage() {
 
   // New group dialog
   const [isNewGroupOpen, setIsNewGroupOpen] = useState(false);
-  const [newGroupName, setNewGroupName] = useState('');
-  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   // Team settings sheet
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -370,22 +349,15 @@ export default function EquipeKanbanPage() {
     }
   };
 
-  const handleCreateGroup = async () => {
-    if (!usuario || !newGroupName.trim()) return;
-    setIsCreatingGroup(true);
-    try {
-      const result = await createGrupo(usuario, newGroupName.trim(), undefined, equipeId);
-      if ('error' in result) {
-        toast({ title: "Erro ao criar grupo", description: result.error, variant: "destructive" });
-        return;
-      }
-      setIsNewGroupOpen(false);
-      setNewGroupName('');
-      toast({ title: "Grupo criado!" });
-      loadBoard();
-    } finally {
-      setIsCreatingGroup(false);
+  const handleCreateGroup = async (name: string, _color?: string) => {
+    if (!usuario) return;
+    const result = await createGrupo(usuario, name, undefined, equipeId);
+    if ('error' in result) {
+      toast({ title: "Erro ao criar grupo", description: result.error, variant: "destructive" });
+      throw new Error(result.error);
     }
+    toast({ title: "Grupo criado!" });
+    loadBoard();
   };
 
   const isAdmin = board?.equipe.membros.some(
@@ -459,63 +431,23 @@ export default function EquipeKanbanPage() {
                   <DrawerHeader className="text-center pb-2">
                     <DrawerTitle>Filtros</DrawerTitle>
                   </DrawerHeader>
-                  <div className="px-4 pb-4 space-y-4 max-h-[75vh] overflow-y-auto">
-                    {/* Search */}
-                    <div className="space-y-2">
-                      <p className="text-sm font-semibold text-primary">Buscar</p>
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                        <Input placeholder="Número Processo..." value={filterNumero} onChange={(e) => setFilterNumero(e.target.value)} className="pl-8 h-10 rounded-xl" />
-                      </div>
-                    </div>
-                    <Separator />
-                    {/* Grupos */}
-                    <div className="space-y-2">
-                      <p className="text-sm font-semibold text-primary">Grupos</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {board.colunas.map(coluna => (
-                          <button key={coluna.tag_id} onClick={() => setFilterTagIds(prev => { const next = new Set(prev); if (next.has(coluna.tag_id)) next.delete(coluna.tag_id); else next.add(coluna.tag_id); return next; })} className={cn('text-xs px-2.5 py-1 rounded-full border transition-colors', filterTagIds.has(coluna.tag_id) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border')}>
-                            {coluna.tag_nome}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Tags */}
-                    {usedTeamTags.length > 0 && (
-                      <>
-                        <Separator />
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-primary">Tags</p>
-                            {filterTeamTagIds.size > 1 && (
-                              <button
-                                onClick={() => setTagFilterMode(prev => prev === 'and' ? 'or' : 'and')}
-                                className={cn(
-                                  'text-[10px] font-bold px-2 py-0.5 rounded border transition-colors',
-                                  tagFilterMode === 'and' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-amber-100 text-amber-700 border-amber-300',
-                                )}
-                              >
-                                {tagFilterMode === 'and' ? 'E' : 'OU'}
-                              </button>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {usedTeamTags.map(tag => {
-                              const active = filterTeamTagIds.has(tag.id);
-                              return (
-                                <button key={tag.id} onClick={() => setFilterTeamTagIds(prev => { const next = new Set(prev); if (next.has(tag.id)) next.delete(tag.id); else next.add(tag.id); return next; })} className={cn('text-xs px-2.5 py-1 rounded-full border transition-all', active ? 'opacity-100' : 'opacity-70')} style={tag.cor ? { backgroundColor: active ? tag.cor : 'transparent', color: active ? '#fff' : tag.cor, borderColor: tag.cor } : undefined}>
-                                  {tag.nome}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <KanbanFilterBarMobile
+                    filterNumero={filterNumero}
+                    onFilterNumeroChange={setFilterNumero}
+                    colunas={board.colunas}
+                    filterTagIds={filterTagIds}
+                    onToggleTag={toggleFilterTag}
+                    teamTags={usedTeamTags}
+                    filterTeamTagIds={filterTeamTagIds}
+                    onToggleTeamTag={toggleFilterTeamTag}
+                    tagFilterMode={tagFilterMode}
+                    onToggleFilterMode={() => setTagFilterMode(prev => prev === 'and' ? 'or' : 'and')}
+                    onClearFilters={() => { setFilterNumero(''); clearFilterTags(); clearFilterTeamTags(); }}
+                    isFilterActive={filtroAtivo}
+                  />
                   <div className="p-4">
                     <DrawerClose asChild>
-                      <Button variant="outline" className="w-full rounded-xl h-12">Fechar</Button>
+                      <Button variant="outline" className="w-full rounded-xl h-11">Fechar</Button>
                     </DrawerClose>
                   </div>
                 </div>
@@ -526,94 +458,20 @@ export default function EquipeKanbanPage() {
       </div>
 
       {/* Desktop filter bar */}
-      <div className="hidden md:block flex-shrink-0 border-b px-4 sm:px-6 py-2 space-y-2 bg-muted/20">
-        {/* Search */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input placeholder="Número Processo..." value={filterNumero} onChange={(e) => setFilterNumero(e.target.value)} className="pl-8 h-8 text-sm" />
-            {filterNumero && (
-              <button onClick={() => setFilterNumero('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                <XIcon className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-          {filtroAtivo && (
-            <button onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); setFilterTeamTagIds(new Set()); }} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0">
-              Limpar filtros
-            </button>
-          )}
-        </div>
-
-        <Separator />
-
-        {/* Grupos — horizontal scroll */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs text-muted-foreground font-medium">Grupos</span>
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-3 w-3 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs text-xs">
-                  Clique em um grupo para filtrar os processos daquele grupo no quadro.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <ScrollArea className="flex-1">
-            <div className="flex items-center gap-1.5 pb-1">
-              {board.colunas.map(coluna => (
-                <button key={coluna.tag_id} onClick={() => setFilterTagIds(prev => { const next = new Set(prev); if (next.has(coluna.tag_id)) next.delete(coluna.tag_id); else next.add(coluna.tag_id); return next; })} className={cn('text-xs px-2.5 py-0.5 rounded-full border transition-colors shrink-0', filterTagIds.has(coluna.tag_id) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground')}>
-                  {coluna.tag_nome}
-                </button>
-              ))}
-            </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        </div>
-
-        {/* Tags — horizontal scroll */}
-        {usedTeamTags.length > 0 && (
-          <>
-            <Separator />
-            <div className="flex items-center gap-1.5">
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="text-xs text-muted-foreground font-medium">Tags</span>
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3 w-3 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs text-xs">
-                      Filtra processos que possuem esta tag.
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              {filterTeamTagIds.size > 1 && (
-                <button onClick={() => setTagFilterMode(prev => prev === 'and' ? 'or' : 'and')} className={cn('text-[10px] font-bold px-2 py-0.5 rounded border transition-colors shrink-0', tagFilterMode === 'and' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-amber-100 text-amber-700 border-amber-300')} title={tagFilterMode === 'and' ? 'E — todas as tags' : 'OU — qualquer tag'}>
-                  {tagFilterMode === 'and' ? 'E' : 'OU'}
-                </button>
-              )}
-              <ScrollArea className="flex-1">
-                <div className="flex items-center gap-1.5 pb-1">
-                  {usedTeamTags.map(tag => {
-                    const active = filterTeamTagIds.has(tag.id);
-                    return (
-                      <button key={tag.id} onClick={() => setFilterTeamTagIds(prev => { const next = new Set(prev); if (next.has(tag.id)) next.delete(tag.id); else next.add(tag.id); return next; })} className={cn('text-xs px-2.5 py-0.5 rounded-full border transition-all shrink-0', active ? 'opacity-100 ring-2 ring-offset-1' : 'opacity-70 hover:opacity-100')} style={tag.cor ? { backgroundColor: active ? tag.cor : 'transparent', color: active ? '#fff' : tag.cor, borderColor: tag.cor } : undefined} title={`Filtrar por tag "${tag.nome}"`}>
-                        {tag.nome}
-                      </button>
-                    );
-                  })}
-                </div>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            </div>
-          </>
-        )}
-      </div>
+      <KanbanFilterBar
+        filterNumero={filterNumero}
+        onFilterNumeroChange={setFilterNumero}
+        colunas={board.colunas}
+        filterTagIds={filterTagIds}
+        onToggleTag={toggleFilterTag}
+        teamTags={usedTeamTags}
+        filterTeamTagIds={filterTeamTagIds}
+        onToggleTeamTag={toggleFilterTeamTag}
+        tagFilterMode={tagFilterMode}
+        onToggleFilterMode={() => setTagFilterMode(prev => prev === 'and' ? 'or' : 'and')}
+        onClearFilters={() => { setFilterNumero(''); clearFilterTags(); clearFilterTeamTags(); }}
+        isFilterActive={filtroAtivo}
+      />
 
       {/* Kanban Board */}
       <div className="flex-1 overflow-hidden">
@@ -623,7 +481,7 @@ export default function EquipeKanbanPage() {
               <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">Nenhum processo encontrado para os filtros aplicados.</p>
               <button
-                onClick={() => { setFilterNumero(''); setFilterTagIds(new Set()); setFilterTeamTagIds(new Set()); }}
+                onClick={() => { setFilterNumero(''); clearFilterTags(); clearFilterTeamTags(); }}
                 className="text-xs text-primary hover:underline mt-2 block mx-auto"
               >
                 Limpar filtros
@@ -682,7 +540,7 @@ export default function EquipeKanbanPage() {
                       </div>
                       <div className="min-w-0">
                         <span className="text-sm truncate block">{m.usuario}</span>
-                        <Badge variant={m.papel === 'admin' ? 'default' : 'secondary'} className="text-[10px] mt-0.5">
+                        <Badge variant={m.papel === 'admin' ? 'default' : 'secondary'} className="text-2xs mt-0.5">
                           {m.papel === 'admin' ? <><Crown className="h-2.5 w-2.5 mr-0.5" />Proprietário</> : 'Membro'}
                         </Badge>
                       </div>
@@ -745,121 +603,53 @@ export default function EquipeKanbanPage() {
       </Sheet>
 
       {/* Delete Column Confirmation */}
-      <AlertDialog open={!!deleteColumnId} onOpenChange={(open) => { if (!open) setDeleteColumnId(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir grupo?</AlertDialogTitle>
-            <AlertDialogDescription>
-              O grupo e todos os processos associados serao removidos deste quadro.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteColumn} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={!!deleteColumnId}
+        onOpenChange={(open) => { if (!open) setDeleteColumnId(null); }}
+        title="Excluir grupo?"
+        description="O grupo e todos os processos associados serao removidos deste quadro."
+        onConfirm={handleDeleteColumn}
+        confirmLabel="Excluir"
+      />
 
       {/* Delete Processo Confirmation */}
-      <AlertDialog open={!!deleteProcessoData} onOpenChange={(open) => { if (!open) setDeleteProcessoData(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover processo do grupo?</AlertDialogTitle>
-            <AlertDialogDescription>
-              O processo{' '}
-              <strong>
-                {deleteProcessoData?.numero_processo_formatado || deleteProcessoData?.numero_processo}
-              </strong>{' '}
-              será removido deste grupo. O processo não será excluído do sistema.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingProcesso}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteProcesso}
-              disabled={isDeletingProcesso}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeletingProcesso ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Remover
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={!!deleteProcessoData}
+        onOpenChange={(open) => { if (!open) setDeleteProcessoData(null); }}
+        title="Remover processo do grupo?"
+        description={`O processo ${deleteProcessoData?.numero_processo_formatado || deleteProcessoData?.numero_processo || ''} será removido deste grupo. O processo não será excluído do sistema.`}
+        onConfirm={handleDeleteProcesso}
+        isLoading={isDeletingProcesso}
+      />
 
       {/* Delete Team Confirmation */}
-      <AlertDialog open={isDeleteTeamOpen} onOpenChange={setIsDeleteTeamOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir equipe?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acao nao pode ser desfeita. A equipe e todos os seus dados serao removidos.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTeam} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={isDeleteTeamOpen}
+        onOpenChange={setIsDeleteTeamOpen}
+        title="Excluir equipe?"
+        description="Esta acao nao pode ser desfeita. A equipe e todos os seus dados serao removidos."
+        onConfirm={handleDeleteTeam}
+        confirmLabel="Excluir"
+      />
 
       {/* Leave Team Confirmation */}
-      <AlertDialog open={isLeaveTeamOpen} onOpenChange={setIsLeaveTeamOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Sair da equipe?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você perderá acesso ao quadro e aos grupos compartilhados desta equipe.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isLeavingTeam}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleLeaveTeam}
-              disabled={isLeavingTeam}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isLeavingTeam ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Sair da equipe
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={isLeaveTeamOpen}
+        onOpenChange={setIsLeaveTeamOpen}
+        title="Sair da equipe?"
+        description="Você perderá acesso ao quadro e aos grupos compartilhados desta equipe."
+        onConfirm={handleLeaveTeam}
+        isLoading={isLeavingTeam}
+        confirmLabel="Sair da equipe"
+      />
 
       {/* New Group Dialog */}
-      <Dialog open={isNewGroupOpen} onOpenChange={(open) => { if (!open) { setIsNewGroupOpen(false); setNewGroupName(''); } }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Novo grupo de processos</DialogTitle>
-            <DialogDescription>
-              Crie um grupo para organizar processos neste quadro.
-            </DialogDescription>
-          </DialogHeader>
-          <div>
-            <Label htmlFor="group-name">Nome</Label>
-            <Input
-              id="group-name"
-              value={newGroupName}
-              onChange={(e) => setNewGroupName(e.target.value)}
-              placeholder="Nome do grupo"
-              onKeyDown={(e) => { if (e.key === 'Enter' && newGroupName.trim()) handleCreateGroup(); }}
-            />
-          </div>
-          <DialogFooter className="flex flex-col gap-2 sm:flex-col">
-            <div className="grid grid-cols-2 gap-2 w-full">
-              <Button variant="outline" onClick={() => { setIsNewGroupOpen(false); setNewGroupName(''); }} disabled={isCreatingGroup}>
-                Cancelar
-              </Button>
-              <Button onClick={handleCreateGroup} disabled={!newGroupName.trim() || isCreatingGroup}>
-                {isCreatingGroup ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Criar
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <NewGroupDialog
+        open={isNewGroupOpen}
+        onOpenChange={setIsNewGroupOpen}
+        onSubmit={handleCreateGroup}
+        title="Novo grupo de processos"
+      />
     </div>
   );
 }

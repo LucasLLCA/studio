@@ -26,7 +26,7 @@ import LoopEdge from './LoopEdge';
 const STATUS_STYLES: Record<ComplianceStatus, { border: string; bg: string; text: string; handleBg: string }> = {
   concluido: { border: 'border-green-500', bg: 'bg-green-50', text: 'text-green-700', handleBg: '!bg-green-500' },
   em_andamento: { border: 'border-blue-500', bg: 'bg-blue-50', text: 'text-blue-700', handleBg: '!bg-blue-500' },
-  pendente: { border: 'border-gray-300', bg: 'bg-gray-50', text: 'text-gray-500', handleBg: '!bg-gray-400' },
+  pendente: { border: 'border-border', bg: 'bg-muted/50', text: 'text-muted-foreground', handleBg: '!bg-muted-foreground/60' },
   violado: { border: 'border-red-500', bg: 'bg-red-50', text: 'text-red-700', handleBg: '!bg-red-500' },
 };
 
@@ -35,7 +35,7 @@ const ESCAPED_STYLES = { border: 'border-amber-500', bg: 'bg-amber-50', text: 't
 const STATUS_ICONS: Record<ComplianceStatus, React.ReactNode> = {
   concluido: <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />,
   em_andamento: <Clock className="h-3.5 w-3.5 text-blue-600" />,
-  pendente: <Circle className="h-3.5 w-3.5 text-gray-400" />,
+  pendente: <Circle className="h-3.5 w-3.5 text-muted-foreground/60" />,
   violado: <AlertTriangle className="h-3.5 w-3.5 text-red-600" />,
 };
 
@@ -83,14 +83,14 @@ function ComplianceTaskNode({ data }: NodeProps) {
       {/* Status icon + label */}
       <div className="flex items-center gap-1.5 mb-1">
         {escaped ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : STATUS_ICONS[status]}
-        <span className={`text-[10px] font-semibold ${escaped ? 'text-amber-700' : styles.text}`}>
+        <span className={`text-2xs font-semibold ${escaped ? 'text-amber-700' : styles.text}`}>
           {escaped ? 'Fora do fluxo' : STATUS_LABELS[status]}
         </span>
       </div>
 
       {/* Task key */}
       {taskKey && (
-        <div className="text-[9px] uppercase tracking-wide text-muted-foreground font-medium mb-0.5">{taskKey}</div>
+        <div className="text-2xs uppercase tracking-wide text-muted-foreground font-medium mb-0.5">{taskKey}</div>
       )}
 
       {/* Name */}
@@ -98,7 +98,7 @@ function ComplianceTaskNode({ data }: NodeProps) {
 
       {/* Unidade */}
       {unidade && (
-        <div className="flex items-center gap-0.5 mt-1 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-0.5 mt-1 text-2xs text-muted-foreground">
           <Building2 className="h-3 w-3" />
           {unidade}
         </div>
@@ -110,7 +110,7 @@ function ComplianceTaskNode({ data }: NodeProps) {
           {actions.map((action) => (
             <button
               key={action.key}
-              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-medium rounded border bg-white hover:bg-gray-50 text-foreground"
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-2xs font-medium rounded border bg-white hover:bg-muted/50 text-foreground"
               onClick={(e) => e.stopPropagation()}
               title="Em breve"
             >
@@ -145,7 +145,7 @@ function ComplianceInicioFimNode({ data }: NodeProps) {
       {/* Status icon + label */}
       <div className="flex items-center gap-1.5 mb-1">
         {escaped ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : STATUS_ICONS[status]}
-        <span className={`text-[10px] font-semibold ${escaped ? 'text-amber-700' : styles.text}`}>
+        <span className={`text-2xs font-semibold ${escaped ? 'text-amber-700' : styles.text}`}>
           {escaped ? 'Fora do fluxo' : STATUS_LABELS[status]}
         </span>
       </div>
@@ -155,7 +155,7 @@ function ComplianceInicioFimNode({ data }: NodeProps) {
 
       {/* Unidade */}
       {unidade && (
-        <div className="flex items-center gap-0.5 mt-1 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-0.5 mt-1 text-2xs text-muted-foreground">
           <Building2 className="h-3 w-3" />
           {unidade}
         </div>
@@ -180,7 +180,7 @@ function ComplianceDecisaoNode({ data }: NodeProps) {
         style={{ transform: 'rotate(45deg)', borderRadius: 6 }}
       />
       <div className="relative z-10 text-center px-2" style={{ maxWidth: 70 }}>
-        <div className="text-[10px] font-semibold text-foreground leading-tight truncate">{nome}</div>
+        <div className="text-2xs font-semibold text-foreground leading-tight truncate">{nome}</div>
       </div>
       <Handle type="source" position={Position.Bottom} className={`${styles.handleBg} !w-2.5 !h-2.5`} style={{ bottom: -4 }} />
       <Handle type="source" position={Position.Right} id="right" className={`${styles.handleBg} !w-2.5 !h-2.5`} style={{ right: -4 }} />
@@ -199,7 +199,7 @@ function ComplianceForkJoinNode({ data }: NodeProps) {
     <div className="relative" style={{ width: 140, height: 22 }}>
       <div className={`flex items-center justify-center rounded border-2 ${styles.border} ${styles.bg} shadow-sm w-full h-full`}>
         <Handle type="target" position={Position.Top} className={`${styles.handleBg} !w-2.5 !h-2.5`} />
-        <span className="text-[9px] font-medium text-gray-600 uppercase">{isFork ? 'Fork' : 'Join'}</span>
+        <span className="text-2xs font-medium text-muted-foreground uppercase">{isFork ? 'Fork' : 'Join'}</span>
         <Handle type="source" position={Position.Bottom} className={`${styles.handleBg} !w-2.5 !h-2.5`} />
         {isFork && (
           <>
@@ -305,7 +305,7 @@ export function FlowComplianceGraph({ result }: FlowComplianceGraphProps) {
   const edges = useMemo(() => complianceToEdges(result), [result]);
 
   return (
-    <div className="h-[420px] w-full border rounded-lg overflow-hidden bg-gray-50/50">
+    <div className="h-[420px] w-full border rounded-lg overflow-hidden bg-muted/30">
       <ReactFlow
         nodes={nodes}
         edges={edges}

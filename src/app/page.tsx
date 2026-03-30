@@ -322,9 +322,9 @@ function LoginPageContent() {
 
       <div className="flex flex-col items-center justify-center relative w-full h-screen overflow-hidden p-5 bg-muted">
         {isAutoLogging ? (
-          <div className="bg-card rounded-lg shadow-md p-6 sm:p-10 w-full max-w-md z-10 text-center">
+          <div className="bg-card rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.06)] p-6 sm:p-10 w-full max-w-md z-10 text-center">
             <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold text-primary">Login SEI</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-primary">Login SEI</h1>
               <p className="text-sm text-muted-foreground">Visualizador de Processos</p>
             </div>
             <div className="flex flex-col items-center gap-4 py-10">
@@ -333,7 +333,7 @@ function LoginPageContent() {
             </div>
           </div>
         ) : (
-        <div className="bg-card rounded-lg shadow-md p-6 sm:p-10 w-full max-w-md z-10">
+        <div className="bg-card rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.06)] p-6 sm:p-10 w-full max-w-md z-10">
           <div className="text-center mb-8">
             <div className="mb-5">
               <div
@@ -405,11 +405,11 @@ function LoginPageContent() {
                 }}
               />
             </div>
-            <h1 className="text-2xl font-bold text-primary mb-1">Login SEI</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-primary mb-1">Login SEI</h1>
             <p className="text-sm text-muted-foreground">Acesse o Visualizador de Processos</p>
           </div>
           {embedIdentity && (
-            <div className="bg-blue-50 border border-blue-200 rounded-md px-4 py-3 text-blue-800 text-sm mb-5 leading-snug flex gap-2.5 items-start">
+            <div className="bg-info-light border border-info/20 rounded-xl px-4 py-3 text-foreground text-sm mb-5 leading-snug flex gap-2.5 items-start">
               <Info className="w-[18px] h-4 shrink-0 mt-px" />
               <span>Este login é necessário apenas na primeira vez.</span>
             </div>
@@ -420,7 +420,7 @@ function LoginPageContent() {
               <input
                 type="text"
                 placeholder="seu.usuario@orgao.pi.gov.br"
-                className="w-full px-4 py-3 border border-input rounded-md text-base bg-input transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:bg-card"
+                className="w-full px-4 py-3 border border-input rounded-lg text-base bg-input transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:bg-card"
                 {...register("usuario")}
                 disabled={isLoading}
               />
@@ -434,7 +434,7 @@ function LoginPageContent() {
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-10 border border-input rounded-md text-base bg-input transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:bg-card"
+                  className="w-full px-4 py-3 pr-10 border border-input rounded-lg text-base bg-input transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:bg-card"
                   {...register("senha")}
                   disabled={isLoading}
                 />
@@ -505,7 +505,7 @@ function LoginPageContent() {
               </div>
             )}
             {loginError && (
-              <div className="bg-destructive/5 border border-destructive/20 rounded-md p-3 mt-1 mb-1 flex items-start gap-2.5">
+              <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 mt-1 mb-1 flex items-start gap-2.5">
                 <AlertCircle size={18} className="text-destructive shrink-0 mt-px" />
                 <div>
                   <p className="text-destructive text-sm font-semibold mb-0.5">
@@ -525,7 +525,7 @@ function LoginPageContent() {
             )}
             <button
               type="submit"
-              className="w-full py-3 mt-5 bg-primary text-primary-foreground rounded-md text-base font-medium hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors border-none cursor-pointer"
+              className="w-full py-3 mt-5 bg-primary text-primary-foreground rounded-lg text-base font-medium hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors border-none cursor-pointer"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -540,7 +540,7 @@ function LoginPageContent() {
               )}
             </button>
             {authTokenValue && (
-              <p className="mt-3 text-[10px] text-muted-foreground break-all text-center">
+              <p className="mt-3 text-2xs text-muted-foreground break-all text-center">
                 auth_token: {authTokenValue}
               </p>
             )}

@@ -38,7 +38,7 @@ export default function LoopEdge({
       {selected && (
         <EdgeLabelRenderer>
           <div
-            className="absolute pointer-events-none nodrag nopan flex items-center justify-center px-2 py-0.5 rounded-full bg-red-100 border border-red-300 text-red-600 text-[10px] font-medium shadow-sm whitespace-nowrap"
+            className="absolute pointer-events-none nodrag nopan flex items-center justify-center px-2 py-0.5 rounded-full bg-red-100 border border-red-300 text-red-600 text-2xs font-medium shadow-sm whitespace-nowrap"
             style={{ transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)` }}
           >
             duplo clique para remover

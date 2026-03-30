@@ -319,7 +319,7 @@ export function EstoqueFilters({
               <Filter className="h-4 w-4" />
               <span className="ml-1.5 text-sm">Filtros</span>
               {activeFilterCount > 0 && (
-                <Badge variant="default" className="ml-1.5 h-5 w-5 p-0 flex items-center justify-center text-[10px] rounded-full">
+                <Badge variant="default" className="ml-1.5 h-5 w-5 p-0 flex items-center justify-center text-2xs rounded-full">
                   {activeFilterCount}
                 </Badge>
               )}
@@ -473,7 +473,7 @@ export function EstoqueFilters({
 
               <div className="p-4">
                 <DrawerClose asChild>
-                  <Button variant="outline" className="w-full rounded-xl h-12">
+                  <Button variant="outline" className="w-full rounded-xl h-11">
                     Fechar
                   </Button>
                 </DrawerClose>

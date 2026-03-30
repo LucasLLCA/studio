@@ -70,8 +70,8 @@ function getColor(tempoMedioDias: number): string {
 }
 
 function getRowBg(dias: number): string {
-  if (dias > 90) return "bg-red-50 dark:bg-red-950/20";
-  if (dias > 30) return "bg-amber-50 dark:bg-amber-950/20";
+  if (dias > 90) return "bg-destructive-light dark:bg-destructive-light";
+  if (dias > 30) return "bg-warning-light dark:bg-warning-light";
   return "";
 }
 
@@ -84,7 +84,7 @@ function StatusBadge({ status }: { status?: string | null }) {
     ? "secondary"
     : "outline";
   return (
-    <Badge variant={variant} className="text-[10px] px-1.5 py-0">
+    <Badge variant={variant} className="text-2xs px-1.5 py-0">
       {status}
     </Badge>
   );
@@ -393,7 +393,7 @@ export function EstoqueTreemap({
                 {summaryStats.processosComIA.toLocaleString("pt-BR")}
               </p>
               {listData?.items && listData.items.length > 0 && (
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-2xs text-muted-foreground">
                   da pagina atual
                 </p>
               )}
@@ -404,7 +404,7 @@ export function EstoqueTreemap({
         {/* Color legend */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-sm text-muted-foreground">
           <span className="text-xs">
-            Segure <kbd className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono">Shift</kbd> + clique para comparar unidades
+            Segure <kbd className="px-1 py-0.5 bg-muted rounded text-2xs font-mono">Shift</kbd> + clique para comparar unidades
           </span>
           <div className="flex items-center gap-1.5 sm:ml-auto">
             <span className="text-xs">Tempo medio:</span>
@@ -593,7 +593,7 @@ export function EstoqueTreemap({
                     {Object.entries(groupedSuggestions).map(
                       ([groupLabel, items]) => (
                         <div key={groupLabel}>
-                          <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40">
+                          <div className="px-3 py-1.5 text-2xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40">
                             {groupLabel}
                           </div>
                           {items.map((item) => (
@@ -638,8 +638,9 @@ export function EstoqueTreemap({
           </div>
 
           {/* Mobile-responsive table (#21) */}
-          <div className="border rounded-lg overflow-hidden overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
+          <div className="overflow-x-auto -mx-2 px-2">
+           <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm md:min-w-[640px]">
               <thead className="bg-muted/60">
                 <tr className="border-b">
                   <th className="px-3 py-2.5 text-left font-semibold">
@@ -765,6 +766,7 @@ export function EstoqueTreemap({
                 )}
               </tbody>
             </table>
+           </div>
           </div>
 
           {/* Pagination */}

@@ -305,7 +305,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onChangeType, onCl
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border">
         <div className="min-w-0">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+          <p className="text-2xs text-muted-foreground uppercase tracking-wide">
             {NODE_TYPE_LABEL[node.type || ''] || node.type}
           </p>
           <h3 className="text-sm font-semibold truncate">{(d.nome as string) || 'Sem nome'}</h3>
@@ -415,7 +415,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onChangeType, onCl
                         }}
                       />
                       {(meta.unidade_modo as string) === 'hierarquia' && nodeUnidade?.sigla && (
-                        <p className="text-[10px] text-muted-foreground mt-1">
+                        <p className="text-2xs text-muted-foreground mt-1">
                           Inclui {nodeUnidade.sigla} e todas suas subordinadas
                         </p>
                       )}
@@ -478,7 +478,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onChangeType, onCl
                       <div className="flex items-center gap-1.5 text-xs font-medium">
                         {actionType?.icon}
                         <span>{actionType?.label || 'Ação'} #{i + 1}</span>
-                        {isLocked && <span className="text-[10px] text-muted-foreground font-normal">(obrigatória)</span>}
+                        {isLocked && <span className="text-2xs text-muted-foreground font-normal">(obrigatória)</span>}
                       </div>
                       {!isLocked && (
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => update('acoes', acoes.filter((_, j) => j !== i))}>
@@ -514,7 +514,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onChangeType, onCl
                       /* Tramitação: mode selector + unidade(s) destino + conclusão automática */
                       <>
                         <div>
-                          <label className="text-[10px] font-medium text-muted-foreground">Destino</label>
+                          <label className="text-2xs font-medium text-muted-foreground">Destino</label>
                           <Select
                             value={acao.tramitacao_modo || 'especifica'}
                             onValueChange={(v) => {
@@ -567,7 +567,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onChangeType, onCl
                         {/* Unidades list — only for especifica and hierarquia modes */}
                         {(acao.tramitacao_modo || 'especifica') !== 'qualquer' && (
                           <div>
-                            <label className="text-[10px] font-medium text-muted-foreground">Unidade(s) destino</label>
+                            <label className="text-2xs font-medium text-muted-foreground">Unidade(s) destino</label>
                             {(acao.unidades || []).map((u, ui) => (
                               <div key={ui} className="rounded-md border border-border p-2 mt-1.5 space-y-1.5 bg-background">
                                 <div className="flex items-center gap-1">
@@ -594,9 +594,9 @@ export default function NodePropertiesPanel({ node, onUpdate, onChangeType, onCl
                                     <X className="h-3 w-3 text-muted-foreground" />
                                   </Button>
                                 </div>
-                                {u.descricao && <p className="text-[10px] text-muted-foreground truncate">{u.descricao}</p>}
+                                {u.descricao && <p className="text-2xs text-muted-foreground truncate">{u.descricao}</p>}
                                 {(acao.tramitacao_modo || 'especifica') === 'hierarquia' && (
-                                  <p className="text-[10px] text-muted-foreground/70">Inclui subordinadas</p>
+                                  <p className="text-2xs text-muted-foreground/70">Inclui subordinadas</p>
                                 )}
                                 <Input
                                   placeholder="Responsável (opcional)"
@@ -686,7 +686,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onChangeType, onCl
                         <>
                           {/* Single document type */}
                           <div>
-                            <label className="text-[10px] font-medium text-muted-foreground">Tipo de documento</label>
+                            <label className="text-2xs font-medium text-muted-foreground">Tipo de documento</label>
                             {acao.documento_tipo ? (
                               <div className="mt-1 flex items-center gap-1.5">
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs bg-accent border border-border flex-1 min-w-0">
@@ -707,7 +707,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onChangeType, onCl
 
                           {/* Signature type */}
                           <div>
-                            <label className="text-[10px] font-medium text-muted-foreground">Tipo de assinatura</label>
+                            <label className="text-2xs font-medium text-muted-foreground">Tipo de assinatura</label>
                             <Select
                               value={acao.assinatura_tipo || 'assinatura'}
                               onValueChange={(v) => {
@@ -733,7 +733,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onChangeType, onCl
 
                           {/* Signature responsaveis */}
                           <div>
-                            <label className="text-[10px] font-medium text-muted-foreground">
+                            <label className="text-2xs font-medium text-muted-foreground">
                               {isBloco ? 'Responsáveis pela assinatura' : 'Responsável pela assinatura'}
                             </label>
                             {sigResps.map((resp, ri) => (
@@ -807,7 +807,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onChangeType, onCl
                       if (isFirst) {
                         return (
                           <div>
-                            <label className="text-[10px] font-medium text-muted-foreground">Acontece após</label>
+                            <label className="text-2xs font-medium text-muted-foreground">Acontece após</label>
                             <div className="mt-1 px-3 py-1.5 rounded-md border border-input bg-background text-xs text-muted-foreground">
                               {hasCrossStepDep ? 'Tramitação da etapa anterior' : 'Primeira ação da etapa'}
                             </div>
@@ -817,7 +817,7 @@ export default function NodePropertiesPanel({ node, onUpdate, onChangeType, onCl
 
                       return (
                         <div>
-                          <label className="text-[10px] font-medium text-muted-foreground">Acontece após</label>
+                          <label className="text-2xs font-medium text-muted-foreground">Acontece após</label>
                           {hasCrossStepDep ? (
                             <div className="mt-1 px-3 py-1.5 rounded-md border border-input bg-background text-xs text-muted-foreground">
                               Tramitação da etapa anterior

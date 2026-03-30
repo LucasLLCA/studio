@@ -403,7 +403,7 @@ export function SaveProcessoModal({
                           )}
                           <span className="truncate flex-1 font-medium">{grupo.tagNome}</span>
                           {grupo.alreadySaved && (
-                            <Badge className="text-[10px] bg-green-100 text-green-700 border border-green-200 hover:bg-green-100 flex-shrink-0 px-1.5 py-0">
+                            <Badge className="text-2xs bg-success-light text-success border border-success/20 hover:bg-success-light flex-shrink-0 px-1.5 py-0">
                               Já salvo
                             </Badge>
                           )}
@@ -485,7 +485,7 @@ export function SaveProcessoModal({
                                       )}
                                       <span className="truncate flex-1">{col.tagNome}</span>
                                       {col.alreadySaved && (
-                                        <Badge className="text-[10px] bg-green-100 text-green-700 border border-green-200 hover:bg-green-100 flex-shrink-0 px-1.5 py-0">
+                                        <Badge className="text-2xs bg-success-light text-success border border-success/20 hover:bg-success-light flex-shrink-0 px-1.5 py-0">
                                           Já salvo
                                         </Badge>
                                       )}
@@ -579,7 +579,7 @@ export function SaveProcessoModal({
                         ))}
                         {showCreateTag && (
                           <div className="space-y-1.5 pt-1">
-                            <p className="text-[10px] text-muted-foreground px-1">Cor (opcional):</p>
+                            <p className="text-2xs text-muted-foreground px-1">Cor (opcional):</p>
                             <div className="flex flex-wrap gap-1 px-1">
                               {TAG_COLORS.map(cor => (
                                 <button
