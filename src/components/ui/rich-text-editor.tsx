@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -14,11 +14,14 @@ import {
   Heading2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { TeamMember } from '@/types/teams';
 
 interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   onSubmit?: () => void;
+  onMentionQuery?: (query: string | null, insertFn: (usuario: string) => void) => void;
+  members?: TeamMember[];
   placeholder?: string;
   autoFocus?: boolean;
   disabled?: boolean;
@@ -153,10 +156,15 @@ export function RichTextEditor({
   value,
   onChange,
   onSubmit,
+  onMentionQuery,
+  members = [],
   placeholder = 'Escreva uma observação... use @ para mencionar',
   className,
   editorClassName,
 }: RichTextEditorProps) {
+  const isInternalUpdateRef = useRef(false);
+  const lastExternalValueRef = useRef(value);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -177,7 +185,35 @@ export function RichTextEditor({
     content: value,
     immediatelyRender: false,
     onUpdate: ({ editor: currentEditor }) => {
-      onChange(currentEditor.getHTML());
+      isInternalUpdateRef.current = true;
+      const html = currentEditor.getHTML();
+      lastExternalValueRef.current = html;
+      onChange(html);
+
+      // Detecta menção se onMentionQuery foi fornecido
+      if (onMentionQuery && members.length > 0) {
+        const { from } = currentEditor.state.selection;
+        const textBeforeCursor = currentEditor.state.doc.textBetween(0, from, '\n');
+        const match = textBeforeCursor.match(/@([\w.]*)$/);
+
+        if (match) {
+          const query = match[1];
+          const insertFn = (usuario: string) => {
+            const deleteStart = from - match[0].length;
+            currentEditor.chain().focus()
+              .deleteRange({ from: deleteStart, to: from })
+              .insertContent(`@${usuario} `)
+              .run();
+          };
+          onMentionQuery(query, insertFn);
+        } else {
+          onMentionQuery(null, () => {});
+        }
+      }
+
+      setTimeout(() => {
+        isInternalUpdateRef.current = false;
+      }, 0);
     },
     editorProps: {
       attributes: {
@@ -197,6 +233,15 @@ export function RichTextEditor({
       },
     },
   });
+
+  // Sincroniza mudanças externas ao value (ex: limpar conteúdo após enviar)
+  useEffect(() => {
+    if (!editor) return;
+    if (value !== lastExternalValueRef.current && !isInternalUpdateRef.current) {
+      lastExternalValueRef.current = value;
+      editor.commands.setContent(value || '');
+    }
+  }, [editor, value]);
 
   if (!editor) {
     return <div className="h-10 bg-muted rounded animate-pulse" />;

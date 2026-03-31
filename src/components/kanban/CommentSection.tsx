@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { MentionDropdown } from '@/components/ui/mention-dropdown';
+import { useMencoesEditor } from '@/hooks/use-mencoes-editor';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -47,8 +49,8 @@ function getInitials(email: string): string {
 
 const scopeConfig: Record<ObservacaoEscopo, { label: string; Icon: React.ElementType; className: string }> = {
   pessoal: { label: 'Pessoal', Icon: Lock,  className: 'bg-muted/50 text-muted-foreground border-muted' },
-  equipe:  { label: 'Equipe',  Icon: Users, className: 'bg-blue-50 text-blue-600 border-blue-100' },
-  global:  { label: 'Global',  Icon: Globe, className: 'bg-green-50 text-green-600 border-green-100' },
+  equipe:  { label: 'Equipe',  Icon: Users, className: 'bg-info-light text-info border-info/20' },
+  global:  { label: 'Global',  Icon: Globe, className: 'bg-success-light text-success border-success/20' },
 };
 
 const obsEscopoOptions: { value: ObservacaoEscopo; label: string; Icon: React.ElementType }[] = [
@@ -71,8 +73,8 @@ export function CommentSection({ processoNumero, equipeId, usuario }: CommentSec
 
   // @mencao state
   const [membrosEquipe, setMembrosEquipe] = useState<TeamMember[]>([]);
-  const [mencaoAtiva, setMencaoAtiva] = useState<string | null>(null);
-  const [showMencaoDropdown, setShowMencaoDropdown] = useState(false);
+  const mencoeEditor = useMencoesEditor(membrosEquipe, usuario);
+  const mencoeReply = useMencoesEditor(membrosEquipe, usuario);
 
   // Badge de mencoes nao lidas
   const [mencoesBadge, setMencoesBadge] = useState(0);
@@ -81,8 +83,6 @@ export function CommentSection({ processoNumero, equipeId, usuario }: CommentSec
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyConteudo, setReplyConteudo] = useState('');
   const [isSendingReply, setIsSendingReply] = useState(false);
-  const [replyMencaoAtiva, setReplyMencaoAtiva] = useState<string | null>(null);
-  const [showReplyMencaoDropdown, setShowReplyMencaoDropdown] = useState(false);
 
   // Edicao de observacoes
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -136,57 +136,15 @@ export function CommentSection({ processoNumero, equipeId, usuario }: CommentSec
     loadMembrosEBadge();
   }, [loadObservacoes, loadMembrosEBadge]);
 
-  // @mention helpers
-  const detectMencao = (texto: string, cursor: number) => {
-    const textoAteCursor = texto.slice(0, cursor);
-    const match = textoAteCursor.match(/@([\w.]*)$/);
-    return match ? match[1] : null;
-  };
-
-  const handleSelectMencao = (membro: TeamMember) => {
-    const novo = obsConteudo.slice(0, obsConteudo.length) + `@${membro.usuario} `;
-    setObsConteudo(novo);
-    setShowMencaoDropdown(false);
-    setMencaoAtiva(null);
-  };
-
-  const handleReplyChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const texto = e.target.value;
-    setReplyConteudo(texto);
-    const cursor = e.target.selectionStart ?? 0;
-    const mencao = detectMencao(texto, cursor);
-    setReplyMencaoAtiva(mencao);
-    setShowReplyMencaoDropdown(mencao !== null);
-  };
-
-  const handleSelectReplyMencao = (membro: TeamMember, textareaEl: HTMLTextAreaElement | null) => {
-    const cursor = textareaEl?.selectionStart ?? replyConteudo.length;
-    const textoAteCursor = replyConteudo.slice(0, cursor);
-    const match = textoAteCursor.match(/@([\w.]*)$/);
-    if (!match) return;
-    const inicio = cursor - match[0].length;
-    const novo = replyConteudo.slice(0, inicio) + `@${membro.usuario} ` + replyConteudo.slice(cursor);
-    setReplyConteudo(novo);
-    setShowReplyMencaoDropdown(false);
-    setReplyMencaoAtiva(null);
-    textareaEl?.focus();
-  };
-
-  const membrosFiltradosMencao = (query: string | null) => {
-    if (query === null) return [];
-    return membrosEquipe.filter(
-      m => m.usuario !== usuario && m.usuario.toLowerCase().includes(query.toLowerCase())
-    );
-  };
-
   const handleSendObs = async () => {
     if (!usuario || !obsConteudo.trim() || isSendingObs) return;
     setIsSendingObs(true);
     const equipeParaEnvio = obsEscopo === 'equipe' ? equipeId : undefined;
     try {
+      const mencoes = mencoeEditor.extrairMencoes(obsConteudo);
       const result = await createObservacao(
         processoNumero, usuario, obsConteudo.trim(),
-        obsEscopo, equipeParaEnvio, [],
+        obsEscopo, equipeParaEnvio, mencoes,
       );
       if ('error' in result) {
         toast({ title: "Erro ao enviar", description: result.error, variant: "destructive" });
@@ -194,7 +152,7 @@ export function CommentSection({ processoNumero, equipeId, usuario }: CommentSec
       }
       setObservacoes(prev => [...prev, result]);
       setObsConteudo('');
-      setShowMencaoDropdown(false);
+      mencoeEditor.handleCloseMentionDropdown();
       setTimeout(scrollToBottom, 100);
     } finally {
       setIsSendingObs(false);
@@ -205,10 +163,11 @@ export function CommentSection({ processoNumero, equipeId, usuario }: CommentSec
     if (!usuario || !replyConteudo.trim() || isSendingReply) return;
     setIsSendingReply(true);
     try {
+      const mencoes = mencoeReply.extrairMencoes(replyConteudo);
       const result = await createObservacao(
         processoNumero, usuario, replyConteudo.trim(),
         obsEscopo, obsEscopo === 'equipe' ? equipeId : undefined,
-        [], parentId,
+        mencoes, parentId,
       );
       if ('error' in result) {
         toast({ title: "Erro ao responder", description: result.error, variant: "destructive" });
@@ -222,7 +181,7 @@ export function CommentSection({ processoNumero, equipeId, usuario }: CommentSec
       }));
       setReplyConteudo('');
       setReplyingToId(null);
-      setShowReplyMencaoDropdown(false);
+      mencoeReply.handleCloseMentionDropdown();
       setTimeout(scrollToBottom, 100);
     } finally {
       setIsSendingReply(false);
@@ -320,26 +279,16 @@ export function CommentSection({ processoNumero, equipeId, usuario }: CommentSec
               value={obsConteudo}
               onChange={setObsConteudo}
               onSubmit={handleSendObs}
+              onMentionQuery={mencoeEditor.handleMentionQuery}
+              members={membrosEquipe}
               placeholder="Escreva uma observacao... use @ para mencionar"
             />
-            {/* Dropdown @mencao */}
-            {showMencaoDropdown && membrosFiltradosMencao(mencaoAtiva ?? '').length > 0 && (
-              <div className="absolute bottom-full left-0 mb-1 w-full bg-popover border rounded-md shadow-md z-50 max-h-36 overflow-y-auto">
-                {membrosFiltradosMencao(mencaoAtiva ?? '').map(membro => (
-                  <button
-                    key={membro.id}
-                    type="button"
-                    onMouseDown={(e) => { e.preventDefault(); handleSelectMencao(membro); }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-left"
-                  >
-                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-2xs font-bold flex-shrink-0">
-                      {membro.usuario[0].toUpperCase()}
-                    </span>
-                    <span className="truncate">{membro.usuario}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <MentionDropdown
+              show={mencoeEditor.showDropdown}
+              members={mencoeEditor.membrosFiltrados()}
+              onSelect={mencoeEditor.handleSelectMembro}
+              onClose={mencoeEditor.handleCloseMentionDropdown}
+            />
           </div>
           <Button
             size="sm"
@@ -556,45 +505,30 @@ export function CommentSection({ processoNumero, equipeId, usuario }: CommentSec
                         <textarea
                           autoFocus
                           value={replyConteudo}
-                          onChange={handleReplyChange}
+                          onChange={(e) => setReplyConteudo(e.target.value)}
                           onKeyDown={(e) => {
-                            if (showReplyMencaoDropdown && e.key === 'Escape') {
-                              setShowReplyMencaoDropdown(false);
+                            if (mencoeReply.showDropdown && e.key === 'Escape') {
+                              mencoeReply.handleCloseMentionDropdown();
                               return;
                             }
-                            if (e.key === 'Enter' && !e.shiftKey && !showReplyMencaoDropdown) {
+                            if (e.key === 'Enter' && !e.shiftKey && !mencoeReply.showDropdown) {
                               e.preventDefault();
                               handleSendReply(obs.id);
                             }
-                            if (e.key === 'Escape' && !showReplyMencaoDropdown) {
+                            if (e.key === 'Escape' && !mencoeReply.showDropdown) {
                               setReplyingToId(null);
                             }
                           }}
                           placeholder="Responder... use @ para mencionar"
                           rows={2}
-                          className="w-full resize-none rounded-md border border-input bg-white dark:bg-background px-2 py-1.5 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          className="w-full resize-none rounded-lg border border-input bg-white dark:bg-background px-2 py-1.5 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         />
-                        {/* Dropdown @mencao reply */}
-                        {showReplyMencaoDropdown && membrosFiltradosMencao(replyMencaoAtiva ?? '').length > 0 && (
-                          <div className="absolute bottom-full left-0 mb-1 w-full bg-popover border rounded-md shadow-md z-50 max-h-28 overflow-y-auto">
-                            {membrosFiltradosMencao(replyMencaoAtiva ?? '').map(membro => (
-                              <button
-                                key={membro.id}
-                                type="button"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  handleSelectReplyMencao(membro, e.currentTarget.closest('.relative')?.querySelector('textarea') ?? null);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-left"
-                              >
-                                <span className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-2xs font-bold flex-shrink-0">
-                                  {membro.usuario[0].toUpperCase()}
-                                </span>
-                                <span className="truncate">{membro.usuario}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                        <MentionDropdown
+                          show={mencoeReply.showDropdown}
+                          members={mencoeReply.membrosFiltrados()}
+                          onSelect={mencoeReply.handleSelectMembro}
+                          onClose={mencoeReply.handleCloseMentionDropdown}
+                        />
                       </div>
                       <div className="flex gap-1 mt-1 justify-end">
                         <Button
