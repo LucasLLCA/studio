@@ -11,6 +11,7 @@ import { UsuariosTab } from '@/components/admin/UsuariosTab';
 import { PapeisTab } from '@/components/admin/PapeisTab';
 import { HorasTab } from '@/components/admin/HorasTab';
 import { RotinasTab } from '@/components/admin/RotinasTab';
+import { UsoTab } from '@/components/admin/UsoTab';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -40,13 +41,17 @@ export default function AdminPage() {
       <h1 className="text-2xl font-semibold tracking-tight mb-6 flex items-center gap-2">
         <Shield className="h-6 w-6" /> Administração
       </h1>
-      <Tabs defaultValue="usuarios" className="w-full">
-        <TabsList className="mb-4">
+      <Tabs defaultValue="dashboard" className="w-full">
+        <TabsList className="mb-4 flex-wrap">
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="usuarios">Usuários e Papéis</TabsTrigger>
           <TabsTrigger value="papeis">Papéis e Módulos</TabsTrigger>
           <TabsTrigger value="horas">Horas por Andamento</TabsTrigger>
           <TabsTrigger value="rotinas">Rotinas</TabsTrigger>
         </TabsList>
+        <TabsContent value="dashboard">
+          <UsoTab usuario={usuario} />
+        </TabsContent>
         <TabsContent value="usuarios">
           <UsuariosTab usuario={usuario} />
         </TabsContent>

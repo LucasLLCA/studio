@@ -196,3 +196,136 @@ export async function removeUsuarioPapel(
     'remover papel do usuário',
   );
 }
+
+// --------------- Analytics ---------------
+
+export interface LoginDiaItem {
+  data: string;
+  logins_unicos: number;
+  total_logins: number;
+}
+
+export interface LoginsOverTimeResponse {
+  periodo: string;
+  items: LoginDiaItem[];
+  total_usuarios_unicos: number;
+}
+
+export interface UsuarioAtivoItem {
+  usuario_sei: string;
+  orgao: string | null;
+  total_atividades: number;
+  processos_visualizados: number;
+  ultima_atividade: string | null;
+  primeiro_acesso: string | null;
+}
+
+export interface UsuariosAtivosResponse {
+  items: UsuarioAtivoItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface ProcessoVisualizadoItem {
+  numero_processo: string;
+  total_visualizacoes: number;
+  usuarios_distintos: number;
+  ultima_visualizacao: string | null;
+}
+
+export interface ProcessosVisualizadosResponse {
+  items: ProcessoVisualizadoItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface AcaoPorTipoItem {
+  tipo_atividade: string;
+  total: number;
+  usuarios_distintos: number;
+}
+
+export interface AcoesPorTipoResponse {
+  periodo: string;
+  items: AcaoPorTipoItem[];
+}
+
+export interface ResumoAnaliticoResponse {
+  periodo: string;
+  total_usuarios_unicos: number;
+  total_logins: number;
+  total_visualizacoes_processo: number;
+  total_acoes: number;
+  usuario_mais_ativo: string | null;
+  processo_mais_visto: string | null;
+}
+
+export async function fetchResumoAnalitico(
+  usuarioSei: string,
+  periodo: string = '30d',
+): Promise<ResumoAnaliticoResponse | ApiError> {
+  return fetchWithErrorHandling<ResumoAnaliticoResponse>(
+    adminUrl(`/analytics/resumo?periodo=${periodo}`, usuarioSei),
+    { method: 'GET' },
+    'buscar resumo analitico',
+  );
+}
+
+export async function fetchLoginsOverTime(
+  usuarioSei: string,
+  periodo: string = '30d',
+): Promise<LoginsOverTimeResponse | ApiError> {
+  return fetchWithErrorHandling<LoginsOverTimeResponse>(
+    adminUrl(`/analytics/logins-over-time?periodo=${periodo}`, usuarioSei),
+    { method: 'GET' },
+    'buscar logins por periodo',
+  );
+}
+
+export async function fetchUsuariosAtivos(
+  usuarioSei: string,
+  periodo: string = '30d',
+  search?: string,
+  page: number = 1,
+  pageSize: number = 20,
+): Promise<UsuariosAtivosResponse | ApiError> {
+  const params = new URLSearchParams({ periodo, page: String(page), page_size: String(pageSize) });
+  if (search) params.set('search', search);
+  return fetchWithErrorHandling<UsuariosAtivosResponse>(
+    adminUrl(`/analytics/usuarios-ativos?${params.toString()}`, usuarioSei),
+    { method: 'GET' },
+    'buscar usuarios ativos',
+  );
+}
+
+export async function fetchProcessosVisualizados(
+  usuarioSei: string,
+  periodo: string = '30d',
+  filtroUsuario?: string,
+  page: number = 1,
+  pageSize: number = 20,
+): Promise<ProcessosVisualizadosResponse | ApiError> {
+  const params = new URLSearchParams({ periodo, page: String(page), page_size: String(pageSize) });
+  if (filtroUsuario) params.set('filtro_usuario', filtroUsuario);
+  return fetchWithErrorHandling<ProcessosVisualizadosResponse>(
+    adminUrl(`/analytics/processos-visualizados?${params.toString()}`, usuarioSei),
+    { method: 'GET' },
+    'buscar processos visualizados',
+  );
+}
+
+export async function fetchAcoesPorTipo(
+  usuarioSei: string,
+  periodo: string = '30d',
+  filtroUsuario?: string,
+): Promise<AcoesPorTipoResponse | ApiError> {
+  const params = new URLSearchParams({ periodo });
+  if (filtroUsuario) params.set('filtro_usuario', filtroUsuario);
+  return fetchWithErrorHandling<AcoesPorTipoResponse>(
+    adminUrl(`/analytics/acoes-por-tipo?${params.toString()}`, usuarioSei),
+    { method: 'GET' },
+    'buscar acoes por tipo',
+  );
+}

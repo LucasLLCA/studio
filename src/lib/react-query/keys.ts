@@ -124,6 +124,14 @@ export const queryKeys = {
     configuracaoHorasPublic: (orgao: string) => ['configuracaoHoras', orgao] as const,
     papeis: ['admin', 'papeis'] as const,
     modulosList: ['admin', 'modulosList'] as const,
+    analyticsResumo: (periodo: string) => ['admin', 'analytics', 'resumo', periodo] as const,
+    analyticsLogins: (periodo: string) => ['admin', 'analytics', 'logins', periodo] as const,
+    analyticsUsuarios: (periodo: string, search?: string, page?: number) =>
+      ['admin', 'analytics', 'usuarios', periodo, search ?? '', page ?? 1] as const,
+    analyticsProcessos: (periodo: string, usuario?: string, page?: number) =>
+      ['admin', 'analytics', 'processos', periodo, usuario ?? '', page ?? 1] as const,
+    analyticsAcoes: (periodo: string, usuario?: string) =>
+      ['admin', 'analytics', 'acoes', periodo, usuario ?? ''] as const,
   },
 
   // BI

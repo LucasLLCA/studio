@@ -25,6 +25,18 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ORGAOS_PIAUI } from '@/config/constants';
 
+export const appCardClass =
+  "rounded-2xl border border-border bg-card text-card-foreground shadow-sm";
+
+export const appInputClass =
+  "border border-input bg-background text-foreground placeholder:text-muted-foreground";
+
+export const appTabActiveClass =
+  "text-primary border-b-2 border-primary";
+
+export const appTabInactiveClass =
+  "text-muted-foreground hover:text-foreground";
+
 const loginSchema = z.object({
   usuario: z.string().min(1, "Email é obrigatório."),
   senha: z.string().min(1, "Senha é obrigatória."),
@@ -320,7 +332,7 @@ function LoginPageContent() {
   return (
     <>
 
-      <div className="flex flex-col items-center justify-center relative w-full h-screen overflow-hidden p-5 bg-muted">
+     <div className="flex flex-col items-center justify-center relative w-full h-screen overflow-hidden p-5 bg-gradient-to-br from-slate-100 to-slate-300">
         {isAutoLogging ? (
           <div className="bg-card rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.06)] p-6 sm:p-10 w-full max-w-md z-10 text-center">
             <div className="text-center mb-8">

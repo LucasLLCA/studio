@@ -29,7 +29,7 @@ h1, h2, h3, h4, h5, h6 {
     --secondary: 210 40% 97%; /* Slightly off-white */
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 40% 90%; /* Muted gray */
+    --muted: 210 40% 96%; /* Muted gray  */ /* alterado */
     --muted-foreground: 222 40% 45%; /* Lighter gray text */
 
     --accent: 215 76% 93%; /* Light Blue tint */
