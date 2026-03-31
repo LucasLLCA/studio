@@ -148,7 +148,7 @@ export default function AppHeader() {
             {mounted && isAuthenticated && (
               <Button
                 variant="ghost"
-                className="mr-1 inline-flex h-auto items-center px-2 py-1 text-left text-sm font-bold text-primary hover:bg-transparent hover:text-primary-hover sm:px-3 sm:text-xl"
+                className="mr-1 inline-flex h-auto items-center px-2 py-1 text-left text-base font-bold text-primary hover:bg-transparent hover:text-primary-hover sm:px-3 sm:text-xl"
                 onClick={goToHome}
               >
                 <span className="truncate max-w-[180px] sm:max-w-none">
